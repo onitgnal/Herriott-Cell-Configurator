@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herriott Cell Configurator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-row overflow-hidden w-full relative">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-30 hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+
+    <!-- Sidebar Controls -->
+    <div id="sidebar" class="fixed md:relative inset-y-0 left-0 w-[85%] max-w-[360px] md:w-[360px] md:max-w-none bg-white border-r border-slate-200 shadow-2xl md:shadow-sm flex flex-col h-full z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0">
+        <div class="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-start">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    Herriott Cell Configurator
+                </h1>
+                <p class="text-xs text-slate-500 mt-1">3D Ray & Transverse Beam Physics</p>
+            </div>
+            <button id="close-sidebar" class="md:hidden p-1.5 text-slate-500 hover:bg-slate-200 rounded-md transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <div class="p-4 overflow-y-auto flex-1 space-y-4">
+            
+            <!-- Cell Parameters Group -->
+            <details open class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Cell Design
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-3">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Mirror Distance (L):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-L" value="1132" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">mm</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-L" min="50" max="3000" step="1" value="1132" class="w-full accent-indigo-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Total Passes (N):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-n" value="14" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6"></span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-n" min="2" max="75" step="1" value="14" class="w-full accent-indigo-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Revolutions (k):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-k" value="5" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6"></span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-k" min="1" max="20" step="1" value="5" class="w-full accent-indigo-600">
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-3 pt-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-bold text-slate-800">Cavity Geometry:</label>
+                            <select id="cell-type" class="w-36 border border-slate-300 rounded px-2 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-500 py-1 bg-white shadow-sm">
+                                <option value="cav-cav">Cav-Cav (Concave-Concave)</option>
+                                <option value="cav-vex">Cav-Vex (Concave-Convex)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Symmetric Cavity UI -->
+                        <div id="ui-cav-cav">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="auto-R" checked class="accent-indigo-600 w-3 h-3">
+                                    Auto-calc Mirror ROC (R)
+                                </label>
+                            </div>
+                            <div id="group-R" class="opacity-50 pointer-events-none transition-opacity">
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-500">Mirror Radius (R):</label>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="num-R" value="1999.6" step="0.1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                        <span class="text-xs text-slate-500 w-6">mm</span>
+                                    </div>
+                                </div>
+                                <input type="range" id="param-R" min="100" max="5000" step="0.5" value="1999.6" class="w-full accent-indigo-600">
+                            </div>
+                        </div>
+
+                        <!-- Asymmetric Cavity UI -->
+                        <div id="ui-cav-vex" class="hidden">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="auto-R-vex" checked class="accent-indigo-600 w-3 h-3">
+                                    Auto-calc Ideal |R1|=|R2|
+                                </label>
+                            </div>
+                            <div id="group-R-vex" class="opacity-50 pointer-events-none transition-opacity">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">M1 Concave (R1):</label>
+                                        <div class="flex items-center gap-1">
+                                            <input type="number" id="num-R1" value="2500" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                            <span class="text-xs text-slate-500 w-6">mm</span>
+                                        </div>
+                                    </div>
+                                    <input type="range" id="param-R1" min="100" max="50000" step="1" value="2500" class="w-full accent-indigo-600">
+                                </div>
+                                <div class="mt-1">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">M2 Convex (R2):</label>
+                                        <div class="flex items-center gap-1">
+                                            <input type="number" id="num-R2" value="-2500" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                            <span class="text-xs text-slate-500 w-6">mm</span>
+                                        </div>
+                                    </div>
+                                    <input type="range" id="param-R2" min="-50000" max="-100" step="1" value="-2500" class="w-full accent-indigo-600">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Spot Pattern (r₀):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-r0" value="15.0" step="0.5" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">mm</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-r0" min="5" max="50" step="0.5" value="15.0" class="w-full accent-indigo-600">
+                    </div>
+
+                    <!-- Output Hole Geometry -->
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-slate-800">Output Hole</span>
+                            <label class="text-[10px] font-semibold text-slate-700 flex items-center gap-1 cursor-pointer" title="Auto-place output hole exactly at input coordinates">
+                                <input type="checkbox" id="auto-out-hole" checked class="accent-indigo-600 w-3 h-3">
+                                Auto (Same as Input)
+                            </label>
+                        </div>
+                        <div id="group-out-hole" class="opacity-50 pointer-events-none transition-opacity flex flex-col gap-2">
+                            <div class="flex justify-between items-center">
+                                <label class="block text-[10px] font-semibold text-slate-500">Mirror:</label>
+                                <select id="out-mirror" class="w-24 border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5 focus:outline-none">
+                                    <option value="1">Mirror 1</option>
+                                    <option value="2">Mirror 2</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">X (mm):</label>
+                                        <input type="number" id="num-out_hole_x" value="15.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
+                                    </div>
+                                    <input type="range" id="param-out_hole_x" min="-50" max="50" step="0.1" value="15.0" class="w-full accent-indigo-600">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">Y (mm):</label>
+                                        <input type="number" id="num-out_hole_y" value="0.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
+                                    </div>
+                                    <input type="range" id="param-out_hole_y" min="-50" max="50" step="0.1" value="0.0" class="w-full accent-indigo-600">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2 border-t border-slate-100 pt-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-[11px] font-semibold text-slate-700">Hole Aperture (r_h):</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-hole_r" value="1.5" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                    <span class="text-[10px] text-slate-500 w-4">mm</span>
+                                </div>
+                            </div>
+                            <input type="range" id="param-hole_r" min="0" max="10" step="0.1" value="1.5" class="w-full accent-indigo-600">
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Peak Power (P):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-peak_power" value="1.0" step="0.1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">GW</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-peak_power" min="0.1" max="100" step="0.1" value="1.0" class="w-full accent-indigo-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Pulse Energy (E):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-pulse_energy" value="1.0" step="0.1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">mJ</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-pulse_energy" min="0.1" max="100" step="0.1" value="1.0" class="w-full accent-indigo-600">
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Wavelength (λ):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-lambda" value="1030" step="10" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">nm</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-lambda" min="500" max="2000" step="10" value="1030" class="w-full accent-indigo-600">
+                    </div>
+                </div>
+            </details>
+
+            <!-- Transversal Mode & Beam Group -->
+            <details class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Transversal Mode & Beam
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-3">
+                    <div class="flex items-center justify-between mb-1 pb-2 border-b border-slate-100">
+                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="show-beam-profiles" checked class="accent-fuchsia-600 w-4 h-4">
+                            Render Beam Profile Overlays
+                        </label>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Transversal Mode:</label>
+                        <select id="mode-type" class="w-full border border-slate-300 rounded px-2 py-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 bg-white mb-2">
+                            <option value="tem00">Fundamental (TEM00)</option>
+                            <option value="hg">Hermite-Gaussian (HG)</option>
+                            <option value="lg">Laguerre-Gaussian (LG)</option>
+                            <option value="custom">Custom M²</option>
+                        </select>
+                    </div>
+
+                    <!-- HG Settings -->
+                    <div id="group-hg" class="hidden space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index n:</label>
+                                    <input type="number" id="num-hgn" value="0" step="1" min="0" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-hgn" min="0" max="10" step="1" value="0" class="w-full accent-fuchsia-600">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index m:</label>
+                                    <input type="number" id="num-hgm" value="1" step="1" min="0" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-hgm" min="0" max="10" step="1" value="1" class="w-full accent-fuchsia-600">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LG Settings -->
+                    <div id="group-lg" class="hidden space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index p:</label>
+                                    <input type="number" id="num-lgp" value="0" step="1" min="0" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-lgp" min="0" max="10" step="1" value="0" class="w-full accent-fuchsia-600">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index l:</label>
+                                    <input type="number" id="num-lgl" value="1" step="1" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-lgl" min="-10" max="10" step="1" value="1" class="w-full accent-fuchsia-600">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom M2 Settings -->
+                    <div id="group-custom" class="hidden space-y-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700" title="Beam Quality Factor">M² Factor:</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-M2" value="1.0" step="0.1" min="1.0" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                            </div>
+                            <input type="range" id="param-M2" min="1.0" max="10.0" step="0.1" value="1.0" class="w-full accent-fuchsia-600">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center text-xs font-semibold bg-fuchsia-50 border border-fuchsia-100 p-2 rounded">
+                        <span class="text-fuchsia-800">Effective M² (x, y):</span>
+                        <span id="display-eff-m2" class="font-mono font-bold text-fuchsia-700">1.0, 1.0</span>
+                    </div>
+
+                    <div class="flex items-center justify-between mb-1 pt-2 border-t border-slate-200">
+                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="auto-mode-match" checked class="accent-fuchsia-600 w-4 h-4">
+                            Auto Mode-Matched Input
+                        </label>
+                    </div>
+                    <div id="group-beam" class="opacity-50 pointer-events-none transition-opacity space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-700">Waist X (w₀ₓ):</label>
+                                    <input type="number" id="num-winx" value="1.0" step="0.01" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-winx" min="0.1" max="10" step="0.01" value="1.0" class="w-full accent-fuchsia-600">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-700">Waist Y (w₀y):</label>
+                                    <input type="number" id="num-winy" value="1.0" step="0.01" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-cyan-600 font-semibold focus:outline-none focus:border-cyan-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-winy" min="0.1" max="10" step="0.01" value="1.0" class="w-full accent-cyan-600">
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700" title="Distance from M1 to beam waist">Waist Pos (z₀):</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-zin" value="566" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                    <span class="text-xs text-slate-500 w-6">mm</span>
+                                </div>
+                            </div>
+                            <input type="range" id="param-zin" min="-1500" max="3000" step="1" value="566" class="w-full accent-fuchsia-600">
+                        </div>
+                        <div class="pt-2 border-t border-slate-100">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700" title="Initial rotation angle of the beam transverse profile and polarization">Pol. Angle (θ_p):</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-polang" value="0.0" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-slate-800 font-semibold focus:outline-none focus:border-slate-500 py-0.5">
+                                    <span class="text-xs text-slate-500 w-6">deg</span>
+                                </div>
+                            </div>
+                            <input type="range" id="param-polang" min="-180" max="180" step="1" value="0" class="w-full accent-slate-600">
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Input Ray Steering Group -->
+            <details class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Input Ray Steering
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-4">
+                    <div class="flex items-center justify-between mb-1 pb-2 border-b border-slate-100">
+                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="auto-injection" checked class="accent-emerald-600 w-4 h-4">
+                            Auto Ideal Injection
+                        </label>
+                    </div>
+                    <div id="group-injection" class="opacity-50 pointer-events-none transition-opacity space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">X (mm):</label>
+                                    <input type="number" id="num-x" value="15.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-x" min="-50" max="50" step="0.1" value="15.0" class="w-full accent-emerald-500">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Y (mm):</label>
+                                    <input type="number" id="num-y" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-y" min="-50" max="50" step="0.1" value="0" class="w-full accent-emerald-500">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">θx (mrad):</label>
+                                    <input type="number" id="num-thx" value="-7.5" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-thx" min="-50" max="50" step="0.1" value="-7.5" class="w-full accent-emerald-500">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">θy (mrad):</label>
+                                    <input type="number" id="num-thy" value="11.9" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-thy" min="-50" max="50" step="0.1" value="11.9" class="w-full accent-emerald-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Mirror Pointing Group -->
+            <details class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Mirror Pointing (Tilts)
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-4">
+                    <p class="text-xs text-slate-500 font-semibold mb-2">Mirror 1 (Entrance)</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt X (mrad):</label>
+                                <input type="number" id="num-m1tx" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m1tx" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt Y (mrad):</label>
+                                <input type="number" id="num-m1ty" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m1ty" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                    </div>
+                    <div class="border-t border-slate-100 my-2"></div>
+                    <p class="text-xs text-slate-500 font-semibold mb-2">Mirror 2 (Back)</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt X (mrad):</label>
+                                <input type="number" id="num-m2tx" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m2tx" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt Y (mrad):</label>
+                                <input type="number" id="num-m2ty" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m2ty" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Readouts -->
+            <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                <h3 class="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Calculated Properties</h3>
+                <div class="flex justify-between items-center text-sm mb-1">
+                    <span class="text-slate-600">Stability (g₁g₂):</span>
+                    <span id="calc-stab" class="font-mono font-bold text-slate-900">--</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mb-1" title="Cavity eigenmode waist">
+                    <span class="text-slate-600">Cavity Waist (w₀):</span>
+                    <span id="calc-w0" class="font-mono font-bold text-slate-900">-- mm</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mb-1" title="Eigenmode radius on M1, M2">
+                    <span class="text-slate-600">Mirror Beams (w₁, w₂):</span>
+                    <span id="calc-wm" class="font-mono font-bold text-slate-900">-- mm</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mt-3 pt-2 border-t border-indigo-100">
+                    <span class="text-slate-600">Ray Trace Status:</span>
+                    <span id="status-msg" class="font-semibold text-green-600 text-xs text-right break-words max-w-[120px]">--</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-slate-200 flex flex-col gap-2 bg-white">
+            <div class="flex gap-2 w-full">
+                <button onclick="setStandard()" class="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors text-xs font-bold shadow-sm border border-indigo-200">
+                    Set Standard
+                </button>
+                <button onclick="resetDefaults()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors text-xs font-bold shadow-sm border border-slate-300">
+                    Reset
+                </button>
+            </div>
+            <div class="flex gap-2 w-full">
+                <button onclick="saveConfigToFile()" class="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded transition-colors text-xs font-bold shadow-sm border border-emerald-200 flex items-center justify-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Save File
+                </button>
+                <button onclick="document.getElementById('config-upload').click()" class="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded transition-colors text-xs font-bold shadow-sm border border-emerald-200 flex items-center justify-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Load File
+                </button>
+                <input type="file" id="config-upload" accept=".json" class="hidden" onchange="loadConfigFromFile(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden relative w-full min-w-0">
+        <!-- Mobile Header (Hamburger Menu) -->
+        <div class="md:hidden flex items-center justify-between bg-white border-b border-slate-200 p-3 shrink-0 z-10 shadow-sm">
+            <div class="flex items-center gap-3">
+                <button id="open-sidebar" class="p-2 rounded hover:bg-slate-100 text-slate-700 transition-colors">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <h1 class="text-lg font-bold text-slate-800 truncate">Herriott Cell Configurator</h1>
+            </div>
+        </div>
+
+        <!-- Scrollable Visualization Area -->
+        <div class="flex-1 overflow-y-auto bg-slate-200/50 p-4 gap-4 flex flex-col w-full">
+            
+            <!-- Gaussian Beam Evolution Plot -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full min-h-[250px] md:min-h-[30vh] max-h-[400px] overflow-hidden relative shrink-0">
+                <div id="plotWaist" class="absolute inset-0"></div>
+            </div>
+
+            <!-- Quadratic Plots Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full justify-items-center">
+                <!-- 3D Ray Trace Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plot3d" class="absolute inset-0"></div>
+                </div>
+
+                <!-- Mirror 1 Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plotM1" class="absolute inset-0"></div>
+                </div>
+                
+                <!-- Center Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plotCenter" class="absolute inset-0"></div>
+                </div>
+
+                <!-- Mirror 2 Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plotM2" class="absolute inset-0"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Sidebar Mobile Toggle Logic ---
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        const openBtn = document.getElementById('open-sidebar');
+        const closeBtn = document.getElementById('close-sidebar');
+
+        function toggleSidebar(show) {
+            if (show) {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+                void backdrop.offsetWidth;
+                backdrop.classList.remove('opacity-0');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 350);
+        }
+
+        openBtn.addEventListener('click', () => toggleSidebar(true));
+        closeBtn.addEventListener('click', () => toggleSidebar(false));
+        backdrop.addEventListener('click', () => toggleSidebar(false));
+
+        // --- Math & Physics Helpers ---
+        const vAdd = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+        const vSub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+        const vDot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+        const vNorm = (a) => Math.sqrt(vDot(a, a));
+        const vScale = (a, s) => [a[0]*s, a[1]*s, a[2]*s];
+        const vNormalize = (a) => vScale(a, 1/vNorm(a));
+        const vCross = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+
+        function Hermite(n, x) {
+            if(n===0) return 1;
+            if(n===1) return 2*x;
+            let h0 = 1, h1 = 2*x, hn = h1;
+            for(let i=1; i<n; i++) {
+                hn = 2*x*h1 - 2*i*h0;
+                h0 = h1; h1 = hn;
+            }
+            return hn;
+        }
+
+        function Laguerre(p, l, x) {
+            if(p===0) return 1;
+            if(p===1) return 1 + l - x;
+            let L0 = 1, L1 = 1 + l - x, Lp = L1;
+            for(let i=1; i<p; i++) {
+                Lp = ((2*i + 1 + l - x)*L1 - (i + l)*L0) / (i + 1);
+                L0 = L1; L1 = Lp;
+            }
+            return Lp;
+        }
+
+        function computeModeNorm(mode) {
+            let max_I = 0;
+            let sum_I = 0;
+            let ds = 0.1;
+            for(let sx=-4; sx<=4; sx+=ds) {
+                for(let sy=-4; sy<=4; sy+=ds) {
+                    let I = 0;
+                    let exp_term = Math.exp(-0.5*(sx*sx + sy*sy));
+                    if (mode.type === 'hg') {
+                        let hx = Hermite(mode.n, sx);
+                        let hy = Hermite(mode.m, sy);
+                        let E = hx * hy * exp_term;
+                        I = E*E;
+                    } else if (mode.type === 'lg') {
+                        let r2 = sx*sx + sy*sy;
+                        let L = Laguerre(mode.p, mode.l, r2);
+                        let E = Math.pow(r2, Math.abs(mode.l)/2) * L * exp_term;
+                        I = E*E;
+                    } else { I = exp_term*exp_term; }
+                    if (I > max_I) max_I = I;
+                    sum_I += I;
+                }
+            }
+            sum_I *= (ds * ds);
+            
+            let peak_factor = max_I > 0 ? (2 * max_I / sum_I) : (2 / Math.PI);
+            
+            return {
+                norm: max_I > 0 ? 1.0 / max_I : 1,
+                peak_factor: peak_factor
+            };
+        }
+
+        function evaluateModeIntensity(lx, ly, Wx, Wy, mode) {
+            let w0x = Wx / Math.sqrt(mode.M2x || 1);
+            let w0y = Wy / Math.sqrt(mode.M2y || 1);
+            
+            let sx = Math.SQRT2 * lx / w0x;
+            let sy = Math.SQRT2 * ly / w0y;
+            let exp_term = Math.exp(-(lx*lx)/(w0x*w0x) - (ly*ly)/(w0y*w0y));
+            
+            if (mode.type === 'tem00' || mode.type === 'custom') {
+                return exp_term * exp_term;
+            } else if (mode.type === 'hg') {
+                let hx = Hermite(mode.n, sx);
+                let hy = Hermite(mode.m, sy);
+                let E = hx * hy * exp_term;
+                return (E*E) * mode.norm; 
+            } else if (mode.type === 'lg') {
+                let w0 = (w0x + w0y) / 2.0;
+                let r2_sym = 2 * (lx*lx + ly*ly) / (w0*w0);
+                let L = Laguerre(mode.p, mode.l, r2_sym);
+                let E = Math.pow(r2_sym, Math.abs(mode.l)/2) * L * Math.exp(-(lx*lx + ly*ly)/(w0*w0));
+                return (E*E) * mode.norm;
+            }
+            return 0;
+        }
+
+        function generateSpotDataURL(Wx, Wy, u1, u2, mode, size_px=60) {
+            let canvas = document.createElement('canvas');
+            canvas.width = size_px; canvas.height = size_px;
+            let ctx = canvas.getContext('2d');
+            let imgData = ctx.createImageData(size_px, size_px);
+            let data = imgData.data;
+
+            let box_size = 4.0 * Math.max(Wx, Wy); 
+            
+            let i = 0;
+            for(let py=0; py<size_px; py++) {
+                let dY = (0.5 - py / (size_px-1)) * box_size;
+                for(let px=0; px<size_px; px++) {
+                    let dX = (px / (size_px-1) - 0.5) * box_size;
+                    
+                    let lx = dX * u1[0] + dY * u1[1];
+                    let ly = dX * u2[0] + dY * u2[1];
+                    
+                    let I = evaluateModeIntensity(lx, ly, Wx, Wy, mode);
+                    let alpha = Math.min(255, Math.floor(I * 255));
+                    
+                    data[i++] = 217; 
+                    data[i++] = 70;  
+                    data[i++] = 239; 
+                    data[i++] = alpha; 
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            return { url: canvas.toDataURL(), box_size: box_size };
+        }
+
+        function propagateQ(q, A, B, C, D) {
+            let num_r = A * q.r + B;
+            let num_i = A * q.i;
+            let den_r = C * q.r + D;
+            let den_i = C * q.i;
+            let den_mag2 = den_r*den_r + den_i*den_i;
+            return {
+                r: (num_r * den_r + num_i * den_i) / den_mag2,
+                i: (num_i * den_r - num_r * den_i) / den_mag2
+            };
+        }
+
+        function getWaist(q, lambda, M2) {
+            let mag2 = q.r*q.r + q.i*q.i;
+            let V = -q.i / mag2; 
+            return Math.sqrt((M2 * lambda) / (Math.PI * (-V)));
+        }
+
+        function computeABCD_axis(L, R1, R2, lambda, w_in, z_in, max_passes, M2) {
+            let z_R = Math.PI * w_in * w_in / (M2 * lambda);
+            let q = { r: -z_in, i: z_R };
+
+            let z_vals = [];
+            let w_vals = [];
+            let w_mirrors_w = [];
+            let w_center_w = [];
+            let num_steps = 20; 
+            let z_total = 0;
+
+            for(let pass = 0; pass < max_passes; pass++) {
+                for(let s = 0; s <= num_steps; s++) {
+                    let d = (s / num_steps) * L;
+                    let q_prop = { r: q.r + d, i: q.i }; 
+                    let w = getWaist(q_prop, lambda, M2);
+                    
+                    z_vals.push(z_total + d);
+                    w_vals.push(w);
+
+                    if(s === 0) w_mirrors_w.push(w);
+                    if(s === num_steps / 2) w_center_w.push(w);
+                }
+                z_total += L;
+                let q_end = { r: q.r + L, i: q.i };
+                let current_R = (pass % 2 === 0) ? R2 : R1;
+                q = propagateQ(q_end, 1, 0, -2/current_R, 1);
+            }
+            w_mirrors_w.push(getWaist(q, lambda, M2));
+            return { z_vals, w_vals, w_mirrors_w, w_center_w };
+        }
+
+        // --- Configuration Management ---
+        const paramConfig = [
+            { id: 'L', type: 'float' }, { id: 'n', type: 'int' }, { id: 'k', type: 'int' },
+            { id: 'R', type: 'float' }, { id: 'R1', type: 'float' }, { id: 'R2', type: 'float' },
+            { id: 'r0', type: 'float' }, { id: 'hole_r', type: 'float' },
+            { id: 'out_hole_x', type: 'float' }, { id: 'out_hole_y', type: 'float' },
+            { id: 'lambda', type: 'float' }, { id: 'M2', type: 'float' },
+            { id: 'peak_power', type: 'float' }, { id: 'pulse_energy', type: 'float' },
+            { id: 'hgn', type: 'int' }, { id: 'hgm', type: 'int' },
+            { id: 'lgp', type: 'int' }, { id: 'lgl', type: 'int' },
+            { id: 'winx', type: 'float' }, { id: 'winy', type: 'float' }, { id: 'zin', type: 'float' },
+            { id: 'polang', type: 'float' },
+            { id: 'x', type: 'float' }, { id: 'y', type: 'float' },
+            { id: 'thx', type: 'float' }, { id: 'thy', type: 'float' },
+            { id: 'm1tx', type: 'float' }, { id: 'm1ty', type: 'float' },
+            { id: 'm2tx', type: 'float' }, { id: 'm2ty', type: 'float' }
+        ];
+        
+        let standardConfig = { cellType: 'cav-cav', autoR: true, autoRVex: true, autoOutHole: true, outMirror: "1", autoModeMatch: true, autoInjection: true, modeType: 'tem00', showBeamProfiles: true };
+        let simulationTimeout = null;
+
+        function updateModeUI() {
+            const mode = document.getElementById('mode-type').value;
+            document.getElementById('group-hg').classList.toggle('hidden', mode !== 'hg');
+            document.getElementById('group-lg').classList.toggle('hidden', mode !== 'lg');
+            document.getElementById('group-custom').classList.toggle('hidden', mode !== 'custom');
+        }
+
+        function updateCellTypeUI() {
+            const cellType = document.getElementById('cell-type').value;
+            if (cellType === 'cav-cav') {
+                document.getElementById('ui-cav-cav').classList.remove('hidden');
+                document.getElementById('ui-cav-vex').classList.add('hidden');
+            } else {
+                document.getElementById('ui-cav-cav').classList.add('hidden');
+                document.getElementById('ui-cav-vex').classList.remove('hidden');
+            }
+        }
+
+        // --- Herriott Cell Logic ---
+        class HerriottCell {
+            constructor(L, R1, R2, in_hole, out_hole, out_mirror, hole_radius, m1_tilt, m2_tilt) {
+                this.L = L; this.R1 = R1; this.R2 = R2;
+                this.in_hole = in_hole;
+                this.out_hole = out_hole;
+                this.out_mirror = out_mirror;
+                this.hole_radius = hole_radius;
+                
+                let t1x = m1_tilt[0] * Math.abs(R1); let t1y = m1_tilt[1] * Math.abs(R1);
+                let th1 = Math.sqrt(t1x*t1x + t1y*t1y) / Math.abs(R1);
+                this.C1 = [
+                    th1 > 1e-9 ? Math.abs(R1) * Math.sin(th1) * (t1x / (th1*Math.abs(R1))) : 0,
+                    th1 > 1e-9 ? Math.abs(R1) * Math.sin(th1) * (t1y / (th1*Math.abs(R1))) : 0,
+                    R1 * Math.cos(th1)
+                ];
+
+                let t2x = m2_tilt[0] * Math.abs(R2); let t2y = m2_tilt[1] * Math.abs(R2);
+                let th2 = Math.sqrt(t2x*t2x + t2y*t2y) / Math.abs(R2);
+                this.C2 = [
+                    th2 > 1e-9 ? Math.abs(R2) * Math.sin(th2) * (t2x / (th2*Math.abs(R2))) : 0,
+                    th2 > 1e-9 ? Math.abs(R2) * Math.sin(th2) * (t2y / (th2*Math.abs(R2))) : 0,
+                    L - R2 * Math.cos(th2)
+                ];
+            }
+
+            intersect_mirror(P, v, mirror_num) {
+                let C = mirror_num === 1 ? this.C1 : this.C2;
+                let R = mirror_num === 1 ? this.R1 : this.R2;
+
+                let Delta = vSub(P, C);
+                let b = vDot(v, Delta);
+                let c = vDot(Delta, Delta) - R*R;
+                let discriminant = b*b - c;
+
+                if (discriminant < 0) return {P_int: null, normal: null};
+
+                let t1 = -b - Math.sqrt(discriminant);
+                let t2 = -b + Math.sqrt(discriminant);
+
+                let eps = 1e-9;
+                let valid_ts = [t1, t2].filter(t => t > eps);
+
+                if (valid_ts.length === 0) return {P_int: null, normal: null};
+
+                let t = Math.min(...valid_ts);
+                let P_int = vAdd(P, vScale(v, t));
+                let normal = vScale(vSub(C, P_int), 1/R);
+                return {P_int, normal};
+            }
+
+            trace_rays(P0, v0, u1_0, u2_0, max_passes=150) {
+                let points = [P0];
+                let mirror_hits = {1: []};
+                let center_hits = [];
+                let m2_hits = [];
+                
+                let P = P0;
+                let v = vNormalize(v0);
+                let u1 = vNormalize(u1_0);
+                let u2 = vNormalize(u2_0);
+
+                let target_mirror = 2; 
+                let exit_status = "Trapped (Max Passes)";
+                let bounce = 0;
+
+                const reflect = (vec, n) => vSub(vec, vScale(n, 2 * vDot(vec, n)));
+
+                for (bounce = 0; bounce < max_passes; bounce++) {
+                    let {P_int, normal} = this.intersect_mirror(P, v, target_mirror);
+                    
+                    let t_center = (this.L / 2 - P[2]) / v[2];
+                    let t_mirror = P_int ? vNorm(vSub(P_int, P)) : Infinity;
+                    
+                    if (t_center > 0 && t_center < t_mirror) {
+                        let P_center = vAdd(P, vScale(v, t_center));
+                        center_hits.push({ P: P_center, u1: [...u1], u2: [...u2] });
+                    }
+
+                    if (!P_int) {
+                        exit_status = `Escaped cell at pass ${bounce}`;
+                        break;
+                    }
+                    
+                    points.push(P_int);
+                    let escaped = false;
+                    
+                    if (target_mirror === 1) {
+                        mirror_hits[1].push({ P: [...P_int], u1: [...u1], u2: [...u2] });
+                        
+                        if (this.out_mirror === 1) {
+                            let d_out = Math.sqrt(Math.pow(P_int[0] - this.out_hole[0], 2) + Math.pow(P_int[1] - this.out_hole[1], 2));
+                            if (d_out <= this.hole_radius) {
+                                exit_status = `Exited cleanly pass ${bounce+1} (Out Hole)`;
+                                escaped = true;
+                            }
+                        }
+                        
+                        if (!escaped && bounce > 0) {
+                            let d_in = Math.sqrt(Math.pow(P_int[0] - this.in_hole[0], 2) + Math.pow(P_int[1] - this.in_hole[1], 2));
+                            if (d_in <= this.hole_radius) {
+                                exit_status = `Escaped pass ${bounce+1} (In Hole)`;
+                                escaped = true;
+                            }
+                        }
+                    } else {
+                        m2_hits.push({ P: [...P_int], u1: [...u1], u2: [...u2] });
+                        
+                        if (this.out_mirror === 2) {
+                            let d_out = Math.sqrt(Math.pow(P_int[0] - this.out_hole[0], 2) + Math.pow(P_int[1] - this.out_hole[1], 2));
+                            if (d_out <= this.hole_radius) {
+                                exit_status = `Exited cleanly pass ${bounce+1} (Out Hole)`;
+                                escaped = true;
+                            }
+                        }
+                    }
+
+                    if (escaped) break;
+
+                    v = vNormalize(reflect(v, normal));
+                    u1 = vNormalize(reflect(u1, normal));
+                    u2 = vNormalize(reflect(u2, normal));
+                    
+                    P = P_int;
+                    target_mirror = target_mirror === 1 ? 2 : 1;
+                }
+
+                mirror_hits[2] = m2_hits;
+                return {points, mirror_hits, center_hits, exit_status, total_bounces: bounce};
+            }
+        }
+
+        // --- UI Setup & Synchronization ---
+        function setupEventListeners() {
+            const cellTypeSelect = document.getElementById('cell-type');
+            const autoRCheckbox = document.getElementById('auto-R');
+            const groupR = document.getElementById('group-R');
+            const autoRVexCheckbox = document.getElementById('auto-R-vex');
+            const groupRVex = document.getElementById('group-R-vex');
+            
+            const autoOutHoleCheckbox = document.getElementById('auto-out-hole');
+            const groupOutHole = document.getElementById('group-out-hole');
+            const outMirrorSelect = document.getElementById('out-mirror');
+            
+            const autoModeMatchCheckbox = document.getElementById('auto-mode-match');
+            const groupBeam = document.getElementById('group-beam');
+            const autoInjectionCheckbox = document.getElementById('auto-injection');
+            const groupInjection = document.getElementById('group-injection');
+            const modeSelect = document.getElementById('mode-type');
+            const showBeamProfilesCheckbox = document.getElementById('show-beam-profiles');
+
+            const triggerRun = () => {
+                clearTimeout(simulationTimeout);
+                simulationTimeout = setTimeout(runSimulation, 5); 
+            };
+
+            cellTypeSelect.addEventListener('change', () => {
+                updateCellTypeUI();
+                triggerRun();
+            });
+
+            autoRCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) groupR.classList.add('opacity-50', 'pointer-events-none');
+                else groupR.classList.remove('opacity-50', 'pointer-events-none');
+                triggerRun();
+            });
+
+            autoRVexCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) groupRVex.classList.add('opacity-50', 'pointer-events-none');
+                else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
+                triggerRun();
+            });
+
+            autoOutHoleCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
+                else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
+                triggerRun();
+            });
+
+            outMirrorSelect.addEventListener('change', triggerRun);
+
+            autoModeMatchCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) groupBeam.classList.add('opacity-50', 'pointer-events-none');
+                else groupBeam.classList.remove('opacity-50', 'pointer-events-none');
+                triggerRun();
+            });
+
+            autoInjectionCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) groupInjection.classList.add('opacity-50', 'pointer-events-none');
+                else groupInjection.classList.remove('opacity-50', 'pointer-events-none');
+                triggerRun();
+            });
+
+            modeSelect.addEventListener('change', () => {
+                updateModeUI();
+                triggerRun();
+            });
+
+            showBeamProfilesCheckbox.addEventListener('change', triggerRun);
+
+            paramConfig.forEach(p => {
+                const rangeEl = document.getElementById('param-' + p.id);
+                const numEl = document.getElementById('num-' + p.id);
+                if(!rangeEl || !numEl) return;
+
+                const updateNumberStep = (valStr) => {
+                    if (p.type === 'float') {
+                        if (valStr.includes('.')) {
+                            let decimals = valStr.split('.')[1].length;
+                            if (decimals > 0) numEl.step = Math.pow(10, -decimals).toFixed(decimals);
+                            else numEl.step = "1";
+                        } else { numEl.step = "1"; }
+                    }
+                };
+
+                updateNumberStep(numEl.value);
+
+                rangeEl.addEventListener('input', (e) => {
+                    numEl.value = e.target.value;
+                    updateNumberStep(numEl.value);
+                    triggerRun();
+                });
+
+                numEl.addEventListener('input', (e) => updateNumberStep(e.target.value));
+
+                numEl.addEventListener('change', (e) => {
+                    let val = p.type === 'int' ? parseInt(e.target.value) : parseFloat(e.target.value);
+                    if (isNaN(val)) {
+                        numEl.value = rangeEl.value;
+                        updateNumberStep(numEl.value);
+                        return;
+                    }
+                    let min = Number(rangeEl.min);
+                    let max = Number(rangeEl.max);
+                    if (val < min) rangeEl.min = val;
+                    if (val > max) rangeEl.max = val;
+                    rangeEl.value = val;
+                    numEl.value = val;
+                    updateNumberStep(numEl.value);
+                    triggerRun();
+                });
+            });
+        }
+
+        function setStandard() {
+            paramConfig.forEach(p => {
+                let el = document.getElementById('num-' + p.id);
+                if(el) standardConfig[p.id] = el.value;
+            });
+            standardConfig['cellType'] = document.getElementById('cell-type').value;
+            standardConfig['autoR'] = document.getElementById('auto-R').checked;
+            standardConfig['autoRVex'] = document.getElementById('auto-R-vex').checked;
+            standardConfig['autoOutHole'] = document.getElementById('auto-out-hole').checked;
+            standardConfig['outMirror'] = document.getElementById('out-mirror').value;
+            standardConfig['autoModeMatch'] = document.getElementById('auto-mode-match').checked;
+            standardConfig['autoInjection'] = document.getElementById('auto-injection').checked;
+            standardConfig['modeType'] = document.getElementById('mode-type').value;
+            standardConfig['showBeamProfiles'] = document.getElementById('show-beam-profiles').checked;
+            
+            const btn = document.querySelector('button[onclick="setStandard()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "✓ Saved";
+            setTimeout(() => btn.innerText = originalText, 1500);
+        }
+
+        function resetDefaults() {
+            document.getElementById('cell-type').value = standardConfig['cellType'];
+            updateCellTypeUI();
+
+            document.getElementById('auto-R').checked = standardConfig['autoR'];
+            const groupR = document.getElementById('group-R');
+            if (standardConfig['autoR']) groupR.classList.add('opacity-50', 'pointer-events-none');
+            else groupR.classList.remove('opacity-50', 'pointer-events-none');
+
+            document.getElementById('auto-R-vex').checked = standardConfig['autoRVex'];
+            const groupRVex = document.getElementById('group-R-vex');
+            if (standardConfig['autoRVex']) groupRVex.classList.add('opacity-50', 'pointer-events-none');
+            else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
+
+            document.getElementById('auto-out-hole').checked = standardConfig['autoOutHole'];
+            const groupOutHole = document.getElementById('group-out-hole');
+            if (standardConfig['autoOutHole']) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
+            else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
+
+            document.getElementById('out-mirror').value = standardConfig['outMirror'];
+
+            document.getElementById('auto-mode-match').checked = standardConfig['autoModeMatch'];
+            const groupBeam = document.getElementById('group-beam');
+            if (standardConfig['autoModeMatch']) groupBeam.classList.add('opacity-50', 'pointer-events-none');
+            else groupBeam.classList.remove('opacity-50', 'pointer-events-none');
+
+            document.getElementById('auto-injection').checked = standardConfig['autoInjection'];
+            const groupInjection = document.getElementById('group-injection');
+            if (standardConfig['autoInjection']) groupInjection.classList.add('opacity-50', 'pointer-events-none');
+            else groupInjection.classList.remove('opacity-50', 'pointer-events-none');
+
+            document.getElementById('show-beam-profiles').checked = standardConfig['showBeamProfiles'];
+            document.getElementById('mode-type').value = standardConfig['modeType'];
+            updateModeUI();
+
+            paramConfig.forEach(p => {
+                if(standardConfig[p.id] !== undefined) {
+                    let valStr = standardConfig[p.id];
+                    let valNum = p.type === 'int' ? parseInt(valStr) : parseFloat(valStr);
+                    let rangeEl = document.getElementById('param-' + p.id);
+                    let numEl = document.getElementById('num-' + p.id);
+                    if(rangeEl && numEl) {
+                        if (valNum < Number(rangeEl.min)) rangeEl.min = valNum;
+                        if (valNum > Number(rangeEl.max)) rangeEl.max = valNum;
+                        rangeEl.value = valNum;
+                        numEl.value = valStr; 
+                        numEl.dispatchEvent(new Event('input'));
+                    }
+                }
+            });
+            runSimulation();
+        }
+
+        function saveConfigToFile() {
+            let configToSave = {};
+            paramConfig.forEach(p => {
+                let el = document.getElementById('num-' + p.id);
+                if(el) configToSave[p.id] = el.value;
+            });
+            configToSave['cellType'] = document.getElementById('cell-type').value;
+            configToSave['autoR'] = document.getElementById('auto-R').checked;
+            configToSave['autoRVex'] = document.getElementById('auto-R-vex').checked;
+            configToSave['autoOutHole'] = document.getElementById('auto-out-hole').checked;
+            configToSave['outMirror'] = document.getElementById('out-mirror').value;
+            configToSave['autoModeMatch'] = document.getElementById('auto-mode-match').checked;
+            configToSave['autoInjection'] = document.getElementById('auto-injection').checked;
+            configToSave['modeType'] = document.getElementById('mode-type').value;
+            configToSave['showBeamProfiles'] = document.getElementById('show-beam-profiles').checked;
+
+            const jsonString = JSON.stringify(configToSave, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const downloadNode = document.createElement('a');
+            downloadNode.href = url;
+            downloadNode.download = "herriott_config.json";
+            document.body.appendChild(downloadNode);
+            downloadNode.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(downloadNode);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }
+
+        function loadConfigFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loadedConfig = JSON.parse(e.target.result);
+
+                    if (loadedConfig.cellType !== undefined) document.getElementById('cell-type').value = loadedConfig.cellType;
+                    updateCellTypeUI();
+
+                    if (loadedConfig.autoR !== undefined) document.getElementById('auto-R').checked = loadedConfig.autoR;
+                    if (loadedConfig.autoRVex !== undefined) document.getElementById('auto-R-vex').checked = loadedConfig.autoRVex;
+                    if (loadedConfig.autoOutHole !== undefined) document.getElementById('auto-out-hole').checked = loadedConfig.autoOutHole;
+                    if (loadedConfig.outMirror !== undefined) document.getElementById('out-mirror').value = loadedConfig.outMirror;
+                    if (loadedConfig.autoModeMatch !== undefined) document.getElementById('auto-mode-match').checked = loadedConfig.autoModeMatch;
+                    if (loadedConfig.autoInjection !== undefined) document.getElementById('auto-injection').checked = loadedConfig.autoInjection;
+                    if (loadedConfig.modeType !== undefined) document.getElementById('mode-type').value = loadedConfig.modeType;
+                    if (loadedConfig.showBeamProfiles !== undefined) document.getElementById('show-beam-profiles').checked = loadedConfig.showBeamProfiles;
+
+                    const groupR = document.getElementById('group-R');
+                    if (loadedConfig.autoR) groupR.classList.add('opacity-50', 'pointer-events-none');
+                    else groupR.classList.remove('opacity-50', 'pointer-events-none');
+
+                    const groupRVex = document.getElementById('group-R-vex');
+                    if (loadedConfig.autoRVex) groupRVex.classList.add('opacity-50', 'pointer-events-none');
+                    else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
+
+                    const groupOutHole = document.getElementById('group-out-hole');
+                    if (loadedConfig.autoOutHole) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
+                    else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
+
+                    const groupBeam = document.getElementById('group-beam');
+                    if (loadedConfig.autoModeMatch) groupBeam.classList.add('opacity-50', 'pointer-events-none');
+                    else groupBeam.classList.remove('opacity-50', 'pointer-events-none');
+
+                    const groupInjection = document.getElementById('group-injection');
+                    if (loadedConfig.autoInjection) groupInjection.classList.add('opacity-50', 'pointer-events-none');
+                    else groupInjection.classList.remove('opacity-50', 'pointer-events-none');
+
+                    updateModeUI();
+
+                    paramConfig.forEach(p => {
+                        if (loadedConfig[p.id] !== undefined) {
+                            let valStr = loadedConfig[p.id];
+                            let valNum = p.type === 'int' ? parseInt(valStr) : parseFloat(valStr);
+                            let rangeEl = document.getElementById('param-' + p.id);
+                            let numEl = document.getElementById('num-' + p.id);
+                            
+                            if(rangeEl && numEl) {
+                                if (valNum < Number(rangeEl.min)) rangeEl.min = valNum;
+                                if (valNum > Number(rangeEl.max)) rangeEl.max = valNum;
+                                rangeEl.value = valNum;
+                                numEl.value = valStr;
+                                numEl.dispatchEvent(new Event('input')); 
+                            }
+                        }
+                    });
+
+                    runSimulation();
+                    event.target.value = '';
+                } catch (error) {
+                    let sMsg = document.getElementById('status-msg');
+                    sMsg.textContent = "Error parsing config file";
+                    sMsg.className = "font-semibold text-red-600 text-xs text-right break-words max-w-[120px]";
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- Simulation Execution ---
+        function runSimulation() {
+            let L = parseFloat(document.getElementById('num-L').value);
+            let N = parseInt(document.getElementById('num-n').value); 
+            let k = parseInt(document.getElementById('num-k').value); 
+            let r0 = parseFloat(document.getElementById('num-r0').value);
+            let lambda_mm = parseFloat(document.getElementById('num-lambda').value) * 1e-6;
+            let hole_radius = parseFloat(document.getElementById('num-hole_r').value);
+            
+            let peak_power = parseFloat(document.getElementById('num-peak_power').value);
+            let pulse_energy = parseFloat(document.getElementById('num-pulse_energy').value);
+
+            let cellType = document.getElementById('cell-type').value;
+            let isAutoR = document.getElementById('auto-R').checked;
+            let isAutoRVex = document.getElementById('auto-R-vex').checked;
+            
+            let R1, R2;
+            let theta_rt = 2 * Math.PI * k / N;
+
+            if (cellType === 'cav-cav') {
+                if (isAutoR) {
+                    let C_actual = 1 - Math.cos(theta_rt / 2);
+                    R1 = R2 = L / C_actual;
+                    if(isFinite(R1) && R1 > 0) {
+                        document.getElementById('num-R').value = R1.toFixed(2);
+                        document.getElementById('param-R').value = R1.toFixed(2);
+                    }
+                } else {
+                    R1 = R2 = parseFloat(document.getElementById('num-R').value);
+                }
+            } else {
+                if (isAutoRVex) {
+                    R1 = L / Math.sin(theta_rt / 2);
+                    R2 = -L / Math.sin(theta_rt / 2);
+                    if(isFinite(R1) && isFinite(R2)) {
+                        document.getElementById('num-R1').value = R1.toFixed(2);
+                        document.getElementById('param-R1').value = R1.toFixed(2);
+                        document.getElementById('num-R2').value = R2.toFixed(2);
+                        document.getElementById('param-R2').value = R2.toFixed(2);
+                    }
+                } else {
+                    R1 = parseFloat(document.getElementById('num-R1').value);
+                    R2 = parseFloat(document.getElementById('num-R2').value);
+                }
+            }
+
+            let g1 = 1 - L / R1;
+            let g2 = 1 - L / R2;
+            let stab = g1 * g2;
+
+            if (!isFinite(stab) || stab <= 0 || stab >= 1) {
+                document.getElementById('calc-stab').textContent = isFinite(stab) ? stab.toFixed(4) : "--";
+                document.getElementById('calc-w0').textContent = "--";
+                document.getElementById('calc-wm').textContent = "--";
+                let sMsg = document.getElementById('status-msg');
+                sMsg.textContent = "Stability Error (g₁g₂ bounds)";
+                sMsg.className = "font-semibold text-red-600 text-xs text-right";
+                Plotly.react('plotWaist', [], {title: {text: 'Gaussian Beam (Unstable)', font: {size: 13}}});
+                return;
+            }
+
+            document.getElementById('calc-stab').textContent = stab.toFixed(4);
+
+            let modeType = document.getElementById('mode-type').value;
+            let modeConfig = { type: modeType };
+            let M2x = 1.0, M2y = 1.0;
+            let modeTitle = 'Fundamental TEM00';
+
+            if (modeType === 'tem00') {
+            } else if (modeType === 'hg') {
+                modeConfig.n = parseInt(document.getElementById('num-hgn').value);
+                modeConfig.m = parseInt(document.getElementById('num-hgm').value);
+                M2x = 2 * modeConfig.n + 1;
+                M2y = 2 * modeConfig.m + 1;
+                modeTitle = `HG<sub>${modeConfig.n},${modeConfig.m}</sub>`;
+            } else if (modeType === 'lg') {
+                modeConfig.p = parseInt(document.getElementById('num-lgp').value);
+                modeConfig.l = parseInt(document.getElementById('num-lgl').value);
+                M2x = M2y = 2 * modeConfig.p + Math.abs(modeConfig.l) + 1;
+                modeTitle = `LG<sub>${modeConfig.p},${modeConfig.l}</sub>`;
+            } else if (modeType === 'custom') {
+                M2x = M2y = parseFloat(document.getElementById('num-M2').value);
+                modeTitle = `Custom M²=${M2x.toFixed(2)}`;
+            }
+
+            modeConfig.M2x = M2x;
+            modeConfig.M2y = M2y;
+            
+            let normData = computeModeNorm(modeConfig);
+            modeConfig.norm = normData.norm;
+            modeConfig.peak_factor = normData.peak_factor;
+
+            document.getElementById('display-eff-m2').textContent = `${M2x.toFixed(2)}, ${M2y.toFixed(2)}`;
+
+            let g_sum = g1 + g2 - 2 * g1 * g2;
+            if (g_sum === 0) g_sum = 1e-9;
+            let zR_cavity = Math.sqrt(Math.abs((L * L * g1 * g2 * (1 - g1 * g2)) / (g_sum * g_sum)));
+            let z0_cavity = L * g2 * (1 - g1) / g_sum;
+
+            let w0_ideal = Math.sqrt((lambda_mm * zR_cavity) / Math.PI);
+            let wm1_ideal = Math.sqrt(Math.abs((lambda_mm * L / Math.PI) * Math.sqrt(g2 / (g1 * (1 - g1 * g2)))));
+            let wm2_ideal = Math.sqrt(Math.abs((lambda_mm * L / Math.PI) * Math.sqrt(g1 / (g2 * (1 - g1 * g2)))));
+            
+            document.getElementById('calc-w0').textContent = `x:${(w0_ideal * Math.sqrt(M2x)).toFixed(2)} y:${(w0_ideal * Math.sqrt(M2y)).toFixed(2)}`;
+            
+            if (Math.abs(wm1_ideal - wm2_ideal) < 1e-3) {
+                document.getElementById('calc-wm').textContent = `x:${(wm1_ideal * Math.sqrt(M2x)).toFixed(2)} y:${(wm1_ideal * Math.sqrt(M2y)).toFixed(2)}`;
+            } else {
+                document.getElementById('calc-wm').textContent = `M1:${(wm1_ideal * Math.sqrt(M2x)).toFixed(2)} M2:${(wm2_ideal * Math.sqrt(M2x)).toFixed(2)}`;
+            }
+
+            let isAutoModeMatch = document.getElementById('auto-mode-match').checked;
+            if (isAutoModeMatch) {
+                document.getElementById('num-winx').value = (w0_ideal * Math.sqrt(M2x)).toFixed(3);
+                document.getElementById('param-winx').value = (w0_ideal * Math.sqrt(M2x)).toFixed(3);
+                document.getElementById('num-winy').value = (w0_ideal * Math.sqrt(M2y)).toFixed(3);
+                document.getElementById('param-winy').value = (w0_ideal * Math.sqrt(M2y)).toFixed(3);
+                document.getElementById('num-zin').value = z0_cavity.toFixed(1);
+                document.getElementById('param-zin').value = z0_cavity.toFixed(1);
+            }
+
+            let w_in_x = parseFloat(document.getElementById('num-winx').value);
+            let w_in_y = parseFloat(document.getElementById('num-winy').value);
+            let z_in = parseFloat(document.getElementById('num-zin').value);
+            let pol_ang = parseFloat(document.getElementById('num-polang').value) * Math.PI / 180;
+
+            let m1_tilt = [parseFloat(document.getElementById('num-m1tx').value) * 1e-3, parseFloat(document.getElementById('num-m1ty').value) * 1e-3];
+            let m2_tilt = [parseFloat(document.getElementById('num-m2tx').value) * 1e-3, parseFloat(document.getElementById('num-m2ty').value) * 1e-3];
+
+            let isAutoInjection = document.getElementById('auto-injection').checked;
+            let x_in, y_in, thx_in, thy_in;
+
+            if (isAutoInjection) {
+                x_in = r0;
+                y_in = 0.0;
+                
+                let M_arrive_00 = 1 - 2 * L / R2;
+                let M_arrive_01 = 2 * L * g2;
+                
+                thx_in = r0 * (Math.cos(theta_rt) - M_arrive_00) / M_arrive_01 * 1000;
+                thy_in = r0 * Math.sin(theta_rt) / M_arrive_01 * 1000;
+
+                document.getElementById('num-x').value = x_in.toFixed(2);
+                document.getElementById('param-x').value = x_in.toFixed(2);
+                document.getElementById('num-y').value = y_in.toFixed(2);
+                document.getElementById('param-y').value = y_in.toFixed(2);
+                document.getElementById('num-thx').value = thx_in.toFixed(2);
+                document.getElementById('param-thx').value = thx_in.toFixed(2);
+                document.getElementById('num-thy').value = thy_in.toFixed(2);
+                document.getElementById('param-thy').value = thy_in.toFixed(2);
+            } else {
+                x_in = parseFloat(document.getElementById('num-x').value);
+                y_in = parseFloat(document.getElementById('num-y').value);
+                thx_in = parseFloat(document.getElementById('num-thx').value);
+                thy_in = parseFloat(document.getElementById('num-thy').value);
+            }
+
+            // Input Hole strictly bound to injection coordinates
+            let in_hole = [x_in, y_in];
+
+            // Output Hole Processing
+            let isAutoOutHole = document.getElementById('auto-out-hole').checked;
+            let out_hole_x, out_hole_y, out_mirror;
+            
+            if (isAutoOutHole) {
+                out_hole_x = x_in;
+                out_hole_y = y_in;
+                out_mirror = 1;
+                
+                document.getElementById('num-out_hole_x').value = out_hole_x.toFixed(2);
+                document.getElementById('param-out_hole_x').value = out_hole_x.toFixed(2);
+                document.getElementById('num-out_hole_y').value = out_hole_y.toFixed(2);
+                document.getElementById('param-out_hole_y').value = out_hole_y.toFixed(2);
+                document.getElementById('out-mirror').value = "1";
+            } else {
+                out_hole_x = parseFloat(document.getElementById('num-out_hole_x').value);
+                out_hole_y = parseFloat(document.getElementById('num-out_hole_y').value);
+                out_mirror = parseInt(document.getElementById('out-mirror').value);
+            }
+            let out_hole = [out_hole_x, out_hole_y];
+
+            let cell = new HerriottCell(L, R1, R2, in_hole, out_hole, out_mirror, hole_radius, m1_tilt, m2_tilt);
+
+            let px_init = x_in;
+            let py_init = y_in;
+            let disc_p0 = cell.R1*cell.R1 - Math.pow(px_init - cell.C1[0], 2) - Math.pow(py_init - cell.C1[1], 2);
+            let z0_init = disc_p0 >= 0 ? cell.C1[2] - Math.sign(cell.R1)*Math.sqrt(disc_p0) : 0; 
+            let P0 = [px_init, py_init, z0_init];
+            
+            let v0 = vNormalize([thx_in * 1e-3, thy_in * 1e-3, 1.0]);
+
+            let ref_x = [1, 0, 0];
+            let u1_ref = vNormalize(vSub(ref_x, vScale(v0, vDot(ref_x, v0)))); 
+            let u2_ref = vNormalize(vCross(v0, u1_ref));
+            
+            let u1_0 = vAdd(vScale(u1_ref, Math.cos(pol_ang)), vScale(u2_ref, Math.sin(pol_ang)));
+            let u2_0 = vAdd(vScale(u1_ref, -Math.sin(pol_ang)), vScale(u2_ref, Math.cos(pol_ang)));
+
+            let max_trace_passes = Math.max(150, 4 * N);
+            let res = cell.trace_rays(P0, v0, u1_0, u2_0, max_trace_passes);
+            
+            let abcd_passes = Math.max(N, res.total_bounces + 1);
+            let abcd_x = computeABCD_axis(L, R1, R2, lambda_mm, w_in_x, z_in, abcd_passes, M2x);
+            let abcd_y = computeABCD_axis(L, R1, R2, lambda_mm, w_in_y, z_in, abcd_passes, M2y);
+            
+            renderWaistPlot({x: abcd_x, y: abcd_y}, N, L, modeTitle);
+            
+            let doImages = document.getElementById('show-beam-profiles').checked;
+            renderRayPlots(res.points, res.mirror_hits, res.center_hits, L, r0, in_hole, out_hole, out_mirror, hole_radius, res.exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy);
+            
+            let statusEl = document.getElementById('status-msg');
+            statusEl.textContent = res.exit_status;
+            if(res.exit_status.includes("Out Hole")) statusEl.className = "font-semibold text-green-600 text-xs text-right";
+            else if(res.exit_status.includes("Escaped")) statusEl.className = "font-semibold text-red-600 text-xs text-right";
+            else statusEl.className = "font-semibold text-amber-600 text-xs text-right";
+        }
+
+        // --- Render Functions ---
+        function renderWaistPlot(abcd, N, L, modeTitle) {
+            let max_idx = N * 20 + 1;
+            let z_plot = abcd.x.z_vals.slice(0, max_idx);
+            let wx_plot = abcd.x.w_vals.slice(0, max_idx);
+            let wy_plot = abcd.y.w_vals.slice(0, max_idx);
+            
+            let max_w = Math.max(...wx_plot, ...wy_plot);
+            
+            let traces = [];
+            traces.push({ x: z_plot.concat(z_plot.slice().reverse()), y: wx_plot.concat(wx_plot.map(w => -w).reverse()), fill: 'toself', fillcolor: 'rgba(217, 70, 239, 0.15)', line: {color: 'transparent'}, hoverinfo: 'none', name: 'Profile X' });
+            traces.push({ x: z_plot.concat(z_plot.slice().reverse()), y: wy_plot.concat(wy_plot.map(w => -w).reverse()), fill: 'toself', fillcolor: 'rgba(14, 165, 233, 0.15)', line: {color: 'transparent'}, hoverinfo: 'none', name: 'Profile Y' });
+            traces.push({x: z_plot, y: wx_plot, mode: 'lines', line: {color: '#d946ef', width: 2}, name: '+wx'});
+            traces.push({x: z_plot, y: wx_plot.map(w=>-w), mode: 'lines', line: {color: '#d946ef', width: 2}, showlegend: false});
+            traces.push({x: z_plot, y: wy_plot, mode: 'lines', line: {color: '#0ea5e9', width: 2, dash: 'dot'}, name: '+wy'});
+            traces.push({x: z_plot, y: wy_plot.map(w=>-w), mode: 'lines', line: {color: '#0ea5e9', width: 2, dash: 'dot'}, showlegend: false});
+
+            let mirror_shapes = abcd.x.w_mirrors_w.slice(0, N+1).map((_, i) => ({ type: 'line', x0: i*L, x1: i*L, y0: -max_w*1.1, y1: max_w*1.1, line: {color: 'rgba(100, 116, 139, 0.4)', width: 1.5, dash: 'dash'} }));
+
+            let layout = {
+                margin: { l: 45, r: 25, b: 40, t: 30 },
+                xaxis: { title: 'Unfolded Path Distance z [mm]', range: [0, N*L], zeroline: false },
+                yaxis: { title: 'Beam Radius w [mm]', range: [-max_w*1.15, max_w*1.15] },
+                showlegend: true, 
+                legend: {orientation: 'h', y: 1.05, x: 1, xanchor: 'right', yanchor: 'bottom'},
+                shapes: mirror_shapes, hovermode: 'x unified'
+            };
+            Plotly.react('plotWaist', traces, layout, {responsive: true});
+        }
+
+        function renderRayPlots(points, hits, center_hits, L, r0, in_hole, out_hole, out_mirror, hole_radius, exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy) {
+            let x3 = points.map(p => p[2]); 
+            let y3 = points.map(p => p[0]);
+            let z3 = points.map(p => p[1]);
+            let c3 = points.map((_, i) => i);
+
+            let trace3D = { type: 'scatter3d', mode: 'lines', x: x3, y: y3, z: z3, line: { color: c3, colorscale: 'Viridis', width: 3 } };
+            let trace3D_start = { type: 'scatter3d', mode: 'markers', x: [x3[0]], y: [y3[0]], z: [z3[0]], marker: { color: 'green', size: 6 } };
+            let trace3D_end = { type: 'scatter3d', mode: 'markers', x: [x3[x3.length-1]], y: [y3[y3.length-1]], z: [z3[z3.length-1]], marker: { color: 'red', size: 6 } };
+
+            let limit = r0 * 1.5;
+            let currentCamera = { eye: {x: 1.5, y: -1.5, z: 0.5} };
+            let plot3dDiv = document.getElementById('plot3d');
+            if (plot3dDiv._fullLayout && plot3dDiv._fullLayout.scene && plot3dDiv._fullLayout.scene.camera) currentCamera = JSON.parse(JSON.stringify(plot3dDiv._fullLayout.scene.camera));
+
+            let layout3D = {
+                title: { text: '3D Cavity Ray Path', font: {size: 13, color: '#334155'} }, margin: { l: 0, r: 0, b: 0, t: 30 },
+                showlegend: false, uirevision: 'true',
+                scene: { xaxis: { title: 'Z Axis [mm]', range: [-10, L+10] }, yaxis: { title: 'X [mm]', range: [-limit, limit] }, zaxis: { title: 'Y [mm]', range: [-limit, limit] }, camera: currentCamera }
+            };
+            Plotly.react('plot3d', [trace3D, trace3D_start, trace3D_end], layout3D, {responsive: true});
+
+            const getRadialTextPosition = (x, y) => {
+                let angle = Math.atan2(y, x) * 180 / Math.PI; if (angle < 0) angle += 360;
+                if (angle >= 337.5 || angle < 22.5) return 'middle right'; if (angle >= 22.5 && angle < 67.5) return 'top right';
+                if (angle >= 67.5 && angle < 112.5) return 'top center'; if (angle >= 112.5 && angle < 157.5) return 'top left';
+                if (angle >= 157.5 && angle < 202.5) return 'middle left'; if (angle >= 202.5 && angle < 247.5) return 'bottom left';
+                if (angle >= 247.5 && angle < 292.5) return 'bottom center'; if (angle >= 292.5 && angle < 337.5) return 'bottom right';
+                return 'top center';
+            };
+
+            let layout2D_base = {
+                margin: { l: 40, r: 40, b: 40, t: 60 }, uirevision: 'true', showlegend: false,
+                xaxis: { title: 'X [mm]', range: [-limit, limit], zeroline: false },
+                yaxis: { title: 'Y [mm]', range: [-limit, limit], zeroline: false, scaleanchor: 'x', scaleratio: 1 }
+            };
+
+            const build2DPlot = (divId, title, hitsData, getWIndex, isCenter, mirrorNum) => {
+                let layout = JSON.parse(JSON.stringify(layout2D_base));
+                layout.shapes = [];
+                layout.images = [];
+                
+                let px = [], py = [], pt = [], pp = [], ph = [], pc = [];
+                let polX = [], polY = [];
+                let wx_arr = isCenter ? abcd_x.w_center_w : abcd_x.w_mirrors_w;
+                let wy_arr = isCenter ? abcd_y.w_center_w : abcd_y.w_mirrors_w;
+
+                let minI = Infinity, maxI = -Infinity;
+                let minF = Infinity, maxF = -Infinity;
+
+                if (mirrorNum === 1) {
+                    layout.shapes.push({ type: 'circle', x0: in_hole[0] - hole_radius, y0: in_hole[1] - hole_radius, x1: in_hole[0] + hole_radius, y1: in_hole[1] + hole_radius, line: { color: '#16a34a', width: 2, dash: 'dot' }});
+                    if (out_mirror === 1) {
+                        layout.shapes.push({ type: 'circle', x0: out_hole[0] - hole_radius, y0: out_hole[1] - hole_radius, x1: out_hole[0] + hole_radius, y1: out_hole[1] + hole_radius, line: { color: '#ef4444', width: 2 }});
+                    }
+                } else if (mirrorNum === 2) {
+                    if (out_mirror === 2) {
+                        layout.shapes.push({ type: 'circle', x0: out_hole[0] - hole_radius, y0: out_hole[1] - hole_radius, x1: out_hole[0] + hole_radius, y1: out_hole[1] + hole_radius, line: { color: '#ef4444', width: 2 }});
+                    }
+                }
+
+                hitsData.forEach((hit, i) => {
+                    let w_idx = getWIndex(i);
+                    let wx = wx_arr[w_idx] || wx_arr[wx_arr.length-1];
+                    let wy = wy_arr[w_idx] || wy_arr[wy_arr.length-1];
+
+                    let area_factor = wx * wy;
+                    let I = 100 * (peak_power * modeConfig.peak_factor) / area_factor;
+                    let F = 100 * (pulse_energy * modeConfig.peak_factor) / area_factor;
+
+                    if (I < minI) minI = I;
+                    if (I > maxI) maxI = I;
+                    if (F < minF) minF = F;
+                    if (F > maxF) maxF = F;
+
+                    px.push(hit.P[0]); py.push(hit.P[1]);
+                    
+                    let text = isCenter ? String(i + 1) : String(getWIndex(i));
+                    
+                    if (!isCenter && mirrorNum === out_mirror && hit === hitsData[hitsData.length-1] && exit_status.includes("Out Hole")) {
+                        text = "<b>Out</b>";
+                    }
+
+                    pt.push(text);
+                    pp.push(getRadialTextPosition(hit.P[0], hit.P[1]));
+                    
+                    let hoverAng = Math.atan2(hit.u1[1], hit.u1[0]) * 180 / Math.PI;
+                    while (hoverAng <= -90) hoverAng += 180;
+                    while (hoverAng > 90) hoverAng -= 180;
+
+                    ph.push(`Hit: ${text}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
+                    pc.push(getWIndex(i));
+
+                    let w_max = Math.max(wx, wy);
+
+                    if (doImages) {
+                        let img = generateSpotDataURL(wx, wy, hit.u1, hit.u2, modeConfig, 60);
+                        layout.images.push({
+                            source: img.url, xref: 'x', yref: 'y',
+                            x: hit.P[0], y: hit.P[1],
+                            sizex: img.box_size, sizey: img.box_size,
+                            xanchor: 'center', yanchor: 'middle', layer: 'below'
+                        });
+                        
+                        let vec_len = w_max * 1.5;
+                        polX.push(hit.P[0] - vec_len * hit.u1[0], hit.P[0] + vec_len * hit.u1[0], null);
+                        polY.push(hit.P[1] - vec_len * hit.u1[1], hit.P[1] + vec_len * hit.u1[1], null);
+                    } else {
+                        layout.shapes.push({ type: 'circle', x0: hit.P[0]-w_max, y0: hit.P[1]-w_max, x1: hit.P[0]+w_max, y1: hit.P[1]+w_max, line: { color: 'rgba(217, 70, 239, 0.6)', width: 1.5 }, fillcolor: 'rgba(217, 70, 239, 0.15)'});
+                    }
+                });
+
+                if (hitsData.length === 0) { minI = maxI = minF = maxF = 0; }
+                if (!isFinite(minI)) minI = 0; if (!isFinite(maxI)) maxI = 0;
+                if (!isFinite(minF)) minF = 0; if (!isFinite(maxF)) maxF = 0;
+
+                let statsHtml = `<br><span style="font-size:11px; color:#64748b; font-weight:normal;">Fluence: ${minF.toFixed(2)} - ${maxF.toFixed(2)} mJ/cm² | Intensity: ${minI.toFixed(2)} - ${maxI.toFixed(2)} GW/cm²</span>`;
+                layout.title = { text: title + statsHtml, font: {size: 13, color: '#334155'}, y: 0.95 };
+
+                if(isCenter && hitsData.length > 0) {
+                    let max_ext = Math.max(...px.map(Math.abs), ...py.map(Math.abs)) * 1.2 + 2;
+                    layout.xaxis.range = [-max_ext, max_ext];
+                    layout.yaxis.range = [-max_ext, max_ext];
+                }
+
+                let traces = [];
+                traces.push({ x: px, y: py, mode: 'markers+text', type: 'scatter', text: pt, textposition: pp, hovertext: ph, hoverinfo: 'text', textfont: { size: 10, color: '#475569' }, marker: { color: pc, colorscale: 'Viridis', size: 8, line: {color: 'white', width: 1} } });
+                
+                if(mirrorNum === 1) {
+                    let w0x = wx_arr[0], w0y = wy_arr[0];
+                    let hoverAng0 = Math.atan2(u1_0[1], u1_0[0]) * 180 / Math.PI;
+                    while (hoverAng0 <= -90) hoverAng0 += 180;
+                    while (hoverAng0 > 90) hoverAng0 -= 180;
+
+                    let startPoint = points[0];
+                    let w_max = Math.max(w0x, w0y);
+
+                    traces.push({ x: [startPoint[0]], y: [startPoint[1]], mode: 'markers+text', type: 'scatter', text: ['<b>In</b>'], textposition: getRadialTextPosition(startPoint[0], startPoint[1]), hovertext: [`Start (0)<br>X: ${startPoint[0].toFixed(2)}<br>Y: ${startPoint[1].toFixed(2)}<br>Pol: ${hoverAng0.toFixed(1)}°`], hoverinfo: 'text', textfont: { size: 11, color: '#16a34a' }, marker: { color: '#16a34a', size: 8, symbol: 'star' } });
+                    
+                    if(doImages) {
+                        let img = generateSpotDataURL(w0x, w0y, u1_0, u2_0, modeConfig, 60);
+                        layout.images.push({ source: img.url, xref: 'x', yref: 'y', x: startPoint[0], y: startPoint[1], sizex: img.box_size, sizey: img.box_size, xanchor: 'center', yanchor: 'middle', layer: 'below' });
+                        let vlen = w_max * 1.5;
+                        polX.push(startPoint[0] - vlen * u1_0[0], startPoint[0] + vlen * u1_0[0], null); 
+                        polY.push(startPoint[1] - vlen * u1_0[1], startPoint[1] + vlen * u1_0[1], null);
+                    }
+                }
+
+                if(doImages && polX.length > 0) {
+                    traces.push({ x: polX, y: polY, mode: 'lines', line: {color: '#1e293b', width: 2}, hoverinfo: 'none', name: 'Polarization' });
+                }
+
+                Plotly.react(divId, traces, layout, {responsive: true});
+            };
+
+            build2DPlot('plotM1', 'Mirror 1 Spots (z=0)', hits[1] || [], (i) => 2*i + 2, false, 1);
+            build2DPlot('plotCenter', 'Center Spots (z=L/2)', center_hits, (i) => i, true, 0);
+            build2DPlot('plotM2', 'Mirror 2 Spots (z=L)', hits[2] || [], (i) => 2*i + 1, false, 2);
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            paramConfig.forEach(p => { 
+                let el = document.getElementById('num-' + p.id);
+                if(el) standardConfig[p.id] = el.value; 
+            });
+            standardConfig['cellType'] = document.getElementById('cell-type').value;
+            standardConfig['autoR'] = document.getElementById('auto-R').checked;
+            standardConfig['autoRVex'] = document.getElementById('auto-R-vex').checked;
+            standardConfig['autoOutHole'] = document.getElementById('auto-out-hole').checked;
+            standardConfig['autoModeMatch'] = document.getElementById('auto-mode-match').checked;
+            standardConfig['autoInjection'] = document.getElementById('auto-injection').checked;
+            standardConfig['modeType'] = document.getElementById('mode-type').value;
+            standardConfig['showBeamProfiles'] = document.getElementById('show-beam-profiles').checked;
+
+            updateCellTypeUI();
+            updateModeUI();
+            setupEventListeners();
+            runSimulation();
+        };
+
+        window.addEventListener('resize', () => {
+            Plotly.Plots.resize('plotWaist');
+            Plotly.Plots.resize('plot3d');
+            Plotly.Plots.resize('plotM1');
+            Plotly.Plots.resize('plotCenter');
+            Plotly.Plots.resize('plotM2');
+        });
+    </script>
+</body>
+</html>
