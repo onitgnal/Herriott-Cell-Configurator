@@ -311,68 +311,62 @@ models.
 
 ## Physics And Equations Implemented In JavaScript
 
-This section documents the equations currently implemented in `index.html`.
+This section documents the equations currently implemented in `index.html`. The
+formulas are written in plain ASCII inside code blocks so they render reliably
+on GitHub without relying on LaTeX support.
 
 ### Basic Vector Operations
 
-The ray tracer uses standard 3D vector algebra:
+The ray tracer uses standard 3D vector algebra. For vectors
+`a = (a_x, a_y, a_z)` and `b = (b_x, b_y, b_z)`:
 
-$$
-\mathbf{a}+\mathbf{b}
-=
-(a_x+b_x,\ a_y+b_y,\ a_z+b_z)
-$$
+```text
+a + b = (a_x + b_x, a_y + b_y, a_z + b_z)
+```
 
-$$
-\mathbf{a}-\mathbf{b}
-=
-(a_x-b_x,\ a_y-b_y,\ a_z-b_z)
-$$
+```text
+a - b = (a_x - b_x, a_y - b_y, a_z - b_z)
+```
 
-$$
-\mathbf{a}\cdot\mathbf{b}
-=
-a_x b_x + a_y b_y + a_z b_z
-$$
+```text
+a . b = a_x*b_x + a_y*b_y + a_z*b_z
+```
 
-$$
-\|\mathbf{a}\|=\sqrt{\mathbf{a}\cdot\mathbf{a}}
-$$
+```text
+||a|| = sqrt(a . a)
+```
 
-$$
-\hat{\mathbf{a}}={\mathbf{a}\over\|\mathbf{a}\|}
-$$
+```text
+normalize(a) = a / ||a||
+```
 
-$$
-\mathbf{a}\times\mathbf{b}
-=
-(a_yb_z-a_zb_y,\ a_zb_x-a_xb_z,\ a_xb_y-a_yb_x)
-$$
+```text
+a x b = (
+  a_y*b_z - a_z*b_y,
+  a_z*b_x - a_x*b_z,
+  a_x*b_y - a_y*b_x
+)
+```
 
 ### Target Pattern Angle
 
 The desired angular advance for the pass pattern is:
 
-$$
-\theta_{\mathrm{rt}}={2\pi k\over N}
-$$
+```text
+theta_rt = 2*pi*k/N
+```
 
-where:
-
-- `N` is the target total pass count.
-- `k` is the number of revolutions over those passes.
+where `N` is the target total pass count and `k` is the number of revolutions
+over those passes.
 
 ### Auto Mirror Radius: Concave-Concave
 
 For a concave-concave cell with equal mirror radii, the app computes:
 
-$$
-C_{\mathrm{actual}} = 1-\cos\left({\theta_{\mathrm{rt}}\over 2}\right)
-$$
-
-$$
-R_1=R_2={L\over C_{\mathrm{actual}}}
-$$
+```text
+C_actual = 1 - cos(theta_rt/2)
+R1 = R2 = L/C_actual
+```
 
 This is the equal-radius paraxial design used by the auto-ROC control.
 
@@ -381,13 +375,10 @@ This is the equal-radius paraxial design used by the auto-ROC control.
 For the concave-convex mode, the app computes equal-magnitude opposite-sign
 radii:
 
-$$
-R_1={L\over \sin(\theta_{\mathrm{rt}}/2)}
-$$
-
-$$
-R_2=-{L\over \sin(\theta_{\mathrm{rt}}/2)}
-$$
+```text
+R1 =  L/sin(theta_rt/2)
+R2 = -L/sin(theta_rt/2)
+```
 
 In the app convention, `R1 > 0` is the concave entrance mirror and `R2 < 0` is
 the convex back mirror.
@@ -396,342 +387,252 @@ the convex back mirror.
 
 The cavity stability parameters are:
 
-$$
-g_1 = 1-{L\over R_1}
-$$
-
-$$
-g_2 = 1-{L\over R_2}
-$$
+```text
+g1 = 1 - L/R1
+g2 = 1 - L/R2
+```
 
 The stability readout is:
 
-$$
-S = g_1 g_2
-$$
+```text
+S = g1*g2
+```
 
 The app proceeds only when:
 
-$$
-0 < g_1 g_2 < 1
-$$
+```text
+0 < g1*g2 < 1
+```
 
 ### Cavity Eigenmode
 
 The helper term used by the cavity-mode equations is:
 
-$$
-G = g_1 + g_2 - 2g_1g_2
-$$
+```text
+G = g1 + g2 - 2*g1*g2
+```
 
 If `G` is exactly zero, the JavaScript replaces it with `1e-9` before
 evaluating the following expressions.
 
 The cavity Rayleigh range is:
 
-$$
-z_R =
-\sqrt{
-\left|
-{L^2 g_1 g_2 (1-g_1g_2)\over G^2}
-\right|
-}
-$$
+```text
+zR_cavity = sqrt(abs((L^2*g1*g2*(1 - g1*g2)) / G^2))
+```
 
 The waist position from mirror 1 is:
 
-$$
-z_0 = {L g_2(1-g_1)\over G}
-$$
+```text
+z0_cavity = L*g2*(1 - g1)/G
+```
 
 The fundamental mode waist radius is:
 
-$$
-w_0 = \sqrt{{\lambda z_R\over \pi}}
-$$
+```text
+w0_ideal = sqrt(lambda*zR_cavity/pi)
+```
 
 The fundamental eigenmode radii on mirror 1 and mirror 2 are:
 
-$$
-w_{m1} =
-\sqrt{
-\left|
-{\lambda L\over\pi}
-\sqrt{
-{g_2\over g_1(1-g_1g_2)}
-}
-\right|
-}
-$$
-
-$$
-w_{m2} =
-\sqrt{
-\left|
-{\lambda L\over\pi}
-\sqrt{
-{g_1\over g_2(1-g_1g_2)}
-}
-\right|
-}
-$$
+```text
+wm1_ideal = sqrt(abs((lambda*L/pi) * sqrt(g2/(g1*(1 - g1*g2)))))
+wm2_ideal = sqrt(abs((lambda*L/pi) * sqrt(g1/(g2*(1 - g1*g2)))))
+```
 
 For non-fundamental or custom-`M^2` modes, displayed beam radii are scaled as:
 
-$$
-w_x = w \sqrt{M_x^2}
-$$
-
-$$
-w_y = w \sqrt{M_y^2}
-$$
+```text
+w_x = w*sqrt(M2x)
+w_y = w*sqrt(M2y)
+```
 
 When **Auto Mode-Matched Input** is enabled, the app sets:
 
-$$
-w_{0x,\mathrm{in}} = w_0\sqrt{M_x^2}
-$$
-
-$$
-w_{0y,\mathrm{in}} = w_0\sqrt{M_y^2}
-$$
-
-$$
-z_{\mathrm{in}} = z_0
-$$
+```text
+w_in_x = w0_ideal*sqrt(M2x)
+w_in_y = w0_ideal*sqrt(M2y)
+z_in   = z0_cavity
+```
 
 ### Gaussian Beam ABCD Propagation
 
 For each transverse axis, the input Rayleigh range is:
 
-$$
-z_R = {\pi w_{\mathrm{in}}^2\over M^2\lambda}
-$$
+```text
+z_R = pi*w_in^2/(M2*lambda)
+```
 
 The initial complex beam parameter at mirror 1 is:
 
-$$
-q_0 = -z_{\mathrm{in}} + i z_R
-$$
+```text
+q0 = -z_in + i*z_R
+```
 
 Free-space propagation by distance `d` is:
 
-$$
+```text
 q(d) = q + d
-$$
+```
 
-Reflection by a spherical mirror is represented with:
+Reflection by a spherical mirror is represented by the ABCD matrix:
 
-$$
-\begin{bmatrix}
-A & B \\
-C & D
-\end{bmatrix}
-=
-\begin{bmatrix}
-1 & 0 \\
--2/R & 1
-\end{bmatrix}
-$$
+```text
+[ A  B ]   [ 1    0 ]
+[ C  D ] = [ -2/R 1 ]
+```
 
-and the ABCD transform is:
+The ABCD transform is:
 
-$$
-q' = {Aq+B\over Cq+D}
-$$
+```text
+q' = (A*q + B)/(C*q + D)
+```
 
-The code evaluates this complex division explicitly. For
-`q = q_r + i q_i`, it computes:
+The code evaluates this complex division explicitly. For `q = q_r + i*q_i`:
 
-$$
-\mathrm{num}_r = Aq_r + B,\quad \mathrm{num}_i = Aq_i
-$$
+```text
+num_r = A*q_r + B
+num_i = A*q_i
 
-$$
-\mathrm{den}_r = Cq_r + D,\quad \mathrm{den}_i = Cq_i
-$$
+den_r = C*q_r + D
+den_i = C*q_i
 
-$$
-|\mathrm{den}|^2 = \mathrm{den}_r^2 + \mathrm{den}_i^2
-$$
+den_mag2 = den_r^2 + den_i^2
 
-$$
-q'_r =
-{\mathrm{num}_r\mathrm{den}_r+\mathrm{num}_i\mathrm{den}_i
-\over |\mathrm{den}|^2}
-$$
+q'_r = (num_r*den_r + num_i*den_i)/den_mag2
+q'_i = (num_i*den_r - num_r*den_i)/den_mag2
+```
 
-$$
-q'_i =
-{\mathrm{num}_i\mathrm{den}_r-\mathrm{num}_r\mathrm{den}_i
-\over |\mathrm{den}|^2}
-$$
+The beam radius is recovered from `1/q = U + i*V`. The code uses:
 
-The beam radius is recovered from:
-
-$$
-{1\over q}=U+iV
-$$
-
-The code uses:
-
-$$
-V = {-q_i\over q_r^2+q_i^2}
-$$
-
-and:
-
-$$
-w(q) =
-\sqrt{
-{M^2\lambda\over \pi(-V)}
-}
-$$
+```text
+V = -q_i/(q_r^2 + q_i^2)
+w(q) = sqrt((M2*lambda)/(pi*(-V)))
+```
 
 The beam is sampled with 20 substeps per pass for plotting. Mirror beam values
 are sampled at pass endpoints, and center-plane values at `L/2`.
 
 The ABCD reflection radius alternates by pass:
 
-$$
-R_{\mathrm{pass}} =
-\begin{cases}
-R_2, & \mathrm{pass}\ \mathrm{even} \\
-R_1, & \mathrm{pass}\ \mathrm{odd}
-\end{cases}
-$$
+```text
+if pass is even: current_R = R2
+if pass is odd:  current_R = R1
+```
 
 ### Auto Ideal Injection
 
 When auto injection is enabled, the initial position is:
 
-$$
-x_{\mathrm{in}} = r_0
-$$
+```text
+x_in = r0
+y_in = 0
+```
 
-$$
-y_{\mathrm{in}} = 0
-$$
+The code uses these paraxial round-trip matrix elements:
 
-The code uses the following paraxial round-trip matrix elements:
-
-$$
-M_{00} = 1-{2L\over R_2}
-$$
-
-$$
-M_{01} = 2L g_2
-$$
+```text
+M_arrive_00 = 1 - 2*L/R2
+M_arrive_01 = 2*L*g2
+```
 
 It then chooses slopes so the phase-space vector advances by the target pattern
 angle:
 
-$$
-\theta_x =
-{r_0\left[\cos(\theta_{\mathrm{rt}})-M_{00}\right]\over M_{01}}
-$$
-
-$$
-\theta_y =
-{r_0\sin(\theta_{\mathrm{rt}})\over M_{01}}
-$$
+```text
+theta_x = r0*(cos(theta_rt) - M_arrive_00)/M_arrive_01
+theta_y = r0*sin(theta_rt)/M_arrive_01
+```
 
 The UI displays these slopes in mrad:
 
-$$
-\theta_{\mathrm{mrad}} = 1000\,\theta_{\mathrm{rad}}
-$$
+```text
+theta_mrad = 1000*theta_rad
+```
 
 ### Mirror Surfaces And Tilts
 
 Mirror tilts are entered as small angles:
 
-$$
-\tau_x = 10^{-3}\tau_{x,\mathrm{mrad}}
-$$
-
-$$
-\tau_y = 10^{-3}\tau_{y,\mathrm{mrad}}
-$$
+```text
+tau_x = 1e-3*tilt_x_mrad
+tau_y = 1e-3*tilt_y_mrad
+```
 
 The total tilt magnitude is:
 
-$$
-\tau = \sqrt{\tau_x^2+\tau_y^2}
-$$
+```text
+tau = sqrt(tau_x^2 + tau_y^2)
+```
 
 For mirror 1, the spherical center is:
 
-$$
-\mathbf{C}_1 =
-\left(
-|R_1|\sin\tau\,{\tau_x\over\tau},\
-|R_1|\sin\tau\,{\tau_y\over\tau},\
-R_1\cos\tau
-\right)
-$$
+```text
+C1 = (
+  abs(R1)*sin(tau)*(tau_x/tau),
+  abs(R1)*sin(tau)*(tau_y/tau),
+  R1*cos(tau)
+)
+```
 
 For mirror 2, the spherical center is:
 
-$$
-\mathbf{C}_2 =
-\left(
-|R_2|\sin\tau\,{\tau_x\over\tau},\
-|R_2|\sin\tau\,{\tau_y\over\tau},\
-L-R_2\cos\tau
-\right)
-$$
+```text
+C2 = (
+  abs(R2)*sin(tau)*(tau_x/tau),
+  abs(R2)*sin(tau)*(tau_y/tau),
+  L - R2*cos(tau)
+)
+```
 
 When `tau` is zero, the transverse center offsets are set to zero to avoid
 division by zero.
 
 Each mirror surface satisfies:
 
-$$
-\|\mathbf{P}-\mathbf{C}\|^2 = R^2
-$$
+```text
+||P - C||^2 = R^2
+```
 
 ### Initial Ray Point And Direction
 
 The initial point lies on mirror 1 at the selected transverse input position.
 Given:
 
-$$
-x_0=x_{\mathrm{in}},\quad y_0=y_{\mathrm{in}}
-$$
+```text
+x0 = x_in
+y0 = y_in
+```
 
 the discriminant used to find the spherical surface point is:
 
-$$
-D_0 = R_1^2-(x_0-C_{1x})^2-(y_0-C_{1y})^2
-$$
+```text
+disc_p0 = R1^2 - (x0 - C1_x)^2 - (y0 - C1_y)^2
+```
 
-If `D0 >= 0`, the code uses:
+If `disc_p0 >= 0`, the code uses:
 
-$$
-z_0 = C_{1z}-\mathrm{sign}(R_1)\sqrt{D_0}
-$$
+```text
+z0_init = C1_z - sign(R1)*sqrt(disc_p0)
+```
 
-If `D0 < 0`, it falls back to:
+If `disc_p0 < 0`, it falls back to:
 
-$$
-z_0 = 0
-$$
+```text
+z0_init = 0
+```
 
 The initial point is:
 
-$$
-\mathbf{P}_0=(x_0,y_0,z_0)
-$$
+```text
+P0 = (x0, y0, z0_init)
+```
 
 The input ray direction is:
 
-$$
-\mathbf{v}_0 =
-{\left(\theta_x,\theta_y,1\right)
-\over
-\left\|\left(\theta_x,\theta_y,1\right)\right\|}
-$$
+```text
+v0 = normalize((theta_x, theta_y, 1))
+```
 
 where `theta_x` and `theta_y` are in radians.
 
@@ -740,41 +641,22 @@ where `theta_x` and `theta_y` are in radians.
 The code constructs two transverse unit vectors perpendicular to the ray. First,
 it projects the lab x-axis perpendicular to the ray:
 
-$$
-\mathbf{u}_{1,\mathrm{ref}} =
-{\mathbf{e}_x-\mathbf{v}_0(\mathbf{e}_x\cdot\mathbf{v}_0)
-\over
-\left\|
-\mathbf{e}_x-\mathbf{v}_0(\mathbf{e}_x\cdot\mathbf{v}_0)
-\right\|}
-$$
+```text
+u1_ref = normalize(e_x - v0*(e_x . v0))
+```
 
 Then:
 
-$$
-\mathbf{u}_{2,\mathrm{ref}} =
-{\mathbf{v}_0\times\mathbf{u}_{1,\mathrm{ref}}
-\over
-\left\|
-\mathbf{v}_0\times\mathbf{u}_{1,\mathrm{ref}}
-\right\|}
-$$
+```text
+u2_ref = normalize(v0 x u1_ref)
+```
 
 The entered profile/polarization angle `theta_p` rotates these axes:
 
-$$
-\mathbf{u}_1 =
-\mathbf{u}_{1,\mathrm{ref}}\cos\theta_p
-+
-\mathbf{u}_{2,\mathrm{ref}}\sin\theta_p
-$$
-
-$$
-\mathbf{u}_2 =
--\mathbf{u}_{1,\mathrm{ref}}\sin\theta_p
-+
-\mathbf{u}_{2,\mathrm{ref}}\cos\theta_p
-$$
+```text
+u1 =  u1_ref*cos(theta_p) + u2_ref*sin(theta_p)
+u2 = -u1_ref*sin(theta_p) + u2_ref*cos(theta_p)
+```
 
 The ray direction and both transverse axes are reflected at each mirror.
 
@@ -782,59 +664,46 @@ The ray direction and both transverse axes are reflected at each mirror.
 
 For a ray:
 
-$$
-\mathbf{P}(t)=\mathbf{P}+t\mathbf{v}
-$$
+```text
+P(t) = P + t*v
+```
 
 and a spherical mirror center `C`, the code sets:
 
-$$
-\Delta = \mathbf{P}-\mathbf{C}
-$$
+```text
+Delta = P - C
+b = v . Delta
+c = Delta . Delta - R^2
+discriminant = b^2 - c
+```
 
-$$
-b = \mathbf{v}\cdot\Delta
-$$
+If `discriminant < 0`, there is no mirror intersection. Otherwise:
 
-$$
-c = \Delta\cdot\Delta - R^2
-$$
-
-$$
-\Delta_q = b^2-c
-$$
-
-If `Delta_q < 0`, there is no mirror intersection. Otherwise:
-
-$$
-t_1 = -b-\sqrt{\Delta_q}
-$$
-
-$$
-t_2 = -b+\sqrt{\Delta_q}
-$$
+```text
+t1 = -b - sqrt(discriminant)
+t2 = -b + sqrt(discriminant)
+```
 
 The code chooses the smallest positive `t > 1e-9`. The hit point is:
 
-$$
-\mathbf{P}_{\mathrm{hit}}=\mathbf{P}+t\mathbf{v}
-$$
+```text
+P_hit = P + t*v
+```
 
 The signed surface normal used by the app is:
 
-$$
-\mathbf{n}={\mathbf{C}-\mathbf{P}_{\mathrm{hit}}\over R}
-$$
+```text
+normal = (C - P_hit)/R
+```
 
 ### Vector Reflection
 
 The same reflection equation is applied to the ray direction and to the two
 profile/polarization axes:
 
-$$
-\mathbf{a}' =
-\mathbf{a} - 2(\mathbf{a}\cdot\mathbf{n})\mathbf{n}
-$$
+```text
+a_reflected = a - 2*(a . normal)*normal
+```
 
 The reflected vector is normalized after reflection.
 
@@ -843,53 +712,49 @@ The reflected vector is normalized after reflection.
 For each segment, before the next mirror hit, the center-plane intersection is
 tested at:
 
-$$
-t_{\mathrm{center}} =
-{L/2-P_z\over v_z}
-$$
+```text
+t_center = (L/2 - P_z)/v_z
+```
 
 The center point is recorded only when:
 
-$$
-0 < t_{\mathrm{center}} < t_{\mathrm{mirror}}
-$$
+```text
+0 < t_center < t_mirror
+```
 
 where:
 
-$$
-t_{\mathrm{mirror}} =
-\|\mathbf{P}_{\mathrm{hit}}-\mathbf{P}\|
-$$
+```text
+t_mirror = ||P_hit - P||
+```
 
 ### Hole Exit Tests
 
-Input and output holes are circular in the local mirror `x-y` plane.
+Input and output holes are circular in the local mirror `x-y` plane. The input
+hole is always tied to the current injection coordinates:
 
-The input hole is always tied to the current injection coordinates:
+```text
+h_in = (x_in, y_in)
+```
 
-$$
-\mathbf{h}_{\mathrm{in}}=(x_{\mathrm{in}},y_{\mathrm{in}})
-$$
+When automatic output-hole placement is enabled, the output hole is on mirror 1
+at:
 
-When automatic output-hole placement is enabled, the output hole is:
-
-$$
-\mathbf{h}_{\mathrm{out}}=(x_{\mathrm{in}},y_{\mathrm{in}})
-$$
-
-on mirror 1.
+```text
+h_out = (x_in, y_in)
+```
 
 For a hit point `(x, y)` and hole center `(x_h, y_h)`, the distance is:
 
-$$
-d_h = \sqrt{(x-x_h)^2+(y-y_h)^2}
-$$
+```text
+d_h = sqrt((x - x_h)^2 + (y - y_h)^2)
+```
 
 A hit is inside the hole when:
 
-$$
-d_h \le r_h
-$$
+```text
+d_h <= r_h
+```
 
 Rules implemented by the trace:
 
@@ -901,282 +766,206 @@ Rules implemented by the trace:
 
 The maximum trace length is:
 
-$$
-N_{\mathrm{trace,max}} = \max(150,\ 4N)
-$$
+```text
+N_trace_max = max(150, 4*N)
+```
 
 ### Hermite-Gaussian Mode Equations
 
 The Hermite polynomial recurrence is:
 
-$$
-H_0(x)=1
-$$
-
-$$
-H_1(x)=2x
-$$
-
-$$
-H_{i+1}(x)=2xH_i(x)-2iH_{i-1}(x)
-$$
+```text
+H_0(x) = 1
+H_1(x) = 2*x
+H_{i+1}(x) = 2*x*H_i(x) - 2*i*H_{i-1}(x)
+```
 
 For the HG mode selected by indices `n` and `m`, the effective beam quality
 factors are:
 
-$$
-M_x^2 = 2n+1
-$$
+```text
+M2x = 2*n + 1
+M2y = 2*m + 1
+```
 
-$$
-M_y^2 = 2m+1
-$$
+For a spot with local coordinates `(l_x, l_y)`, the effective fundamental radii
+used by the field calculation are:
 
-For a spot with local coordinates `(l_x, l_y)`, the effective fundamental
-radii used by the field calculation are:
-
-$$
-w_{0x}={W_x\over\sqrt{M_x^2}}
-$$
-
-$$
-w_{0y}={W_y\over\sqrt{M_y^2}}
-$$
+```text
+w0x = W_x/sqrt(M2x)
+w0y = W_y/sqrt(M2y)
+```
 
 The scaled coordinates are:
 
-$$
-s_x={\sqrt{2}l_x\over w_{0x}}
-$$
-
-$$
-s_y={\sqrt{2}l_y\over w_{0y}}
-$$
+```text
+s_x = sqrt(2)*l_x/w0x
+s_y = sqrt(2)*l_y/w0y
+```
 
 The common envelope is:
 
-$$
-E_{\mathrm{env}} =
-\exp\left(
--{l_x^2\over w_{0x}^2}
--{l_y^2\over w_{0y}^2}
-\right)
-$$
+```text
+E_env = exp(-(l_x^2)/(w0x^2) - (l_y^2)/(w0y^2))
+```
 
 The implemented HG field amplitude is:
 
-$$
-E_{\mathrm{HG}} =
-H_n(s_x)H_m(s_y)E_{\mathrm{env}}
-$$
+```text
+E_HG = H_n(s_x)*H_m(s_y)*E_env
+```
 
 and the plotted normalized intensity is:
 
-$$
-I_{\mathrm{HG,plot}} =
-E_{\mathrm{HG}}^2 \cdot \mathrm{norm}
-$$
+```text
+I_HG_plot = E_HG^2*norm
+```
 
 ### Laguerre-Gaussian Mode Equations
 
 The associated Laguerre recurrence implemented in the code is:
 
-$$
-L_0^l(x)=1
-$$
-
-$$
-L_1^l(x)=1+l-x
-$$
-
-$$
-L_{i+1}^l(x)=
-{(2i+1+l-x)L_i^l(x)-(i+l)L_{i-1}^l(x)\over i+1}
-$$
+```text
+L_0^l(x) = 1
+L_1^l(x) = 1 + l - x
+L_{i+1}^l(x) = ((2*i + 1 + l - x)*L_i^l(x) - (i + l)*L_{i-1}^l(x))/(i + 1)
+```
 
 For the LG mode selected by indices `p` and `l`, the effective beam quality
 factors are:
 
-$$
-M_x^2 = M_y^2 = 2p+|l|+1
-$$
+```text
+M2x = M2y = 2*p + abs(l) + 1
+```
 
 The display calculation uses:
 
-$$
-w_0={w_{0x}+w_{0y}\over 2}
-$$
-
-$$
-r_{\mathrm{sym}}^2 =
-{2(l_x^2+l_y^2)\over w_0^2}
-$$
+```text
+w0 = (w0x + w0y)/2
+r2_sym = 2*(l_x^2 + l_y^2)/(w0^2)
+```
 
 The implemented LG amplitude is:
 
-$$
-E_{\mathrm{LG}} =
-\left(r_{\mathrm{sym}}^2\right)^{|l|/2}
-L_p^l\left(r_{\mathrm{sym}}^2\right)
-\exp\left(-{l_x^2+l_y^2\over w_0^2}\right)
-$$
+```text
+E_LG = (r2_sym)^(abs(l)/2) * L_p^l(r2_sym) * exp(-(l_x^2 + l_y^2)/(w0^2))
+```
 
 and the plotted normalized intensity is:
 
-$$
-I_{\mathrm{LG,plot}} =
-E_{\mathrm{LG}}^2 \cdot \mathrm{norm}
-$$
+```text
+I_LG_plot = E_LG^2*norm
+```
 
 Implementation note: the JavaScript passes the signed `l` value into
-`L_p^l(...)` but uses `|l|` in the radial power and `M^2` expression. Many
-textbook LG conventions use `|l|` in the associated Laguerre order. This README
-documents the implemented code exactly.
+`L_p^l(...)` but uses `abs(l)` in the radial power and `M^2` expression. Many
+textbook LG conventions use `abs(l)` in the associated Laguerre order. This
+README documents the implemented code exactly.
 
 ### TEM00 And Custom-M2 Intensity Overlay
 
 For TEM00 and custom `M^2`, the plotted intensity is:
 
-$$
-I_{\mathrm{plot}} =
-\exp\left[
--2\left(
-{l_x^2\over w_{0x}^2}
-+
-{l_y^2\over w_{0y}^2}
-\right)
-\right]
-$$
+```text
+I_plot = exp(-2*((l_x^2)/(w0x^2) + (l_y^2)/(w0y^2)))
+```
 
 Custom `M^2` uses:
 
-$$
-M_x^2=M_y^2=M_{\mathrm{custom}}^2
-$$
+```text
+M2x = M2y = M2_custom
+```
 
 ### Mode Normalization And Peak Factor
 
 The app samples a square normalized-coordinate grid:
 
-$$
-s_x,s_y \in [-4,4]
-$$
-
-with step:
-
-$$
-\Delta s = 0.1
-$$
+```text
+s_x, s_y in [-4, 4]
+ds = 0.1
+```
 
 On this normalization grid, the TEM00 intensity is:
 
-$$
-I_{\mathrm{TEM00,norm}} =
-\exp[-(s_x^2+s_y^2)]
-$$
+```text
+I_TEM00_norm = exp(-(s_x^2 + s_y^2))
+```
 
 The HG normalization-grid field and intensity are:
 
-$$
-E_{\mathrm{HG,norm}} =
-H_n(s_x)H_m(s_y)
-\exp\left[-{1\over2}(s_x^2+s_y^2)\right]
-$$
-
-$$
-I_{\mathrm{HG,norm}} = E_{\mathrm{HG,norm}}^2
-$$
+```text
+E_HG_norm = H_n(s_x)*H_m(s_y)*exp(-0.5*(s_x^2 + s_y^2))
+I_HG_norm = E_HG_norm^2
+```
 
 The LG normalization-grid radius, field, and intensity are:
 
-$$
-r_s^2=s_x^2+s_y^2
-$$
-
-$$
-E_{\mathrm{LG,norm}} =
-(r_s^2)^{|l|/2}L_p^l(r_s^2)
-\exp\left[-{1\over2}(s_x^2+s_y^2)\right]
-$$
-
-$$
-I_{\mathrm{LG,norm}} = E_{\mathrm{LG,norm}}^2
-$$
+```text
+r2 = s_x^2 + s_y^2
+E_LG_norm = (r2)^(abs(l)/2)*L_p^l(r2)*exp(-0.5*(s_x^2 + s_y^2))
+I_LG_norm = E_LG_norm^2
+```
 
 For the selected mode, the code then computes:
 
-$$
-I_{\max} = \max(I)
-$$
-
-and an approximate integral:
-
-$$
-I_{\Sigma} \approx
-\sum I(s_x,s_y)(\Delta s)^2
-$$
+```text
+I_max = max(I)
+I_sum = sum(I(s_x, s_y))*ds^2
+```
 
 The image-overlay normalization is:
 
-$$
-\mathrm{norm} = {1\over I_{\max}}
-$$
+```text
+norm = 1/I_max
+```
 
 If `I_max` is not positive, the JavaScript uses:
 
-$$
-\mathrm{norm}=1
-$$
+```text
+norm = 1
+```
 
 The peak factor used for intensity and fluence estimates is:
 
-$$
-f_{\mathrm{peak}} =
-{2I_{\max}\over I_{\Sigma}}
-$$
+```text
+f_peak = 2*I_max/I_sum
+```
 
 If the maximum cannot be computed, the fallback value is:
 
-$$
-f_{\mathrm{peak}} = {2\over\pi}
-$$
+```text
+f_peak = 2/pi
+```
 
-For a TEM00 Gaussian, this approaches the familiar peak factor
-`2/pi`.
+For a TEM00 Gaussian, this approaches the familiar peak factor `2/pi`.
 
 ### Spot Overlay Coordinates
 
 The generated beam image uses a square of side:
 
-$$
-B = 4\max(W_x,W_y)
-$$
+```text
+B = 4*max(W_x, W_y)
+```
 
 For image-pixel coordinates `p_x, p_y` in an image with `S` pixels per side:
 
-$$
-dX = \left({p_x\over S-1}-{1\over2}\right)B
-$$
-
-$$
-dY = \left({1\over2}-{p_y\over S-1}\right)B
-$$
+```text
+dX = (p_x/(S - 1) - 0.5)*B
+dY = (0.5 - p_y/(S - 1))*B
+```
 
 The local transverse coordinates used by the intensity function are:
 
-$$
-l_x = dX\,u_{1x}+dY\,u_{1y}
-$$
-
-$$
-l_y = dX\,u_{2x}+dY\,u_{2y}
-$$
+```text
+l_x = dX*u1_x + dY*u1_y
+l_y = dX*u2_x + dY*u2_y
+```
 
 The image alpha is:
 
-$$
-\alpha = \min(255,\ \lfloor 255 I_{\mathrm{plot}}\rfloor)
-$$
+```text
+alpha = min(255, floor(255*I_plot))
+```
 
 The overlay is therefore a visualization aid, not a diffraction calculation.
 
@@ -1184,119 +973,106 @@ The overlay is therefore a visualization aid, not a diffraction calculation.
 
 The Gaussian beam plot samples 20 points per pass and displays the first:
 
-$$
-N_{\mathrm{plot}} = 20N + 1
-$$
+```text
+N_plot = 20*N + 1
+```
 
 samples. The unfolded path range is:
 
-$$
-0 \le z \le NL
-$$
+```text
+0 <= z <= N*L
+```
 
 The ray trace may run longer than the requested plot range when needed for exit
 detection. The ABCD propagation pass count is:
 
-$$
-N_{\mathrm{ABCD}} =
-\max(N,\ N_{\mathrm{bounces}}+1)
-$$
+```text
+N_ABCD = max(N, N_bounces + 1)
+```
 
 The default transverse plot half-width for the 3D and mirror plots is:
 
-$$
-x_{\mathrm{lim}}=y_{\mathrm{lim}}=1.5r_0
-$$
+```text
+x_lim = y_lim = 1.5*r0
+```
 
 For the center-plane plot, the app auto-scales to:
 
-$$
-x_{\mathrm{lim}}=y_{\mathrm{lim}}=
-1.2\max(|x_i|,|y_i|)+2
-$$
+```text
+x_lim = y_lim = 1.2*max(abs(x_i), abs(y_i)) + 2
+```
 
 where the maximum is taken over center-plane hits.
 
 Spot labels are placed radially using:
 
-$$
-\phi = \mathrm{atan2}(y,x){180\over\pi}
-$$
+```text
+phi = atan2(y, x)*180/pi
+```
 
 If `phi < 0`, the app adds `360` degrees, then assigns text positions by
 45-degree sectors.
 
 The profile/polarization angle shown in hover text is:
 
-$$
-\phi_{\mathrm{pol}} =
-\mathrm{atan2}(u_{1y},u_{1x}){180\over\pi}
-$$
+```text
+phi_pol = atan2(u1_y, u1_x)*180/pi
+```
 
 The displayed value is folded into:
 
-$$
--90^\circ < \phi_{\mathrm{pol}} \le 90^\circ
-$$
+```text
+-90 deg < phi_pol <= 90 deg
+```
 
 by adding or subtracting `180` degrees as needed.
 
 Mirror-plot labels use these pass-index formulas:
 
-$$
-j_{\mathrm{M1}} = 2i+2
-$$
-
-$$
-j_{\mathrm{M2}} = 2i+1
-$$
-
-$$
-j_{\mathrm{center}} = i+1
-$$
+```text
+j_M1     = 2*i + 2
+j_M2     = 2*i + 1
+j_center = i + 1
+```
 
 where `i` is the zero-based hit index in that plotted list.
 
 When image overlays are disabled, each spot is drawn as a circle with radius:
 
-$$
-w_{\max}=\max(W_x,W_y)
-$$
+```text
+w_max = max(W_x, W_y)
+```
 
 When image overlays are enabled, the plotted profile/polarization line length
 is:
 
-$$
-\ell_{\mathrm{pol}}=1.5w_{\max}
-$$
+```text
+ell_pol = 1.5*w_max
+```
 
 ### Peak Intensity And Fluence Estimates
 
 For each plotted spot, the area factor is:
 
-$$
-A_{\mathrm{factor}} = W_x W_y
-$$
+```text
+A_factor = W_x*W_y
+```
 
 where `W_x` and `W_y` are in `mm`.
 
 The peak intensity displayed in hover text and plot titles is:
 
-$$
-I_{\mathrm{peak}} =
-100\,{P_{\mathrm{GW}} f_{\mathrm{peak}}\over W_xW_y}
-\quad [\mathrm{GW/cm^2}]
-$$
+```text
+I_peak = 100*(P_GW*f_peak)/(W_x*W_y)   [GW/cm^2]
+```
 
 The factor `100` converts from per `mm^2` to per `cm^2`.
 
 The peak fluence displayed in hover text and plot titles is:
 
-$$
-F_{\mathrm{peak}} =
-100\,{E_{\mathrm{mJ}} f_{\mathrm{peak}}\over W_xW_y}
-\quad [\mathrm{mJ/cm^2}]
-$$
+```text
+F_peak = 100*(E_mJ*f_peak)/(W_x*W_y)   [mJ/cm^2]
+```
 
 Losses, mirror reflectivity, aperture diffraction, material nonlinearities, and
 temporal pulse shape are not included.
