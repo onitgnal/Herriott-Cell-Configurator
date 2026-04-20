@@ -31,7 +31,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
                     Herriott Cell Configurator
                 </h1>
-                <p class="text-xs text-slate-500 mt-1">3D Ray & Transverse Beam Physics</p>
+                <p class="text-xs text-slate-500 mt-1">Split-Mirror 3D Ray Physics</p>
             </div>
             <button id="close-sidebar" class="md:hidden p-1.5 text-slate-500 hover:bg-slate-200 rounded-md transition-colors">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -151,54 +151,42 @@
                         <input type="range" id="param-r0" min="5" max="50" step="0.5" value="15.0" class="w-full accent-indigo-600">
                     </div>
 
-                    <!-- Split Input Mirror Geometry -->
+                    <!-- Mirror Aperture & Split -->
                     <div class="border-t border-slate-200 mt-2 pt-2">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs font-bold text-slate-800">Split Input Mirrors</span>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-800">Mirror Aperture & Split</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
                             <div>
                                 <div class="flex justify-between items-center mb-1">
-                                    <label class="block text-[10px] font-semibold text-slate-700" title="Clear gap between the two input mirror inner edges">Free Aperture (g):</label>
+                                    <label class="block text-[10px] font-semibold text-slate-500">Outer Diameter (D):</label>
                                     <div class="flex items-center gap-1">
-                                        <input type="number" id="num-split_gap" value="2.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                        <input type="number" id="num-diam" value="50.8" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
                                         <span class="text-[10px] text-slate-500 w-4">mm</span>
                                     </div>
                                 </div>
-                                <input type="range" id="param-split_gap" min="0" max="30" step="0.1" value="2.0" class="w-full accent-indigo-600">
+                                <input type="range" id="param-diam" min="10" max="200" step="0.1" value="50.8" class="w-full accent-indigo-600">
                             </div>
-                            <div>
-                                <div class="flex justify-between items-center mb-1">
-                                    <label class="block text-[10px] font-semibold text-slate-700" title="Diameter of each split input mirror">Input Mirror D:</label>
-                                    <div class="flex items-center gap-1">
-                                        <input type="number" id="num-m1_dia" value="60.0" step="0.5" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
-                                        <span class="text-[10px] text-slate-500 w-4">mm</span>
-                                    </div>
-                                </div>
-                                <input type="range" id="param-m1_dia" min="5" max="200" step="0.5" value="60.0" class="w-full accent-indigo-600">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4 mt-2">
-                            <div>
-                                <div class="flex justify-between items-center mb-1">
-                                    <label class="block text-[10px] font-semibold text-slate-700" title="Diameter of mirror 2">Back Mirror D:</label>
-                                    <div class="flex items-center gap-1">
-                                        <input type="number" id="num-m2_dia" value="160.0" step="0.5" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
-                                        <span class="text-[10px] text-slate-500 w-4">mm</span>
-                                    </div>
-                                </div>
-                                <input type="range" id="param-m2_dia" min="5" max="300" step="0.5" value="160.0" class="w-full accent-indigo-600">
-                            </div>
-                            <div class="flex justify-between items-center mb-1">
-                                <div class="w-full">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
                                     <div class="flex justify-between items-center mb-1">
-                                        <label class="block text-[10px] font-semibold text-slate-700" title="Relative horizontal angle between the split input mirrors">Rel. Angle X (Δθ):</label>
+                                        <label class="block text-[10px] font-semibold text-slate-500" title="Space between left and right halves">M1 Gap (g):</label>
                                         <div class="flex items-center gap-1">
-                                            <input type="number" id="num-split_angle" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
-                                            <span class="text-[10px] text-slate-500 w-6">mrad</span>
+                                            <input type="number" id="num-gap" value="2.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
+                                            <span class="text-[10px] text-slate-500 w-2"></span>
                                         </div>
                                     </div>
-                                    <input type="range" id="param-split_angle" min="-20" max="20" step="0.1" value="0.0" class="w-full accent-indigo-600">
+                                    <input type="range" id="param-gap" min="0" max="20" step="0.1" value="2.0" class="w-full accent-indigo-600">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500" title="Relative Horizontal Angle">Split Angle:</label>
+                                        <div class="flex items-center gap-1">
+                                            <input type="number" id="num-split_ang" value="0.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
+                                            <span class="text-[10px] text-slate-500 w-2"></span>
+                                        </div>
+                                    </div>
+                                    <input type="range" id="param-split_ang" min="-50" max="50" step="0.1" value="0.0" class="w-full accent-indigo-600">
                                 </div>
                             </div>
                         </div>
@@ -375,9 +363,9 @@
                 </summary>
                 <div class="p-4 space-y-4">
                     <div class="flex items-center justify-between mb-1 pb-2 border-b border-slate-100">
-                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer" title="Auto shoots right through the gap to hit the pattern radius perfectly">
                             <input type="checkbox" id="auto-injection" checked class="accent-emerald-600 w-4 h-4">
-                            Auto Ideal Injection
+                            Auto Gap Injection
                         </label>
                     </div>
                     <div id="group-injection" class="opacity-50 pointer-events-none transition-opacity space-y-4">
@@ -385,32 +373,32 @@
                             <div>
                                 <div class="flex justify-between items-center mb-1">
                                     <label class="block text-xs font-semibold text-slate-700">X (mm):</label>
-                                    <input type="number" id="num-x" value="15.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                    <input type="number" id="num-x" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
                                 </div>
-                                <input type="range" id="param-x" min="-50" max="50" step="0.1" value="15.0" class="w-full accent-emerald-500">
+                                <input type="range" id="param-x" min="-50" max="50" step="0.1" value="0.0" class="w-full accent-emerald-500">
                             </div>
                             <div>
                                 <div class="flex justify-between items-center mb-1">
                                     <label class="block text-xs font-semibold text-slate-700">Y (mm):</label>
-                                    <input type="number" id="num-y" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                    <input type="number" id="num-y" value="15.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
                                 </div>
-                                <input type="range" id="param-y" min="-50" max="50" step="0.1" value="0" class="w-full accent-emerald-500">
+                                <input type="range" id="param-y" min="-50" max="50" step="0.1" value="15.0" class="w-full accent-emerald-500">
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <div class="flex justify-between items-center mb-1">
                                     <label class="block text-xs font-semibold text-slate-700">θx (mrad):</label>
-                                    <input type="number" id="num-thx" value="-7.5" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                    <input type="number" id="num-thx" value="11.9" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
                                 </div>
-                                <input type="range" id="param-thx" min="-50" max="50" step="0.1" value="-7.5" class="w-full accent-emerald-500">
+                                <input type="range" id="param-thx" min="-50" max="50" step="0.1" value="11.9" class="w-full accent-emerald-500">
                             </div>
                             <div>
                                 <div class="flex justify-between items-center mb-1">
                                     <label class="block text-xs font-semibold text-slate-700">θy (mrad):</label>
-                                    <input type="number" id="num-thy" value="11.9" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                    <input type="number" id="num-thy" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
                                 </div>
-                                <input type="range" id="param-thy" min="-50" max="50" step="0.1" value="11.9" class="w-full accent-emerald-500">
+                                <input type="range" id="param-thy" min="-50" max="50" step="0.1" value="0.0" class="w-full accent-emerald-500">
                             </div>
                         </div>
                     </div>
@@ -424,7 +412,7 @@
                     <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </summary>
                 <div class="p-4 space-y-4">
-                    <p class="text-xs text-slate-500 font-semibold mb-2">Split Input Mirrors (Common Tilt)</p>
+                    <p class="text-xs text-slate-500 font-semibold mb-2">Mirror 1 (Entrance)</p>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="flex justify-between items-center mb-1">
@@ -755,8 +743,8 @@
         const paramConfig = [
             { id: 'L', type: 'float' }, { id: 'n', type: 'int' }, { id: 'k', type: 'int' },
             { id: 'R', type: 'float' }, { id: 'R1', type: 'float' }, { id: 'R2', type: 'float' },
-            { id: 'r0', type: 'float' }, { id: 'split_gap', type: 'float' },
-            { id: 'm1_dia', type: 'float' }, { id: 'm2_dia', type: 'float' }, { id: 'split_angle', type: 'float' },
+            { id: 'r0', type: 'float' }, 
+            { id: 'diam', type: 'float' }, { id: 'gap', type: 'float' }, { id: 'split_ang', type: 'float' },
             { id: 'lambda', type: 'float' }, { id: 'M2', type: 'float' },
             { id: 'peak_power', type: 'float' }, { id: 'pulse_energy', type: 'float' },
             { id: 'hgn', type: 'int' }, { id: 'hgm', type: 'int' },
@@ -769,7 +757,11 @@
             { id: 'm2tx', type: 'float' }, { id: 'm2ty', type: 'float' }
         ];
         
-        let standardConfig = { cellType: 'cav-cav', autoR: true, autoRVex: true, autoModeMatch: true, autoInjection: true, modeType: 'tem00', showBeamProfiles: true };
+        let standardConfig = { 
+            cellType: 'cav-cav', autoR: true, autoRVex: true, 
+            autoModeMatch: true, autoInjection: true, modeType: 'tem00', showBeamProfiles: true,
+            diam: 50.8, gap: 2.0, split_ang: 0.0
+        };
         let simulationTimeout = null;
 
         function updateModeUI() {
@@ -791,114 +783,97 @@
         }
 
         // --- Herriott Cell Logic ---
-        function tiltedSphereCenter(vertex, R, tilt, side) {
-            let tx = tilt[0], ty = tilt[1];
-            let th = Math.sqrt(tx*tx + ty*ty);
-            let absR = Math.abs(R);
-            let sx = th > 1e-9 ? absR * Math.sin(th) * (tx / th) : 0;
-            let sy = th > 1e-9 ? absR * Math.sin(th) * (ty / th) : 0;
-            let sz = side === 1 ? R * Math.cos(th) : -R * Math.cos(th);
-            return [vertex[0] + sx, vertex[1] + sy, vertex[2] + sz];
-        }
-
         class HerriottCell {
-            constructor(L, R1, R2, split_center, split_gap, m1_diameter, m2_diameter, split_angle, m1_tilt, m2_tilt) {
+            constructor(L, R1, R2, D, gap, split_ang, m1_tilt, m2_tilt) {
                 this.L = L; this.R1 = R1; this.R2 = R2;
-                this.split_center = split_center;
-                this.split_gap = Math.max(0, split_gap);
-                this.m1_diameter = Math.max(0.1, m1_diameter);
-                this.m2_diameter = Math.max(0.1, m2_diameter);
-                this.m1_radius = this.m1_diameter / 2;
-                this.m2_radius = this.m2_diameter / 2;
-                this.split_angle = split_angle;
+                this.D = D; this.gap = gap;
+                
+                let t1y = m1_tilt[1];
+                let txL = m1_tilt[0] + split_ang / 2;
+                let txR = m1_tilt[0] - split_ang / 2;
 
-                let segmentOffset = this.split_gap / 2 + this.m1_radius;
-                let leftVertex = [split_center[0] - segmentOffset, split_center[1], 0];
-                let rightVertex = [split_center[0] + segmentOffset, split_center[1], 0];
-                let leftTilt = [m1_tilt[0] - split_angle / 2, m1_tilt[1]];
-                let rightTilt = [m1_tilt[0] + split_angle / 2, m1_tilt[1]];
-
-                this.m1_segments = [
-                    { id: 'left', label: 'Left input mirror', vertex: leftVertex, R: R1, aperture_radius: this.m1_radius, C: tiltedSphereCenter(leftVertex, R1, leftTilt, 1) },
-                    { id: 'right', label: 'Right input mirror', vertex: rightVertex, R: R1, aperture_radius: this.m1_radius, C: tiltedSphereCenter(rightVertex, R1, rightTilt, 1) }
-                ];
-
-                this.m2 = {
-                    id: 'back',
-                    label: 'Back mirror',
-                    vertex: [0, 0, L],
-                    R: R2,
-                    aperture_radius: this.m2_radius
+                const calcC = (base, R, tx, ty) => {
+                    let th = Math.sqrt(tx*tx + ty*ty);
+                    let nx = th > 1e-9 ? Math.sin(th) * (tx/th) : 0;
+                    let ny = th > 1e-9 ? Math.sin(th) * (ty/th) : 0;
+                    let nz = Math.cos(th);
+                    return [base[0] + Math.abs(R)*nx, base[1] + Math.abs(R)*ny, base[2] + R*nz];
                 };
-                this.m2.C = tiltedSphereCenter(this.m2.vertex, R2, m2_tilt, 2);
 
-                this.C1 = [
-                    (this.m1_segments[0].C[0] + this.m1_segments[1].C[0]) / 2,
-                    (this.m1_segments[0].C[1] + this.m1_segments[1].C[1]) / 2,
-                    (this.m1_segments[0].C[2] + this.m1_segments[1].C[2]) / 2
-                ];
-                this.C2 = this.m2.C;
+                this.C1L = calcC([-gap/2, 0, 0], R1, txL, t1y);
+                this.C1R = calcC([gap/2, 0, 0], R1, txR, t1y);
+
+                let t2x = m2_tilt[0]; let t2y = m2_tilt[1];
+                let th2 = Math.sqrt(t2x*t2x + t2y*t2y);
+                let n2x = th2 > 1e-9 ? Math.sin(th2) * (t2x/th2) : 0;
+                let n2y = th2 > 1e-9 ? Math.sin(th2) * (t2y/th2) : 0;
+                let n2z = Math.cos(th2);
+                this.C2 = [Math.abs(R2)*n2x, Math.abs(R2)*n2y, L - R2*n2z];
             }
 
-            intersect_surface(P, v, surface) {
-                let C = surface.C;
-                let R = surface.R;
-
+            intersect_sphere(P, v, C, R) {
                 let Delta = vSub(P, C);
                 let b = vDot(v, Delta);
                 let c = vDot(Delta, Delta) - R*R;
                 let discriminant = b*b - c;
-
                 if (discriminant < 0) return null;
-
                 let t1 = -b - Math.sqrt(discriminant);
                 let t2 = -b + Math.sqrt(discriminant);
-
                 let eps = 1e-9;
                 let valid_ts = [t1, t2].filter(t => t > eps);
-
                 if (valid_ts.length === 0) return null;
-
                 let t = Math.min(...valid_ts);
                 let P_int = vAdd(P, vScale(v, t));
                 let normal = vScale(vSub(C, P_int), 1/R);
-                let aperture_distance = Math.sqrt(
-                    Math.pow(P_int[0] - surface.vertex[0], 2) +
-                    Math.pow(P_int[1] - surface.vertex[1], 2)
-                );
-                return {
-                    P_int,
-                    normal,
-                    t,
-                    surface,
-                    aperture_distance,
-                    accepted: aperture_distance <= surface.aperture_radius
-                };
+                return {t, P_int, normal};
             }
 
             intersect_mirror(P, v, mirror_num) {
-                let surfaces = mirror_num === 1 ? this.m1_segments : [this.m2];
-                let candidates = surfaces
-                    .map(surface => this.intersect_surface(P, v, surface))
-                    .filter(Boolean)
-                    .sort((a, b) => a.t - b.t);
+                if (mirror_num === 1) {
+                    let hitL = this.intersect_sphere(P, v, this.C1L, this.R1);
+                    let hitR = this.intersect_sphere(P, v, this.C1R, this.R1);
+                    
+                    let valid_hits = [];
+                    if (hitL) { hitL.mirror = 'L'; valid_hits.push(hitL); }
+                    if (hitR) { hitR.mirror = 'R'; valid_hits.push(hitR); }
 
-                let accepted = candidates.find(hit => hit.accepted);
-                if (accepted) return accepted;
+                    if (valid_hits.length === 0) return {P_int: null, normal: null, reason: 'missed_sphere'};
 
-                let miss = candidates[0] || null;
-                return {
-                    P_int: null,
-                    normal: null,
-                    missPoint: miss ? miss.P_int : null,
-                    missSurface: miss ? miss.surface : null,
-                    reason: miss ? 'aperture_miss' : 'no_intersection'
-                };
-            }
+                    valid_hits.sort((a, b) => a.t - b.t);
 
-            is_free_aperture_point(P) {
-                return Math.abs(P[0] - this.split_center[0]) <= this.split_gap / 2 &&
-                    Math.abs(P[1] - this.split_center[1]) <= this.m1_radius;
+                    for (let hit of valid_hits) {
+                        let px = hit.P_int[0];
+                        let py = hit.P_int[1];
+                        let dx, dy = py;
+
+                        if (hit.mirror === 'L') {
+                            if (px > -this.gap/2) { hit.reason = 'gap'; continue; }
+                            dx = px + this.gap/2;
+                        } else {
+                            if (px < this.gap/2) { hit.reason = 'gap'; continue; }
+                            dx = px - this.gap/2;
+                        }
+
+                        if ((dx*dx + dy*dy) > Math.pow(this.D/2, 2)) {
+                            hit.reason = 'outside_diameter';
+                            continue;
+                        }
+
+                        return hit; // First geometrically valid hit
+                    }
+
+                    // Store intersection coords before rejecting to plot exit points
+                    return {P_int: null, normal: null, reason: valid_hits[0].reason, escape_P: valid_hits[0].P_int};
+
+                } else {
+                    let hit = this.intersect_sphere(P, v, this.C2, this.R2);
+                    if (!hit) return {P_int: null, normal: null, reason: 'missed_sphere'};
+
+                    if ((hit.P_int[0]*hit.P_int[0] + hit.P_int[1]*hit.P_int[1]) > Math.pow(this.D/2, 2)) {
+                        return {P_int: null, normal: null, reason: 'outside_diameter', escape_P: hit.P_int};
+                    }
+                    return hit;
+                }
             }
 
             trace_rays(P0, v0, u1_0, u2_0, max_passes=150) {
@@ -906,7 +881,6 @@
                 let mirror_hits = {1: []};
                 let center_hits = [];
                 let m2_hits = [];
-                let exit_hit = null;
                 
                 let P = P0;
                 let v = vNormalize(v0);
@@ -920,11 +894,12 @@
                 const reflect = (vec, n) => vSub(vec, vScale(n, 2 * vDot(vec, n)));
 
                 for (bounce = 0; bounce < max_passes; bounce++) {
-                    let hit = this.intersect_mirror(P, v, target_mirror);
-                    let {P_int, normal} = hit;
+                    let intersection = this.intersect_mirror(P, v, target_mirror);
+                    let P_int = intersection.P_int;
+                    let normal = intersection.normal;
                     
                     let t_center = (this.L / 2 - P[2]) / v[2];
-                    let t_mirror = P_int ? vNorm(vSub(P_int, P)) : Infinity;
+                    let t_mirror = P_int ? intersection.t : Infinity;
                     
                     if (t_center > 0 && t_center < t_mirror) {
                         let P_center = vAdd(P, vScale(v, t_center));
@@ -932,26 +907,27 @@
                     }
 
                     if (!P_int) {
-                        if (hit.missPoint) {
-                            points.push(hit.missPoint);
-                            exit_hit = { P: hit.missPoint, mirror: target_mirror, reason: hit.reason };
-                            if (target_mirror === 1 && this.is_free_aperture_point(hit.missPoint)) {
-                                exit_status = `Exited free aperture pass ${bounce+1}`;
-                            } else if (target_mirror === 1) {
-                                exit_status = `Missed split input mirrors pass ${bounce+1}`;
-                            } else {
-                                exit_status = `Missed back mirror aperture pass ${bounce+1}`;
+                        if (intersection.reason === 'gap' && intersection.escape_P) {
+                            exit_status = `Exited pass ${bounce+1} (Through M1 Gap)`;
+                            if (target_mirror === 1) {
+                                mirror_hits[1].push({ P: intersection.escape_P, u1: [...u1], u2: [...u2], is_exit: true });
                             }
+                        } else if (intersection.reason === 'outside_diameter' && intersection.escape_P) {
+                            exit_status = `Escaped pass ${bounce+1} (Outside M${target_mirror} Diameter)`;
+                            if (target_mirror === 1) mirror_hits[1].push({ P: intersection.escape_P, u1: [...u1], u2: [...u2], is_exit: true });
+                            else m2_hits.push({ P: intersection.escape_P, u1: [...u1], u2: [...u2], is_exit: true });
                         } else {
-                            exit_status = `Escaped cell at pass ${bounce}`;
+                            exit_status = `Escaped cell pass ${bounce+1} (Missed M${target_mirror})`;
                         }
+                        // Also append the theoretical collision point to 3D plot to show escape
+                        if (intersection.escape_P) points.push(intersection.escape_P);
                         break;
                     }
                     
                     points.push(P_int);
                     
                     if (target_mirror === 1) {
-                        mirror_hits[1].push({ P: [...P_int], u1: [...u1], u2: [...u2], segment: hit.surface.id, segmentLabel: hit.surface.label });
+                        mirror_hits[1].push({ P: [...P_int], u1: [...u1], u2: [...u2] });
                     } else {
                         m2_hits.push({ P: [...P_int], u1: [...u1], u2: [...u2] });
                     }
@@ -965,7 +941,7 @@
                 }
 
                 mirror_hits[2] = m2_hits;
-                return {points, mirror_hits, center_hits, exit_status, total_bounces: bounce, exit_hit};
+                return {points, mirror_hits, center_hits, exit_status, total_bounces: bounce};
             }
         }
 
@@ -1154,7 +1130,7 @@
             
             const downloadNode = document.createElement('a');
             downloadNode.href = url;
-            downloadNode.download = "herriott_config.json";
+            downloadNode.download = "herriott_split_config.json";
             document.body.appendChild(downloadNode);
             downloadNode.click();
             
@@ -1236,11 +1212,11 @@
             let k = parseInt(document.getElementById('num-k').value); 
             let r0 = parseFloat(document.getElementById('num-r0').value);
             let lambda_mm = parseFloat(document.getElementById('num-lambda').value) * 1e-6;
-            let split_gap = parseFloat(document.getElementById('num-split_gap').value);
-            let m1_diameter = parseFloat(document.getElementById('num-m1_dia').value);
-            let m2_diameter = parseFloat(document.getElementById('num-m2_dia').value);
-            let split_angle = parseFloat(document.getElementById('num-split_angle').value) * 1e-3;
             
+            let diam = parseFloat(document.getElementById('num-diam').value);
+            let gap = parseFloat(document.getElementById('num-gap').value);
+            let split_ang = parseFloat(document.getElementById('num-split_ang').value) * 1e-3;
+
             let peak_power = parseFloat(document.getElementById('num-peak_power').value);
             let pulse_energy = parseFloat(document.getElementById('num-pulse_energy').value);
 
@@ -1365,14 +1341,13 @@
             let x_in, y_in, thx_in, thy_in;
 
             if (isAutoInjection) {
-                x_in = r0;
-                y_in = 0.0;
+                // Shoot straight through the vertical gap
+                x_in = 0.0;
+                y_in = r0;
                 
-                let M_arrive_00 = 1 - 2 * L / R2;
                 let M_arrive_01 = 2 * L * g2;
-                
-                thx_in = r0 * (Math.cos(theta_rt) - M_arrive_00) / M_arrive_01 * 1000;
-                thy_in = r0 * Math.sin(theta_rt) / M_arrive_01 * 1000;
+                thx_in = r0 * Math.sin(theta_rt) / M_arrive_01 * 1000;
+                thy_in = 0.0;
 
                 document.getElementById('num-x').value = x_in.toFixed(2);
                 document.getElementById('param-x').value = x_in.toFixed(2);
@@ -1389,13 +1364,10 @@
                 thy_in = parseFloat(document.getElementById('num-thy').value);
             }
 
-            let split_center = [x_in, y_in];
-            let cell = new HerriottCell(L, R1, R2, split_center, split_gap, m1_diameter, m2_diameter, split_angle, m1_tilt, m2_tilt);
+            let cell = new HerriottCell(L, R1, R2, diam, gap, split_ang, m1_tilt, m2_tilt);
 
-            let px_init = x_in;
-            let py_init = y_in;
-            let P0 = [px_init, py_init, 0];
-            
+            // Starting point is precisely z=0
+            let P0 = [x_in, y_in, 0.0];
             let v0 = vNormalize([thx_in * 1e-3, thy_in * 1e-3, 1.0]);
 
             let ref_x = [1, 0, 0];
@@ -1415,12 +1387,12 @@
             renderWaistPlot({x: abcd_x, y: abcd_y}, N, L, modeTitle);
             
             let doImages = document.getElementById('show-beam-profiles').checked;
-            renderRayPlots(res.points, res.mirror_hits, res.center_hits, L, r0, res.exit_hit, res.exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy);
+            renderRayPlots(res.points, res.mirror_hits, res.center_hits, L, r0, cell, res.exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, peak_power, pulse_energy);
             
             let statusEl = document.getElementById('status-msg');
             statusEl.textContent = res.exit_status;
-            if(res.exit_status.includes("free aperture")) statusEl.className = "font-semibold text-green-600 text-xs text-right";
-            else if(res.exit_status.includes("Missed") || res.exit_status.includes("Escaped")) statusEl.className = "font-semibold text-red-600 text-xs text-right";
+            if(res.exit_status.includes("Through M1 Gap")) statusEl.className = "font-semibold text-green-600 text-xs text-right";
+            else if(res.exit_status.includes("Escaped")) statusEl.className = "font-semibold text-red-600 text-xs text-right";
             else statusEl.className = "font-semibold text-amber-600 text-xs text-right";
         }
 
@@ -1454,7 +1426,7 @@
             Plotly.react('plotWaist', traces, layout, {responsive: true});
         }
 
-        function renderRayPlots(points, hits, center_hits, L, r0, exit_hit, exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy) {
+        function renderRayPlots(points, hits, center_hits, L, r0, cell, exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, peak_power, pulse_energy) {
             let x3 = points.map(p => p[2]); 
             let y3 = points.map(p => p[0]);
             let z3 = points.map(p => p[1]);
@@ -1464,10 +1436,7 @@
             let trace3D_start = { type: 'scatter3d', mode: 'markers', x: [x3[0]], y: [y3[0]], z: [z3[0]], marker: { color: 'green', size: 6 } };
             let trace3D_end = { type: 'scatter3d', mode: 'markers', x: [x3[x3.length-1]], y: [y3[y3.length-1]], z: [z3[z3.length-1]], marker: { color: 'red', size: 6 } };
 
-            let pointExtent = Math.max(1, ...points.flatMap(p => [Math.abs(p[0]), Math.abs(p[1])]));
-            let m1Extent = Math.max(...cell.m1_segments.flatMap(seg => [Math.abs(seg.vertex[0]) + seg.aperture_radius, Math.abs(seg.vertex[1]) + seg.aperture_radius]));
-            let m2Extent = cell.m2.aperture_radius;
-            let limit = Math.max(r0 * 1.5, pointExtent * 1.15 + 2, m1Extent * 1.05, m2Extent * 1.05, 10);
+            let limit = Math.max(r0 * 1.5, cell.D/2 * 1.2);
             let currentCamera = { eye: {x: 1.5, y: -1.5, z: 0.5} };
             let plot3dDiv = document.getElementById('plot3d');
             if (plot3dDiv._fullLayout && plot3dDiv._fullLayout.scene && plot3dDiv._fullLayout.scene.camera) currentCamera = JSON.parse(JSON.stringify(plot3dDiv._fullLayout.scene.camera));
@@ -1494,21 +1463,10 @@
                 yaxis: { title: 'Y [mm]', range: [-limit, limit], zeroline: false, scaleanchor: 'x', scaleratio: 1 }
             };
 
-            const includePointInRange = (layout, P, pad=5) => {
-                if (!P) return;
-                let maxExt = Math.max(Math.abs(P[0]), Math.abs(P[1])) + pad;
-                let current = Math.max(Math.abs(layout.xaxis.range[0]), Math.abs(layout.xaxis.range[1]), Math.abs(layout.yaxis.range[0]), Math.abs(layout.yaxis.range[1]));
-                if (maxExt > current) {
-                    layout.xaxis.range = [-maxExt, maxExt];
-                    layout.yaxis.range = [-maxExt, maxExt];
-                }
-            };
-
             const build2DPlot = (divId, title, hitsData, getWIndex, isCenter, mirrorNum) => {
                 let layout = JSON.parse(JSON.stringify(layout2D_base));
                 layout.shapes = [];
                 layout.images = [];
-                layout.annotations = [];
                 
                 let px = [], py = [], pt = [], pp = [], ph = [], pc = [];
                 let polX = [], polY = [];
@@ -1519,69 +1477,29 @@
                 let minF = Infinity, maxF = -Infinity;
 
                 if (mirrorNum === 1) {
-                    let gapX0 = cell.split_center[0] - cell.split_gap / 2;
-                    let gapX1 = cell.split_center[0] + cell.split_gap / 2;
+                    let g2 = cell.gap / 2;
+                    let r = cell.D / 2;
+                    // M1 Left mirror Half
                     layout.shapes.push({
-                        type: 'rect', x0: gapX0, y0: cell.split_center[1] - cell.m1_radius,
-                        x1: gapX1, y1: cell.split_center[1] + cell.m1_radius,
-                        line: { color: '#16a34a', width: 1.5, dash: 'dot' },
-                        fillcolor: 'rgba(22, 163, 74, 0.08)', layer: 'below'
+                        type: 'path', path: `M ${-g2} ${r} A ${r} ${r} 0 0 0 ${-g2} ${-r} Z`,
+                        line: { color: '#94a3b8', width: 2 }, fillcolor: 'rgba(241, 245, 249, 0.5)', layer: 'below'
                     });
-                    cell.m1_segments.forEach(seg => {
-                        layout.shapes.push({
-                            type: 'circle',
-                            x0: seg.vertex[0] - seg.aperture_radius,
-                            y0: seg.vertex[1] - seg.aperture_radius,
-                            x1: seg.vertex[0] + seg.aperture_radius,
-                            y1: seg.vertex[1] + seg.aperture_radius,
-                            line: { color: '#4f46e5', width: 2 },
-                            fillcolor: 'rgba(79, 70, 229, 0.03)',
-                            layer: 'below'
-                        });
-                        layout.annotations.push({
-                            x: seg.vertex[0],
-                            y: seg.vertex[1] + seg.aperture_radius * 0.75,
-                            text: `D=${cell.m1_diameter.toFixed(1)} mm`,
-                            showarrow: false,
-                            font: { size: 10, color: '#4f46e5' }
-                        });
+                    // M1 Right mirror Half
+                    layout.shapes.push({
+                        type: 'path', path: `M ${g2} ${r} A ${r} ${r} 0 0 1 ${g2} ${-r} Z`,
+                        line: { color: '#94a3b8', width: 2 }, fillcolor: 'rgba(241, 245, 249, 0.5)', layer: 'below'
                     });
-                    layout.annotations.push({
-                        x: cell.split_center[0],
-                        y: cell.split_center[1] - cell.m1_radius * 0.75,
-                        text: `gap=${cell.split_gap.toFixed(1)} mm`,
-                        showarrow: false,
-                        font: { size: 10, color: '#16a34a' }
-                    });
-                    let xExtent = Math.max(...cell.m1_segments.map(seg => Math.abs(seg.vertex[0]) + seg.aperture_radius), Math.abs(cell.split_center[0]) + cell.split_gap / 2);
-                    let yExtent = Math.max(...cell.m1_segments.map(seg => Math.abs(seg.vertex[1]) + seg.aperture_radius), Math.abs(cell.split_center[1]) + cell.m1_radius);
-                    let mirrorLimit = Math.max(xExtent, yExtent) * 1.08 + 2;
-                    layout.xaxis.range = [-mirrorLimit, mirrorLimit];
-                    layout.yaxis.range = [-mirrorLimit, mirrorLimit];
                 } else if (mirrorNum === 2) {
-                    layout.shapes.push({
-                        type: 'circle',
-                        x0: cell.m2.vertex[0] - cell.m2.aperture_radius,
-                        y0: cell.m2.vertex[1] - cell.m2.aperture_radius,
-                        x1: cell.m2.vertex[0] + cell.m2.aperture_radius,
-                        y1: cell.m2.vertex[1] + cell.m2.aperture_radius,
-                        line: { color: '#4f46e5', width: 2 },
-                        fillcolor: 'rgba(79, 70, 229, 0.03)',
-                        layer: 'below'
+                    layout.shapes.push({ 
+                        type: 'circle', x0: -cell.D/2, y0: -cell.D/2, x1: cell.D/2, y1: cell.D/2, 
+                        line: { color: '#94a3b8', width: 2 }, fillcolor: 'rgba(241, 245, 249, 0.5)', layer: 'below'
                     });
-                    layout.annotations.push({
-                        x: cell.m2.vertex[0],
-                        y: cell.m2.vertex[1] + cell.m2.aperture_radius * 0.75,
-                        text: `D=${cell.m2_diameter.toFixed(1)} mm`,
-                        showarrow: false,
-                        font: { size: 10, color: '#4f46e5' }
-                    });
-                    let mirrorLimit = cell.m2.aperture_radius * 1.15 + 2;
-                    layout.xaxis.range = [-mirrorLimit, mirrorLimit];
-                    layout.yaxis.range = [-mirrorLimit, mirrorLimit];
                 }
 
-                hitsData.forEach((hit, i) => {
+                let normalHits = hitsData.filter(h => !h.is_exit);
+                let exitHits = hitsData.filter(h => h.is_exit);
+
+                normalHits.forEach((hit, i) => {
                     let w_idx = getWIndex(i);
                     let wx = wx_arr[w_idx] || wx_arr[wx_arr.length-1];
                     let wy = wy_arr[w_idx] || wy_arr[wy_arr.length-1];
@@ -1597,8 +1515,7 @@
 
                     px.push(hit.P[0]); py.push(hit.P[1]);
                     
-                    let text = isCenter ? String(i + 1) : String(getWIndex(i));
-
+                    let text = isCenter ? String(i + 1) : String(w_idx);
                     pt.push(text);
                     pp.push(getRadialTextPosition(hit.P[0], hit.P[1]));
                     
@@ -1606,9 +1523,8 @@
                     while (hoverAng <= -90) hoverAng += 180;
                     while (hoverAng > 90) hoverAng -= 180;
 
-                    let segmentText = hit.segmentLabel ? `<br>Segment: ${hit.segmentLabel}` : '';
-                    ph.push(`Hit: ${text}${segmentText}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
-                    pc.push(getWIndex(i));
+                    ph.push(`Hit: ${text}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
+                    pc.push(w_idx);
 
                     let w_max = Math.max(wx, wy);
 
@@ -1618,25 +1534,25 @@
                             source: img.url, xref: 'x', yref: 'y',
                             x: hit.P[0], y: hit.P[1],
                             sizex: img.box_size, sizey: img.box_size,
-                            xanchor: 'center', yanchor: 'middle', layer: 'below'
+                            xanchor: 'center', yanchor: 'middle', layer: 'above'
                         });
                         
                         let vec_len = w_max * 1.5;
                         polX.push(hit.P[0] - vec_len * hit.u1[0], hit.P[0] + vec_len * hit.u1[0], null);
                         polY.push(hit.P[1] - vec_len * hit.u1[1], hit.P[1] + vec_len * hit.u1[1], null);
                     } else {
-                        layout.shapes.push({ type: 'circle', x0: hit.P[0]-w_max, y0: hit.P[1]-w_max, x1: hit.P[0]+w_max, y1: hit.P[1]+w_max, line: { color: 'rgba(217, 70, 239, 0.6)', width: 1.5 }, fillcolor: 'rgba(217, 70, 239, 0.15)'});
+                        layout.shapes.push({ type: 'circle', x0: hit.P[0]-w_max, y0: hit.P[1]-w_max, x1: hit.P[0]+w_max, y1: hit.P[1]+w_max, line: { color: 'rgba(217, 70, 239, 0.6)', width: 1.5 }, fillcolor: 'rgba(217, 70, 239, 0.15)', layer: 'above'});
                     }
                 });
 
-                if (hitsData.length === 0) { minI = maxI = minF = maxF = 0; }
+                if (normalHits.length === 0) { minI = maxI = minF = maxF = 0; }
                 if (!isFinite(minI)) minI = 0; if (!isFinite(maxI)) maxI = 0;
                 if (!isFinite(minF)) minF = 0; if (!isFinite(maxF)) maxF = 0;
 
                 let statsHtml = `<br><span style="font-size:11px; color:#64748b; font-weight:normal;">Fluence: ${minF.toFixed(2)} - ${maxF.toFixed(2)} mJ/cm² | Intensity: ${minI.toFixed(2)} - ${maxI.toFixed(2)} GW/cm²</span>`;
                 layout.title = { text: title + statsHtml, font: {size: 13, color: '#334155'}, y: 0.95 };
 
-                if(isCenter && hitsData.length > 0) {
+                if(isCenter && normalHits.length > 0) {
                     let max_ext = Math.max(...px.map(Math.abs), ...py.map(Math.abs)) * 1.2 + 2;
                     layout.xaxis.range = [-max_ext, max_ext];
                     layout.yaxis.range = [-max_ext, max_ext];
@@ -1645,6 +1561,7 @@
                 let traces = [];
                 traces.push({ x: px, y: py, mode: 'markers+text', type: 'scatter', text: pt, textposition: pp, hovertext: ph, hoverinfo: 'text', textfont: { size: 10, color: '#475569' }, marker: { color: pc, colorscale: 'Viridis', size: 8, line: {color: 'white', width: 1} } });
                 
+                // Entrance Spot
                 if(mirrorNum === 1) {
                     let w0x = wx_arr[0], w0y = wy_arr[0];
                     let hoverAng0 = Math.atan2(u1_0[1], u1_0[0]) * 180 / Math.PI;
@@ -1658,25 +1575,21 @@
                     
                     if(doImages) {
                         let img = generateSpotDataURL(w0x, w0y, u1_0, u2_0, modeConfig, 60);
-                        layout.images.push({ source: img.url, xref: 'x', yref: 'y', x: startPoint[0], y: startPoint[1], sizex: img.box_size, sizey: img.box_size, xanchor: 'center', yanchor: 'middle', layer: 'below' });
+                        layout.images.push({ source: img.url, xref: 'x', yref: 'y', x: startPoint[0], y: startPoint[1], sizex: img.box_size, sizey: img.box_size, xanchor: 'center', yanchor: 'middle', layer: 'above' });
                         let vlen = w_max * 1.5;
                         polX.push(startPoint[0] - vlen * u1_0[0], startPoint[0] + vlen * u1_0[0], null); 
                         polY.push(startPoint[1] - vlen * u1_0[1], startPoint[1] + vlen * u1_0[1], null);
                     }
                 }
 
-                if(!isCenter && exit_hit && exit_hit.mirror === mirrorNum) {
-                    includePointInRange(layout, exit_hit.P);
-                    let exitLabel = mirrorNum === 1 ? '<b>Exit</b>' : '<b>Miss</b>';
+                // Exits
+                if (exitHits.length > 0) {
+                    let e_px = exitHits.map(h => h.P[0]);
+                    let e_py = exitHits.map(h => h.P[1]);
+                    let e_ph = exitHits.map(h => `Escaped<br>X: ${h.P[0].toFixed(2)}<br>Y: ${h.P[1].toFixed(2)}`);
                     traces.push({
-                        x: [exit_hit.P[0]],
-                        y: [exit_hit.P[1]],
-                        mode: 'markers+text',
-                        type: 'scatter',
-                        text: [exitLabel],
-                        textposition: getRadialTextPosition(exit_hit.P[0], exit_hit.P[1]),
-                        hovertext: [`${mirrorNum === 1 ? 'Free aperture / split mirror miss' : 'Back mirror aperture miss'}<br>X: ${exit_hit.P[0].toFixed(2)}<br>Y: ${exit_hit.P[1].toFixed(2)}`],
-                        hoverinfo: 'text',
+                        x: e_px, y: e_py, mode: 'markers+text', type: 'scatter', text: ['<b>Out</b>'],
+                        textposition: 'top center', hovertext: e_ph, hoverinfo: 'text',
                         textfont: { size: 11, color: '#ef4444' },
                         marker: { color: '#ef4444', size: 10, symbol: 'x' }
                     });
@@ -1689,7 +1602,7 @@
                 Plotly.react(divId, traces, layout, {responsive: true});
             };
 
-            build2DPlot('plotM1', 'Split Input Mirrors (z=0)', hits[1] || [], (i) => 2*i + 2, false, 1);
+            build2DPlot('plotM1', 'Mirror 1 Spots (z=0)', hits[1] || [], (i) => 2*i + 2, false, 1);
             build2DPlot('plotCenter', 'Center Spots (z=L/2)', center_hits, (i) => i, true, 0);
             build2DPlot('plotM2', 'Mirror 2 Spots (z=L)', hits[2] || [], (i) => 2*i + 1, false, 2);
         }
