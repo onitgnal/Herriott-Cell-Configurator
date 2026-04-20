@@ -151,50 +151,56 @@
                         <input type="range" id="param-r0" min="5" max="50" step="0.5" value="15.0" class="w-full accent-indigo-600">
                     </div>
 
-                    <!-- Output Hole Geometry -->
+                    <!-- Split Input Mirror Geometry -->
                     <div class="border-t border-slate-200 mt-2 pt-2">
                         <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs font-bold text-slate-800">Output Hole</span>
-                            <label class="text-[10px] font-semibold text-slate-700 flex items-center gap-1 cursor-pointer" title="Auto-place output hole exactly at input coordinates">
-                                <input type="checkbox" id="auto-out-hole" checked class="accent-indigo-600 w-3 h-3">
-                                Auto (Same as Input)
-                            </label>
+                            <span class="text-xs font-bold text-slate-800">Split Input Mirrors</span>
                         </div>
-                        <div id="group-out-hole" class="opacity-50 pointer-events-none transition-opacity flex flex-col gap-2">
-                            <div class="flex justify-between items-center">
-                                <label class="block text-[10px] font-semibold text-slate-500">Mirror:</label>
-                                <select id="out-mirror" class="w-24 border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5 focus:outline-none">
-                                    <option value="1">Mirror 1</option>
-                                    <option value="2">Mirror 2</option>
-                                </select>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-700" title="Clear gap between the two input mirror inner edges">Free Aperture (g):</label>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="num-split_gap" value="2.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                        <span class="text-[10px] text-slate-500 w-4">mm</span>
+                                    </div>
+                                </div>
+                                <input type="range" id="param-split_gap" min="0" max="30" step="0.1" value="2.0" class="w-full accent-indigo-600">
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <div class="flex justify-between items-center mb-1">
-                                        <label class="block text-[10px] font-semibold text-slate-500">X (mm):</label>
-                                        <input type="number" id="num-out_hole_x" value="15.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-700" title="Diameter of each split input mirror">Input Mirror D:</label>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="num-m1_dia" value="60.0" step="0.5" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                        <span class="text-[10px] text-slate-500 w-4">mm</span>
                                     </div>
-                                    <input type="range" id="param-out_hole_x" min="-50" max="50" step="0.1" value="15.0" class="w-full accent-indigo-600">
                                 </div>
-                                <div>
-                                    <div class="flex justify-between items-center mb-1">
-                                        <label class="block text-[10px] font-semibold text-slate-500">Y (mm):</label>
-                                        <input type="number" id="num-out_hole_y" value="0.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
-                                    </div>
-                                    <input type="range" id="param-out_hole_y" min="-50" max="50" step="0.1" value="0.0" class="w-full accent-indigo-600">
-                                </div>
+                                <input type="range" id="param-m1_dia" min="5" max="200" step="0.5" value="60.0" class="w-full accent-indigo-600">
                             </div>
                         </div>
-                        
-                        <div class="mt-2 border-t border-slate-100 pt-2">
+                        <div class="grid grid-cols-2 gap-4 mt-2">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-700" title="Diameter of mirror 2">Back Mirror D:</label>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="num-m2_dia" value="160.0" step="0.5" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                        <span class="text-[10px] text-slate-500 w-4">mm</span>
+                                    </div>
+                                </div>
+                                <input type="range" id="param-m2_dia" min="5" max="300" step="0.5" value="160.0" class="w-full accent-indigo-600">
+                            </div>
                             <div class="flex justify-between items-center mb-1">
-                                <label class="block text-[11px] font-semibold text-slate-700">Hole Aperture (r_h):</label>
-                                <div class="flex items-center gap-1">
-                                    <input type="number" id="num-hole_r" value="1.5" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
-                                    <span class="text-[10px] text-slate-500 w-4">mm</span>
+                                <div class="w-full">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-700" title="Relative horizontal angle between the split input mirrors">Rel. Angle X (Δθ):</label>
+                                        <div class="flex items-center gap-1">
+                                            <input type="number" id="num-split_angle" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                            <span class="text-[10px] text-slate-500 w-6">mrad</span>
+                                        </div>
+                                    </div>
+                                    <input type="range" id="param-split_angle" min="-20" max="20" step="0.1" value="0.0" class="w-full accent-indigo-600">
                                 </div>
                             </div>
-                            <input type="range" id="param-hole_r" min="0" max="10" step="0.1" value="1.5" class="w-full accent-indigo-600">
                         </div>
                     </div>
 
@@ -418,7 +424,7 @@
                     <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </summary>
                 <div class="p-4 space-y-4">
-                    <p class="text-xs text-slate-500 font-semibold mb-2">Mirror 1 (Entrance)</p>
+                    <p class="text-xs text-slate-500 font-semibold mb-2">Split Input Mirrors (Common Tilt)</p>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="flex justify-between items-center mb-1">
@@ -749,8 +755,8 @@
         const paramConfig = [
             { id: 'L', type: 'float' }, { id: 'n', type: 'int' }, { id: 'k', type: 'int' },
             { id: 'R', type: 'float' }, { id: 'R1', type: 'float' }, { id: 'R2', type: 'float' },
-            { id: 'r0', type: 'float' }, { id: 'hole_r', type: 'float' },
-            { id: 'out_hole_x', type: 'float' }, { id: 'out_hole_y', type: 'float' },
+            { id: 'r0', type: 'float' }, { id: 'split_gap', type: 'float' },
+            { id: 'm1_dia', type: 'float' }, { id: 'm2_dia', type: 'float' }, { id: 'split_angle', type: 'float' },
             { id: 'lambda', type: 'float' }, { id: 'M2', type: 'float' },
             { id: 'peak_power', type: 'float' }, { id: 'pulse_energy', type: 'float' },
             { id: 'hgn', type: 'int' }, { id: 'hgm', type: 'int' },
@@ -763,7 +769,7 @@
             { id: 'm2tx', type: 'float' }, { id: 'm2ty', type: 'float' }
         ];
         
-        let standardConfig = { cellType: 'cav-cav', autoR: true, autoRVex: true, autoOutHole: true, outMirror: "1", autoModeMatch: true, autoInjection: true, modeType: 'tem00', showBeamProfiles: true };
+        let standardConfig = { cellType: 'cav-cav', autoR: true, autoRVex: true, autoModeMatch: true, autoInjection: true, modeType: 'tem00', showBeamProfiles: true };
         let simulationTimeout = null;
 
         function updateModeUI() {
@@ -785,41 +791,65 @@
         }
 
         // --- Herriott Cell Logic ---
+        function tiltedSphereCenter(vertex, R, tilt, side) {
+            let tx = tilt[0], ty = tilt[1];
+            let th = Math.sqrt(tx*tx + ty*ty);
+            let absR = Math.abs(R);
+            let sx = th > 1e-9 ? absR * Math.sin(th) * (tx / th) : 0;
+            let sy = th > 1e-9 ? absR * Math.sin(th) * (ty / th) : 0;
+            let sz = side === 1 ? R * Math.cos(th) : -R * Math.cos(th);
+            return [vertex[0] + sx, vertex[1] + sy, vertex[2] + sz];
+        }
+
         class HerriottCell {
-            constructor(L, R1, R2, in_hole, out_hole, out_mirror, hole_radius, m1_tilt, m2_tilt) {
+            constructor(L, R1, R2, split_center, split_gap, m1_diameter, m2_diameter, split_angle, m1_tilt, m2_tilt) {
                 this.L = L; this.R1 = R1; this.R2 = R2;
-                this.in_hole = in_hole;
-                this.out_hole = out_hole;
-                this.out_mirror = out_mirror;
-                this.hole_radius = hole_radius;
-                
-                let t1x = m1_tilt[0] * Math.abs(R1); let t1y = m1_tilt[1] * Math.abs(R1);
-                let th1 = Math.sqrt(t1x*t1x + t1y*t1y) / Math.abs(R1);
-                this.C1 = [
-                    th1 > 1e-9 ? Math.abs(R1) * Math.sin(th1) * (t1x / (th1*Math.abs(R1))) : 0,
-                    th1 > 1e-9 ? Math.abs(R1) * Math.sin(th1) * (t1y / (th1*Math.abs(R1))) : 0,
-                    R1 * Math.cos(th1)
+                this.split_center = split_center;
+                this.split_gap = Math.max(0, split_gap);
+                this.m1_diameter = Math.max(0.1, m1_diameter);
+                this.m2_diameter = Math.max(0.1, m2_diameter);
+                this.m1_radius = this.m1_diameter / 2;
+                this.m2_radius = this.m2_diameter / 2;
+                this.split_angle = split_angle;
+
+                let segmentOffset = this.split_gap / 2 + this.m1_radius;
+                let leftVertex = [split_center[0] - segmentOffset, split_center[1], 0];
+                let rightVertex = [split_center[0] + segmentOffset, split_center[1], 0];
+                let leftTilt = [m1_tilt[0] - split_angle / 2, m1_tilt[1]];
+                let rightTilt = [m1_tilt[0] + split_angle / 2, m1_tilt[1]];
+
+                this.m1_segments = [
+                    { id: 'left', label: 'Left input mirror', vertex: leftVertex, R: R1, aperture_radius: this.m1_radius, C: tiltedSphereCenter(leftVertex, R1, leftTilt, 1) },
+                    { id: 'right', label: 'Right input mirror', vertex: rightVertex, R: R1, aperture_radius: this.m1_radius, C: tiltedSphereCenter(rightVertex, R1, rightTilt, 1) }
                 ];
 
-                let t2x = m2_tilt[0] * Math.abs(R2); let t2y = m2_tilt[1] * Math.abs(R2);
-                let th2 = Math.sqrt(t2x*t2x + t2y*t2y) / Math.abs(R2);
-                this.C2 = [
-                    th2 > 1e-9 ? Math.abs(R2) * Math.sin(th2) * (t2x / (th2*Math.abs(R2))) : 0,
-                    th2 > 1e-9 ? Math.abs(R2) * Math.sin(th2) * (t2y / (th2*Math.abs(R2))) : 0,
-                    L - R2 * Math.cos(th2)
+                this.m2 = {
+                    id: 'back',
+                    label: 'Back mirror',
+                    vertex: [0, 0, L],
+                    R: R2,
+                    aperture_radius: this.m2_radius
+                };
+                this.m2.C = tiltedSphereCenter(this.m2.vertex, R2, m2_tilt, 2);
+
+                this.C1 = [
+                    (this.m1_segments[0].C[0] + this.m1_segments[1].C[0]) / 2,
+                    (this.m1_segments[0].C[1] + this.m1_segments[1].C[1]) / 2,
+                    (this.m1_segments[0].C[2] + this.m1_segments[1].C[2]) / 2
                 ];
+                this.C2 = this.m2.C;
             }
 
-            intersect_mirror(P, v, mirror_num) {
-                let C = mirror_num === 1 ? this.C1 : this.C2;
-                let R = mirror_num === 1 ? this.R1 : this.R2;
+            intersect_surface(P, v, surface) {
+                let C = surface.C;
+                let R = surface.R;
 
                 let Delta = vSub(P, C);
                 let b = vDot(v, Delta);
                 let c = vDot(Delta, Delta) - R*R;
                 let discriminant = b*b - c;
 
-                if (discriminant < 0) return {P_int: null, normal: null};
+                if (discriminant < 0) return null;
 
                 let t1 = -b - Math.sqrt(discriminant);
                 let t2 = -b + Math.sqrt(discriminant);
@@ -827,12 +857,48 @@
                 let eps = 1e-9;
                 let valid_ts = [t1, t2].filter(t => t > eps);
 
-                if (valid_ts.length === 0) return {P_int: null, normal: null};
+                if (valid_ts.length === 0) return null;
 
                 let t = Math.min(...valid_ts);
                 let P_int = vAdd(P, vScale(v, t));
                 let normal = vScale(vSub(C, P_int), 1/R);
-                return {P_int, normal};
+                let aperture_distance = Math.sqrt(
+                    Math.pow(P_int[0] - surface.vertex[0], 2) +
+                    Math.pow(P_int[1] - surface.vertex[1], 2)
+                );
+                return {
+                    P_int,
+                    normal,
+                    t,
+                    surface,
+                    aperture_distance,
+                    accepted: aperture_distance <= surface.aperture_radius
+                };
+            }
+
+            intersect_mirror(P, v, mirror_num) {
+                let surfaces = mirror_num === 1 ? this.m1_segments : [this.m2];
+                let candidates = surfaces
+                    .map(surface => this.intersect_surface(P, v, surface))
+                    .filter(Boolean)
+                    .sort((a, b) => a.t - b.t);
+
+                let accepted = candidates.find(hit => hit.accepted);
+                if (accepted) return accepted;
+
+                let miss = candidates[0] || null;
+                return {
+                    P_int: null,
+                    normal: null,
+                    missPoint: miss ? miss.P_int : null,
+                    missSurface: miss ? miss.surface : null,
+                    reason: miss ? 'aperture_miss' : 'no_intersection'
+                };
+            }
+
+            is_free_aperture_point(P) {
+                return Math.abs(P[0] - this.split_center[0]) <= this.split_gap / 2 &&
+                    Math.abs(P[1] - this.split_center[1]) <= this.m1_radius;
             }
 
             trace_rays(P0, v0, u1_0, u2_0, max_passes=150) {
@@ -840,6 +906,7 @@
                 let mirror_hits = {1: []};
                 let center_hits = [];
                 let m2_hits = [];
+                let exit_hit = null;
                 
                 let P = P0;
                 let v = vNormalize(v0);
@@ -853,7 +920,8 @@
                 const reflect = (vec, n) => vSub(vec, vScale(n, 2 * vDot(vec, n)));
 
                 for (bounce = 0; bounce < max_passes; bounce++) {
-                    let {P_int, normal} = this.intersect_mirror(P, v, target_mirror);
+                    let hit = this.intersect_mirror(P, v, target_mirror);
+                    let {P_int, normal} = hit;
                     
                     let t_center = (this.L / 2 - P[2]) / v[2];
                     let t_mirror = P_int ? vNorm(vSub(P_int, P)) : Infinity;
@@ -864,44 +932,29 @@
                     }
 
                     if (!P_int) {
-                        exit_status = `Escaped cell at pass ${bounce}`;
+                        if (hit.missPoint) {
+                            points.push(hit.missPoint);
+                            exit_hit = { P: hit.missPoint, mirror: target_mirror, reason: hit.reason };
+                            if (target_mirror === 1 && this.is_free_aperture_point(hit.missPoint)) {
+                                exit_status = `Exited free aperture pass ${bounce+1}`;
+                            } else if (target_mirror === 1) {
+                                exit_status = `Missed split input mirrors pass ${bounce+1}`;
+                            } else {
+                                exit_status = `Missed back mirror aperture pass ${bounce+1}`;
+                            }
+                        } else {
+                            exit_status = `Escaped cell at pass ${bounce}`;
+                        }
                         break;
                     }
                     
                     points.push(P_int);
-                    let escaped = false;
                     
                     if (target_mirror === 1) {
-                        mirror_hits[1].push({ P: [...P_int], u1: [...u1], u2: [...u2] });
-                        
-                        if (this.out_mirror === 1) {
-                            let d_out = Math.sqrt(Math.pow(P_int[0] - this.out_hole[0], 2) + Math.pow(P_int[1] - this.out_hole[1], 2));
-                            if (d_out <= this.hole_radius) {
-                                exit_status = `Exited cleanly pass ${bounce+1} (Out Hole)`;
-                                escaped = true;
-                            }
-                        }
-                        
-                        if (!escaped && bounce > 0) {
-                            let d_in = Math.sqrt(Math.pow(P_int[0] - this.in_hole[0], 2) + Math.pow(P_int[1] - this.in_hole[1], 2));
-                            if (d_in <= this.hole_radius) {
-                                exit_status = `Escaped pass ${bounce+1} (In Hole)`;
-                                escaped = true;
-                            }
-                        }
+                        mirror_hits[1].push({ P: [...P_int], u1: [...u1], u2: [...u2], segment: hit.surface.id, segmentLabel: hit.surface.label });
                     } else {
                         m2_hits.push({ P: [...P_int], u1: [...u1], u2: [...u2] });
-                        
-                        if (this.out_mirror === 2) {
-                            let d_out = Math.sqrt(Math.pow(P_int[0] - this.out_hole[0], 2) + Math.pow(P_int[1] - this.out_hole[1], 2));
-                            if (d_out <= this.hole_radius) {
-                                exit_status = `Exited cleanly pass ${bounce+1} (Out Hole)`;
-                                escaped = true;
-                            }
-                        }
                     }
-
-                    if (escaped) break;
 
                     v = vNormalize(reflect(v, normal));
                     u1 = vNormalize(reflect(u1, normal));
@@ -912,7 +965,7 @@
                 }
 
                 mirror_hits[2] = m2_hits;
-                return {points, mirror_hits, center_hits, exit_status, total_bounces: bounce};
+                return {points, mirror_hits, center_hits, exit_status, total_bounces: bounce, exit_hit};
             }
         }
 
@@ -923,10 +976,6 @@
             const groupR = document.getElementById('group-R');
             const autoRVexCheckbox = document.getElementById('auto-R-vex');
             const groupRVex = document.getElementById('group-R-vex');
-            
-            const autoOutHoleCheckbox = document.getElementById('auto-out-hole');
-            const groupOutHole = document.getElementById('group-out-hole');
-            const outMirrorSelect = document.getElementById('out-mirror');
             
             const autoModeMatchCheckbox = document.getElementById('auto-mode-match');
             const groupBeam = document.getElementById('group-beam');
@@ -956,14 +1005,6 @@
                 else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
                 triggerRun();
             });
-
-            autoOutHoleCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
-                else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
-                triggerRun();
-            });
-
-            outMirrorSelect.addEventListener('change', triggerRun);
 
             autoModeMatchCheckbox.addEventListener('change', (e) => {
                 if (e.target.checked) groupBeam.classList.add('opacity-50', 'pointer-events-none');
@@ -1036,8 +1077,6 @@
             standardConfig['cellType'] = document.getElementById('cell-type').value;
             standardConfig['autoR'] = document.getElementById('auto-R').checked;
             standardConfig['autoRVex'] = document.getElementById('auto-R-vex').checked;
-            standardConfig['autoOutHole'] = document.getElementById('auto-out-hole').checked;
-            standardConfig['outMirror'] = document.getElementById('out-mirror').value;
             standardConfig['autoModeMatch'] = document.getElementById('auto-mode-match').checked;
             standardConfig['autoInjection'] = document.getElementById('auto-injection').checked;
             standardConfig['modeType'] = document.getElementById('mode-type').value;
@@ -1062,13 +1101,6 @@
             const groupRVex = document.getElementById('group-R-vex');
             if (standardConfig['autoRVex']) groupRVex.classList.add('opacity-50', 'pointer-events-none');
             else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
-
-            document.getElementById('auto-out-hole').checked = standardConfig['autoOutHole'];
-            const groupOutHole = document.getElementById('group-out-hole');
-            if (standardConfig['autoOutHole']) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
-            else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
-
-            document.getElementById('out-mirror').value = standardConfig['outMirror'];
 
             document.getElementById('auto-mode-match').checked = standardConfig['autoModeMatch'];
             const groupBeam = document.getElementById('group-beam');
@@ -1111,8 +1143,6 @@
             configToSave['cellType'] = document.getElementById('cell-type').value;
             configToSave['autoR'] = document.getElementById('auto-R').checked;
             configToSave['autoRVex'] = document.getElementById('auto-R-vex').checked;
-            configToSave['autoOutHole'] = document.getElementById('auto-out-hole').checked;
-            configToSave['outMirror'] = document.getElementById('out-mirror').value;
             configToSave['autoModeMatch'] = document.getElementById('auto-mode-match').checked;
             configToSave['autoInjection'] = document.getElementById('auto-injection').checked;
             configToSave['modeType'] = document.getElementById('mode-type').value;
@@ -1148,8 +1178,6 @@
 
                     if (loadedConfig.autoR !== undefined) document.getElementById('auto-R').checked = loadedConfig.autoR;
                     if (loadedConfig.autoRVex !== undefined) document.getElementById('auto-R-vex').checked = loadedConfig.autoRVex;
-                    if (loadedConfig.autoOutHole !== undefined) document.getElementById('auto-out-hole').checked = loadedConfig.autoOutHole;
-                    if (loadedConfig.outMirror !== undefined) document.getElementById('out-mirror').value = loadedConfig.outMirror;
                     if (loadedConfig.autoModeMatch !== undefined) document.getElementById('auto-mode-match').checked = loadedConfig.autoModeMatch;
                     if (loadedConfig.autoInjection !== undefined) document.getElementById('auto-injection').checked = loadedConfig.autoInjection;
                     if (loadedConfig.modeType !== undefined) document.getElementById('mode-type').value = loadedConfig.modeType;
@@ -1162,10 +1190,6 @@
                     const groupRVex = document.getElementById('group-R-vex');
                     if (loadedConfig.autoRVex) groupRVex.classList.add('opacity-50', 'pointer-events-none');
                     else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
-
-                    const groupOutHole = document.getElementById('group-out-hole');
-                    if (loadedConfig.autoOutHole) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
-                    else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
 
                     const groupBeam = document.getElementById('group-beam');
                     if (loadedConfig.autoModeMatch) groupBeam.classList.add('opacity-50', 'pointer-events-none');
@@ -1212,7 +1236,10 @@
             let k = parseInt(document.getElementById('num-k').value); 
             let r0 = parseFloat(document.getElementById('num-r0').value);
             let lambda_mm = parseFloat(document.getElementById('num-lambda').value) * 1e-6;
-            let hole_radius = parseFloat(document.getElementById('num-hole_r').value);
+            let split_gap = parseFloat(document.getElementById('num-split_gap').value);
+            let m1_diameter = parseFloat(document.getElementById('num-m1_dia').value);
+            let m2_diameter = parseFloat(document.getElementById('num-m2_dia').value);
+            let split_angle = parseFloat(document.getElementById('num-split_angle').value) * 1e-3;
             
             let peak_power = parseFloat(document.getElementById('num-peak_power').value);
             let pulse_energy = parseFloat(document.getElementById('num-pulse_energy').value);
@@ -1362,37 +1389,12 @@
                 thy_in = parseFloat(document.getElementById('num-thy').value);
             }
 
-            // Input Hole strictly bound to injection coordinates
-            let in_hole = [x_in, y_in];
-
-            // Output Hole Processing
-            let isAutoOutHole = document.getElementById('auto-out-hole').checked;
-            let out_hole_x, out_hole_y, out_mirror;
-            
-            if (isAutoOutHole) {
-                out_hole_x = x_in;
-                out_hole_y = y_in;
-                out_mirror = 1;
-                
-                document.getElementById('num-out_hole_x').value = out_hole_x.toFixed(2);
-                document.getElementById('param-out_hole_x').value = out_hole_x.toFixed(2);
-                document.getElementById('num-out_hole_y').value = out_hole_y.toFixed(2);
-                document.getElementById('param-out_hole_y').value = out_hole_y.toFixed(2);
-                document.getElementById('out-mirror').value = "1";
-            } else {
-                out_hole_x = parseFloat(document.getElementById('num-out_hole_x').value);
-                out_hole_y = parseFloat(document.getElementById('num-out_hole_y').value);
-                out_mirror = parseInt(document.getElementById('out-mirror').value);
-            }
-            let out_hole = [out_hole_x, out_hole_y];
-
-            let cell = new HerriottCell(L, R1, R2, in_hole, out_hole, out_mirror, hole_radius, m1_tilt, m2_tilt);
+            let split_center = [x_in, y_in];
+            let cell = new HerriottCell(L, R1, R2, split_center, split_gap, m1_diameter, m2_diameter, split_angle, m1_tilt, m2_tilt);
 
             let px_init = x_in;
             let py_init = y_in;
-            let disc_p0 = cell.R1*cell.R1 - Math.pow(px_init - cell.C1[0], 2) - Math.pow(py_init - cell.C1[1], 2);
-            let z0_init = disc_p0 >= 0 ? cell.C1[2] - Math.sign(cell.R1)*Math.sqrt(disc_p0) : 0; 
-            let P0 = [px_init, py_init, z0_init];
+            let P0 = [px_init, py_init, 0];
             
             let v0 = vNormalize([thx_in * 1e-3, thy_in * 1e-3, 1.0]);
 
@@ -1413,12 +1415,12 @@
             renderWaistPlot({x: abcd_x, y: abcd_y}, N, L, modeTitle);
             
             let doImages = document.getElementById('show-beam-profiles').checked;
-            renderRayPlots(res.points, res.mirror_hits, res.center_hits, L, r0, in_hole, out_hole, out_mirror, hole_radius, res.exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy);
+            renderRayPlots(res.points, res.mirror_hits, res.center_hits, L, r0, res.exit_hit, res.exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy);
             
             let statusEl = document.getElementById('status-msg');
             statusEl.textContent = res.exit_status;
-            if(res.exit_status.includes("Out Hole")) statusEl.className = "font-semibold text-green-600 text-xs text-right";
-            else if(res.exit_status.includes("Escaped")) statusEl.className = "font-semibold text-red-600 text-xs text-right";
+            if(res.exit_status.includes("free aperture")) statusEl.className = "font-semibold text-green-600 text-xs text-right";
+            else if(res.exit_status.includes("Missed") || res.exit_status.includes("Escaped")) statusEl.className = "font-semibold text-red-600 text-xs text-right";
             else statusEl.className = "font-semibold text-amber-600 text-xs text-right";
         }
 
@@ -1452,7 +1454,7 @@
             Plotly.react('plotWaist', traces, layout, {responsive: true});
         }
 
-        function renderRayPlots(points, hits, center_hits, L, r0, in_hole, out_hole, out_mirror, hole_radius, exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy) {
+        function renderRayPlots(points, hits, center_hits, L, r0, exit_hit, exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy) {
             let x3 = points.map(p => p[2]); 
             let y3 = points.map(p => p[0]);
             let z3 = points.map(p => p[1]);
@@ -1462,7 +1464,10 @@
             let trace3D_start = { type: 'scatter3d', mode: 'markers', x: [x3[0]], y: [y3[0]], z: [z3[0]], marker: { color: 'green', size: 6 } };
             let trace3D_end = { type: 'scatter3d', mode: 'markers', x: [x3[x3.length-1]], y: [y3[y3.length-1]], z: [z3[z3.length-1]], marker: { color: 'red', size: 6 } };
 
-            let limit = r0 * 1.5;
+            let pointExtent = Math.max(1, ...points.flatMap(p => [Math.abs(p[0]), Math.abs(p[1])]));
+            let m1Extent = Math.max(...cell.m1_segments.flatMap(seg => [Math.abs(seg.vertex[0]) + seg.aperture_radius, Math.abs(seg.vertex[1]) + seg.aperture_radius]));
+            let m2Extent = cell.m2.aperture_radius;
+            let limit = Math.max(r0 * 1.5, pointExtent * 1.15 + 2, m1Extent * 1.05, m2Extent * 1.05, 10);
             let currentCamera = { eye: {x: 1.5, y: -1.5, z: 0.5} };
             let plot3dDiv = document.getElementById('plot3d');
             if (plot3dDiv._fullLayout && plot3dDiv._fullLayout.scene && plot3dDiv._fullLayout.scene.camera) currentCamera = JSON.parse(JSON.stringify(plot3dDiv._fullLayout.scene.camera));
@@ -1489,10 +1494,21 @@
                 yaxis: { title: 'Y [mm]', range: [-limit, limit], zeroline: false, scaleanchor: 'x', scaleratio: 1 }
             };
 
+            const includePointInRange = (layout, P, pad=5) => {
+                if (!P) return;
+                let maxExt = Math.max(Math.abs(P[0]), Math.abs(P[1])) + pad;
+                let current = Math.max(Math.abs(layout.xaxis.range[0]), Math.abs(layout.xaxis.range[1]), Math.abs(layout.yaxis.range[0]), Math.abs(layout.yaxis.range[1]));
+                if (maxExt > current) {
+                    layout.xaxis.range = [-maxExt, maxExt];
+                    layout.yaxis.range = [-maxExt, maxExt];
+                }
+            };
+
             const build2DPlot = (divId, title, hitsData, getWIndex, isCenter, mirrorNum) => {
                 let layout = JSON.parse(JSON.stringify(layout2D_base));
                 layout.shapes = [];
                 layout.images = [];
+                layout.annotations = [];
                 
                 let px = [], py = [], pt = [], pp = [], ph = [], pc = [];
                 let polX = [], polY = [];
@@ -1503,14 +1519,66 @@
                 let minF = Infinity, maxF = -Infinity;
 
                 if (mirrorNum === 1) {
-                    layout.shapes.push({ type: 'circle', x0: in_hole[0] - hole_radius, y0: in_hole[1] - hole_radius, x1: in_hole[0] + hole_radius, y1: in_hole[1] + hole_radius, line: { color: '#16a34a', width: 2, dash: 'dot' }});
-                    if (out_mirror === 1) {
-                        layout.shapes.push({ type: 'circle', x0: out_hole[0] - hole_radius, y0: out_hole[1] - hole_radius, x1: out_hole[0] + hole_radius, y1: out_hole[1] + hole_radius, line: { color: '#ef4444', width: 2 }});
-                    }
+                    let gapX0 = cell.split_center[0] - cell.split_gap / 2;
+                    let gapX1 = cell.split_center[0] + cell.split_gap / 2;
+                    layout.shapes.push({
+                        type: 'rect', x0: gapX0, y0: cell.split_center[1] - cell.m1_radius,
+                        x1: gapX1, y1: cell.split_center[1] + cell.m1_radius,
+                        line: { color: '#16a34a', width: 1.5, dash: 'dot' },
+                        fillcolor: 'rgba(22, 163, 74, 0.08)', layer: 'below'
+                    });
+                    cell.m1_segments.forEach(seg => {
+                        layout.shapes.push({
+                            type: 'circle',
+                            x0: seg.vertex[0] - seg.aperture_radius,
+                            y0: seg.vertex[1] - seg.aperture_radius,
+                            x1: seg.vertex[0] + seg.aperture_radius,
+                            y1: seg.vertex[1] + seg.aperture_radius,
+                            line: { color: '#4f46e5', width: 2 },
+                            fillcolor: 'rgba(79, 70, 229, 0.03)',
+                            layer: 'below'
+                        });
+                        layout.annotations.push({
+                            x: seg.vertex[0],
+                            y: seg.vertex[1] + seg.aperture_radius * 0.75,
+                            text: `D=${cell.m1_diameter.toFixed(1)} mm`,
+                            showarrow: false,
+                            font: { size: 10, color: '#4f46e5' }
+                        });
+                    });
+                    layout.annotations.push({
+                        x: cell.split_center[0],
+                        y: cell.split_center[1] - cell.m1_radius * 0.75,
+                        text: `gap=${cell.split_gap.toFixed(1)} mm`,
+                        showarrow: false,
+                        font: { size: 10, color: '#16a34a' }
+                    });
+                    let xExtent = Math.max(...cell.m1_segments.map(seg => Math.abs(seg.vertex[0]) + seg.aperture_radius), Math.abs(cell.split_center[0]) + cell.split_gap / 2);
+                    let yExtent = Math.max(...cell.m1_segments.map(seg => Math.abs(seg.vertex[1]) + seg.aperture_radius), Math.abs(cell.split_center[1]) + cell.m1_radius);
+                    let mirrorLimit = Math.max(xExtent, yExtent) * 1.08 + 2;
+                    layout.xaxis.range = [-mirrorLimit, mirrorLimit];
+                    layout.yaxis.range = [-mirrorLimit, mirrorLimit];
                 } else if (mirrorNum === 2) {
-                    if (out_mirror === 2) {
-                        layout.shapes.push({ type: 'circle', x0: out_hole[0] - hole_radius, y0: out_hole[1] - hole_radius, x1: out_hole[0] + hole_radius, y1: out_hole[1] + hole_radius, line: { color: '#ef4444', width: 2 }});
-                    }
+                    layout.shapes.push({
+                        type: 'circle',
+                        x0: cell.m2.vertex[0] - cell.m2.aperture_radius,
+                        y0: cell.m2.vertex[1] - cell.m2.aperture_radius,
+                        x1: cell.m2.vertex[0] + cell.m2.aperture_radius,
+                        y1: cell.m2.vertex[1] + cell.m2.aperture_radius,
+                        line: { color: '#4f46e5', width: 2 },
+                        fillcolor: 'rgba(79, 70, 229, 0.03)',
+                        layer: 'below'
+                    });
+                    layout.annotations.push({
+                        x: cell.m2.vertex[0],
+                        y: cell.m2.vertex[1] + cell.m2.aperture_radius * 0.75,
+                        text: `D=${cell.m2_diameter.toFixed(1)} mm`,
+                        showarrow: false,
+                        font: { size: 10, color: '#4f46e5' }
+                    });
+                    let mirrorLimit = cell.m2.aperture_radius * 1.15 + 2;
+                    layout.xaxis.range = [-mirrorLimit, mirrorLimit];
+                    layout.yaxis.range = [-mirrorLimit, mirrorLimit];
                 }
 
                 hitsData.forEach((hit, i) => {
@@ -1530,10 +1598,6 @@
                     px.push(hit.P[0]); py.push(hit.P[1]);
                     
                     let text = isCenter ? String(i + 1) : String(getWIndex(i));
-                    
-                    if (!isCenter && mirrorNum === out_mirror && hit === hitsData[hitsData.length-1] && exit_status.includes("Out Hole")) {
-                        text = "<b>Out</b>";
-                    }
 
                     pt.push(text);
                     pp.push(getRadialTextPosition(hit.P[0], hit.P[1]));
@@ -1542,7 +1606,8 @@
                     while (hoverAng <= -90) hoverAng += 180;
                     while (hoverAng > 90) hoverAng -= 180;
 
-                    ph.push(`Hit: ${text}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
+                    let segmentText = hit.segmentLabel ? `<br>Segment: ${hit.segmentLabel}` : '';
+                    ph.push(`Hit: ${text}${segmentText}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
                     pc.push(getWIndex(i));
 
                     let w_max = Math.max(wx, wy);
@@ -1600,6 +1665,23 @@
                     }
                 }
 
+                if(!isCenter && exit_hit && exit_hit.mirror === mirrorNum) {
+                    includePointInRange(layout, exit_hit.P);
+                    let exitLabel = mirrorNum === 1 ? '<b>Exit</b>' : '<b>Miss</b>';
+                    traces.push({
+                        x: [exit_hit.P[0]],
+                        y: [exit_hit.P[1]],
+                        mode: 'markers+text',
+                        type: 'scatter',
+                        text: [exitLabel],
+                        textposition: getRadialTextPosition(exit_hit.P[0], exit_hit.P[1]),
+                        hovertext: [`${mirrorNum === 1 ? 'Free aperture / split mirror miss' : 'Back mirror aperture miss'}<br>X: ${exit_hit.P[0].toFixed(2)}<br>Y: ${exit_hit.P[1].toFixed(2)}`],
+                        hoverinfo: 'text',
+                        textfont: { size: 11, color: '#ef4444' },
+                        marker: { color: '#ef4444', size: 10, symbol: 'x' }
+                    });
+                }
+
                 if(doImages && polX.length > 0) {
                     traces.push({ x: polX, y: polY, mode: 'lines', line: {color: '#1e293b', width: 2}, hoverinfo: 'none', name: 'Polarization' });
                 }
@@ -1607,7 +1689,7 @@
                 Plotly.react(divId, traces, layout, {responsive: true});
             };
 
-            build2DPlot('plotM1', 'Mirror 1 Spots (z=0)', hits[1] || [], (i) => 2*i + 2, false, 1);
+            build2DPlot('plotM1', 'Split Input Mirrors (z=0)', hits[1] || [], (i) => 2*i + 2, false, 1);
             build2DPlot('plotCenter', 'Center Spots (z=L/2)', center_hits, (i) => i, true, 0);
             build2DPlot('plotM2', 'Mirror 2 Spots (z=L)', hits[2] || [], (i) => 2*i + 1, false, 2);
         }
@@ -1621,7 +1703,6 @@
             standardConfig['cellType'] = document.getElementById('cell-type').value;
             standardConfig['autoR'] = document.getElementById('auto-R').checked;
             standardConfig['autoRVex'] = document.getElementById('auto-R-vex').checked;
-            standardConfig['autoOutHole'] = document.getElementById('auto-out-hole').checked;
             standardConfig['autoModeMatch'] = document.getElementById('auto-mode-match').checked;
             standardConfig['autoInjection'] = document.getElementById('auto-injection').checked;
             standardConfig['modeType'] = document.getElementById('mode-type').value;

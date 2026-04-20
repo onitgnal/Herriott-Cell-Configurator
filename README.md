@@ -31,7 +31,8 @@ http://localhost:3001
 
 The configurator can:
 
-- Design a two-spherical-mirror Herriott-style multipass cell.
+- Design a Herriott-style multipass cell with a split entrance mirror side and
+  one back mirror.
 - Switch between concave-concave and concave-convex mirror geometries.
 - Auto-calculate radii of curvature for a desired pass count and pattern
   revolution number.
@@ -40,8 +41,10 @@ The configurator can:
 - Trace the injected ray in 3D using exact intersections with spherical mirror
   surfaces and vector reflection.
 - Show the spots on mirror 1, the cavity center plane, and mirror 2.
-- Place input and output holes and detect whether the traced ray exits through
-  the selected output aperture or escapes through the input aperture.
+- Model the entrance side as two horizontally split spherical mirrors with a
+  configurable free aperture between them.
+- Clip reflections to the configured mirror diameters and report when the ray
+  exits through the split-mirror aperture or misses a finite mirror.
 - Propagate a Gaussian beam envelope with ABCD matrices over the unfolded path.
 - Estimate cavity eigenmode waist and mirror beam radii.
 - Display TEM00, Hermite-Gaussian, Laguerre-Gaussian, or custom `M^2` beam
@@ -112,7 +115,7 @@ Primary units:
 | --- | --- | --- |
 | Distances, beam radii, mirror ROC | mm | mm |
 | Wavelength | nm | mm, using `lambda_mm = lambda_nm * 1e-6` |
-| Input/output ray angles | mrad | rad, using `angle_rad = angle_mrad * 1e-3` |
+| Input ray angles | mrad | rad, using `angle_rad = angle_mrad * 1e-3` |
 | Mirror tilts | mrad | rad |
 | Peak power | GW | GW |
 | Pulse energy | mJ | mJ |
@@ -136,16 +139,19 @@ Radius-of-curvature sign convention:
    to enter radii manually.
 4. Leave **Auto Ideal Injection** enabled to generate the nominal rotating spot
    pattern, or disable it to manually steer the input ray.
-5. Inspect **Ray Trace Status**. A useful closed configuration usually exits
-   through the selected output hole rather than escaping through the input hole
-   or remaining trapped until the trace limit.
-6. Inspect the spot plots. Look for spot overlap, hole clipping, and whether the
-   output spot reaches the chosen output aperture.
-7. Open **Transversal Mode & Beam** to change the beam mode and mode-matching
+5. Set the split-input-mirror **Free Aperture**, mirror diameters, and relative
+   horizontal split angle. The ray enters through the aperture between the two
+   entrance mirrors.
+6. Inspect **Ray Trace Status**. A useful configuration reflects only on finite
+   mirror areas and exits through the split-input-mirror aperture when it
+   returns to the gap.
+7. Inspect the spot plots. Look for spot overlap, free-aperture clipping, and
+   whether all intended reflections stay inside the drawn mirror diameters.
+8. Open **Transversal Mode & Beam** to change the beam mode and mode-matching
    assumptions.
-8. Use **Peak Power**, **Pulse Energy**, and the beam settings to inspect
+9. Use **Peak Power**, **Pulse Energy**, and the beam settings to inspect
    estimated intensity and fluence ranges on each plotted surface.
-9. Use **Set Standard** to make the current values the in-session reset point,
+10. Use **Set Standard** to make the current values the in-session reset point,
    **Reset** to return to that point, **Save File** to export JSON, and
    **Load File** to restore JSON later.
 
@@ -168,11 +174,11 @@ distinct spot positions.
 | `Auto-calc Ideal |R1|=|R2|` | For concave-convex cells, computes equal-magnitude opposite-sign radii from `L`, `N`, and `k`. |
 | `M1 Concave (R1)` | Manual mirror-1 radius in mm when concave-convex auto ROC is disabled. Positive values are concave in the app convention. |
 | `M2 Convex (R2)` | Manual mirror-2 radius in mm when concave-convex auto ROC is disabled. Negative values are convex in the app convention. |
-| `Spot Pattern (r0)` | Initial input-hole radial position and nominal pattern radius in mm. It also sets the default transverse viewing range. |
-| `Output Hole / Auto` | When enabled, places the output hole at the input-hole coordinates on mirror 1. |
-| `Output Hole / Mirror` | Manual output-hole mirror: mirror 1 or mirror 2. |
-| `Output Hole / X, Y` | Manual output-hole center coordinates in mm. |
-| `Hole Aperture (r_h)` | Radius of input/output apertures in mm. The ray exits when the hit point is inside the selected output hole. |
+| `Spot Pattern (r0)` | Nominal pattern radius in mm. In auto injection it also sets the horizontal aperture center used by the input ray. |
+| `Free Aperture (g)` | Clear horizontal gap between the inner edges of the two split input mirrors, in mm. A return ray crossing this gap is reported as exiting through the free aperture. |
+| `Input Mirror D` | Diameter of each split input mirror, in mm. Mirror-1 reflections are accepted only inside these two circular diameters. |
+| `Back Mirror D` | Diameter of mirror 2, in mm. Mirror-2 reflections are accepted only inside this circular diameter. |
+| `Rel. Angle X (Delta theta)` | Relative horizontal angle between the two split input mirrors, in mrad. The left and right mirrors receive half of this angle with opposite signs; their vertical tilt remains parallel. |
 | `Peak Power (P)` | Peak pulse power used for spot intensity estimates, in GW. |
 | `Pulse Energy (E)` | Pulse energy used for spot fluence estimates, in mJ. |
 | `Wavelength (lambda)` | Optical wavelength in nm. Internally converted to mm for Gaussian beam equations. |
@@ -200,14 +206,14 @@ distinct spot positions.
 | Control | Meaning |
 | --- | --- |
 | `Auto Ideal Injection` | Computes input ray position and slopes that produce the nominal rotating paraxial spot pattern. |
-| `X, Y` | Manual input-hole and initial ray coordinates on mirror 1, in mm. |
+| `X, Y` | Manual input ray coordinates at the split-mirror free aperture plane, in mm. |
 | `theta_x, theta_y` | Manual input ray slopes in mrad. Internally converted to radians and normalized into a 3D direction vector. |
 
 ### Mirror Pointing
 
 | Control | Meaning |
 | --- | --- |
-| `Mirror 1 Tilt X, Y` | Tilts mirror 1 by shifting the spherical center according to the entered mrad pointing angles. |
+| `Mirror 1 Tilt X, Y` | Common tilt for both split input mirrors. The relative split angle is added horizontally on top of this common tilt. |
 | `Mirror 2 Tilt X, Y` | Tilts mirror 2 by shifting the spherical center according to the entered mrad pointing angles. |
 
 The ray trace uses tilted spherical surfaces. The Gaussian ABCD beam propagation
@@ -231,7 +237,7 @@ does not include the mirror tilts; it remains a paraxial unfolded-axis estimate.
 | `Stability (g1g2)` | Product of the two cavity stability parameters. The app requires `0 < g1*g2 < 1`. |
 | `Cavity Waist (w0)` | Mode-matched waist radius readout in mm. For non-TEM00 modes, the displayed x/y values are scaled by `sqrt(M_x^2)` and `sqrt(M_y^2)`. |
 | `Mirror Beams (w1, w2)` | Eigenmode beam radii on the mirrors. For symmetric mirror beams it reports x/y values; for unequal mirror beams it reports M1/M2 using the x-axis `M^2` scaling. |
-| `Ray Trace Status` | Reports whether the ray exited through the output hole, escaped through the input hole, left the spherical mirror geometry, hit a stability error, or remained trapped until the trace limit. |
+| `Ray Trace Status` | Reports whether the ray exited through the split free aperture, missed a finite mirror aperture, left the spherical mirror geometry, hit a stability error, or remained trapped until the trace limit. |
 
 ### Gaussian Beam Evolution Plot
 
@@ -257,24 +263,28 @@ This plot shows the geometric ray traced between the spherical mirrors.
 - Colored line: ray path, colored by point order.
 - Axes: longitudinal `Z Axis [mm]` plus transverse `X [mm]` and `Y [mm]`.
 
-The 3D path uses exact sphere intersections and vector reflection. It does not
-draw mirror surfaces or mirror apertures.
+The 3D path uses exact sphere intersections and vector reflection. It shows
+where the ray travels, but the mirror diameters are indicated in the 2D mirror
+plots rather than as 3D surfaces.
 
-### Mirror 1 Spots
+### Split Input Mirror Spots
 
-This plot shows spot coordinates on mirror 1 near `z = 0`.
+This plot shows spot coordinates on the split input mirror side near `z = 0`.
 
-- Green dotted circle: input hole.
-- Red circle: output hole if the selected output mirror is mirror 1.
-- `In` marker: initial injected spot.
-- Numbered markers: mirror-1 return hits. The numbering matches the pass index
-  used by the unfolded path.
-- `Out` label: clean output-hole exit, when detected on the final plotted hit.
+- Blue circles: finite diameters of the left and right split input mirrors.
+- Green shaded rectangle: free aperture between the two input mirrors.
+- `D=... mm` labels: configured diameter of each split input mirror.
+- `gap=... mm` label: configured clear aperture between the mirror edges.
+- `In` marker: initial injected ray position in the free aperture plane.
+- Numbered markers: accepted reflections on either split mirror. The numbering
+  matches the pass index used by the unfolded path.
+- `Exit` marker: ray position when it leaves through the free aperture or misses
+  the finite split-mirror surfaces.
 - Beam image overlays: normalized transverse intensity profiles, if enabled.
 - Black line overlay: projected profile/polarization axis.
 
-Hover text includes spot number, `X`, `Y`, `w_x`, `w_y`, profile/polarization
-angle, peak intensity, and peak fluence.
+Hover text includes spot number, split-mirror segment, `X`, `Y`, `w_x`, `w_y`,
+profile/polarization angle, peak intensity, and peak fluence.
 
 ### Center Spots
 
@@ -290,9 +300,12 @@ It is useful for checking focusing or crossing behavior inside the cell.
 
 This plot shows spot coordinates on mirror 2 near `z = L`.
 
-- Red circle: output hole if the selected output mirror is mirror 2.
+- Blue circle: finite mirror-2 diameter.
+- `D=... mm` label: configured mirror-2 diameter.
 - Numbered markers: mirror-2 hits. The numbering matches the unfolded pass
   index, so the first mirror-2 hit is pass 1.
+- `Miss` marker: ray position when it reaches mirror 2 outside the configured
+  diameter.
 - Beam overlays and hover text follow the same conventions as mirror 1.
 
 ### Intensity And Fluence In Plot Titles
@@ -565,28 +578,59 @@ The total tilt magnitude is:
 tau = sqrt(tau_x^2 + tau_y^2)
 ```
 
-For mirror 1, the spherical center is:
+For any mirror vertex `V = (V_x, V_y, V_z)` on the entrance side, the spherical
+center is:
 
 ```text
 C1 = (
-  abs(R1)*sin(tau)*(tau_x/tau),
-  abs(R1)*sin(tau)*(tau_y/tau),
-  R1*cos(tau)
+  V_x + abs(R1)*sin(tau)*(tau_x/tau),
+  V_y + abs(R1)*sin(tau)*(tau_y/tau),
+  V_z + R1*cos(tau)
 )
 ```
 
-For mirror 2, the spherical center is:
+For mirror 2, with vertex `V = (0, 0, L)`, the spherical center is:
 
 ```text
 C2 = (
-  abs(R2)*sin(tau)*(tau_x/tau),
-  abs(R2)*sin(tau)*(tau_y/tau),
-  L - R2*cos(tau)
+  V_x + abs(R2)*sin(tau)*(tau_x/tau),
+  V_y + abs(R2)*sin(tau)*(tau_y/tau),
+  V_z - R2*cos(tau)
 )
 ```
 
 When `tau` is zero, the transverse center offsets are set to zero to avoid
 division by zero.
+
+The split-input-mirror aperture is centered on the injection point:
+
+```text
+split_center = (x_in, y_in)
+```
+
+For split gap `g` and input mirror diameter `D1`, each input mirror has radius:
+
+```text
+a1 = D1/2
+```
+
+The two entrance mirror vertices are:
+
+```text
+V_left  = (x_in - (g/2 + a1), y_in, 0)
+V_right = (x_in + (g/2 + a1), y_in, 0)
+```
+
+For common horizontal mirror-1 tilt `tau_x` and relative horizontal split angle
+`delta_x`, the two split mirror horizontal tilts are:
+
+```text
+tau_left_x  = tau_x - delta_x/2
+tau_right_x = tau_x + delta_x/2
+```
+
+Both split input mirrors use the same vertical tilt, so they remain vertically
+parallel.
 
 Each mirror surface satisfies:
 
@@ -596,36 +640,11 @@ Each mirror surface satisfies:
 
 ### Initial Ray Point And Direction
 
-The initial point lies on mirror 1 at the selected transverse input position.
-Given:
+The initial point lies in the free aperture plane between the two split input
+mirrors:
 
 ```text
-x0 = x_in
-y0 = y_in
-```
-
-the discriminant used to find the spherical surface point is:
-
-```text
-disc_p0 = R1^2 - (x0 - C1_x)^2 - (y0 - C1_y)^2
-```
-
-If `disc_p0 >= 0`, the code uses:
-
-```text
-z0_init = C1_z - sign(R1)*sqrt(disc_p0)
-```
-
-If `disc_p0 < 0`, it falls back to:
-
-```text
-z0_init = 0
-```
-
-The initial point is:
-
-```text
-P0 = (x0, y0, z0_init)
+P0 = (x_in, y_in, 0)
 ```
 
 The input ray direction is:
@@ -728,41 +747,50 @@ where:
 t_mirror = ||P_hit - P||
 ```
 
-### Hole Exit Tests
+### Finite Mirror Aperture And Split-Gap Exit Tests
 
-Input and output holes are circular in the local mirror `x-y` plane. The input
-hole is always tied to the current injection coordinates:
+The split input mirrors and mirror 2 are finite circular apertures in the
+`x-y` projection used by the spot plots.
 
 ```text
-h_in = (x_in, y_in)
+a1 = D1/2
+a2 = D2/2
 ```
 
-When automatic output-hole placement is enabled, the output hole is on mirror 1
-at:
+For a hit point `(x, y)` and mirror aperture center `(x_v, y_v)`, the projected
+aperture distance is:
 
 ```text
-h_out = (x_in, y_in)
+d_a = sqrt((x - x_v)^2 + (y - y_v)^2)
 ```
 
-For a hit point `(x, y)` and hole center `(x_h, y_h)`, the distance is:
+The hit is accepted as a reflection only when it is inside the corresponding
+mirror diameter:
 
 ```text
-d_h = sqrt((x - x_h)^2 + (y - y_h)^2)
+d_a <= aperture_radius
 ```
 
-A hit is inside the hole when:
+For a mirror-1 return that misses both split input mirrors, the app checks
+whether the ray crosses the free aperture:
 
 ```text
-d_h <= r_h
+abs(x - x_in) <= g/2
+abs(y - y_in) <= a1
 ```
 
 Rules implemented by the trace:
 
-- On mirror 1, the selected output hole is checked if `out_mirror = 1`.
-- On mirror 1, the input hole is checked after the first bounce; entering it is
-  reported as an input-hole escape.
-- On mirror 2, the selected output hole is checked if `out_mirror = 2`.
-- The trace stops at the first detected clean exit or escape.
+- On mirror 1, the ray reflects only if it lands inside either split input
+  mirror diameter.
+- If a mirror-1 return misses both split input mirrors but crosses the free
+  aperture, the trace reports a free-aperture exit.
+- If a mirror-1 return misses both split mirrors outside the free aperture, the
+  trace reports a split-input-mirror miss.
+- On mirror 2, the ray reflects only if it lands inside the configured mirror-2
+  diameter.
+- The trace stops at the first finite-aperture miss, free-aperture exit, or
+  geometric escape.
 
 The maximum trace length is:
 
@@ -1083,14 +1111,14 @@ temporal pulse shape are not included.
 saved keys include:
 
 ```text
-L, n, k, R, R1, R2, r0, hole_r, out_hole_x, out_hole_y,
+L, n, k, R, R1, R2, r0, split_gap, m1_dia, m2_dia, split_angle,
 lambda, M2, peak_power, pulse_energy,
 hgn, hgm, lgp, lgl,
 winx, winy, zin, polang,
 x, y, thx, thy,
 m1tx, m1ty, m2tx, m2ty,
-cellType, autoR, autoRVex, autoOutHole, outMirror,
-autoModeMatch, autoInjection, modeType, showBeamProfiles
+cellType, autoR, autoRVex, autoModeMatch, autoInjection,
+modeType, showBeamProfiles
 ```
 
 `Load File` applies any matching keys from a saved configuration and then reruns
@@ -1099,8 +1127,10 @@ the simulation.
 ## Modeling Assumptions And Limitations
 
 - Mirrors are ideal spherical surfaces.
-- Mirror finite clear aperture is not modeled.
-- Input and output holes are circular tests in the mirror `x-y` plane.
+- The split input mirrors and mirror 2 use finite circular diameter checks in
+  the mirror `x-y` projection.
+- The free aperture is modeled as the horizontal gap between the two split input
+  mirrors.
 - Ray intersections use exact 3D sphere geometry, but Gaussian propagation is a
   paraxial ABCD model along an unfolded axis.
 - Mirror tilts affect ray tracing but not the ABCD beam envelope.
