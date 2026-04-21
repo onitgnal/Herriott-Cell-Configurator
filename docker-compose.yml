@@ -1,7 +1,8 @@
 services:
   web:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "3001:80"
-    volumes:
-      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - "3003:80"
+    restart: unless-stopped
