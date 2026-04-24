@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herriott Cell Configurator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-row overflow-hidden w-full relative">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-30 hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+
+    <!-- Sidebar Controls -->
+    <div id="sidebar" class="fixed md:relative inset-y-0 left-0 w-[85%] max-w-[360px] md:w-[360px] md:max-w-none bg-white border-r border-slate-200 shadow-2xl md:shadow-sm flex flex-col h-full z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0">
+        <div class="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-start">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    Herriott Cell Configurator
+                </h1>
+                <p class="text-xs text-slate-500 mt-1">3D Ray & Transverse Beam Physics</p>
+            </div>
+            <button id="close-sidebar" class="md:hidden p-1.5 text-slate-500 hover:bg-slate-200 rounded-md transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <div class="p-4 overflow-y-auto flex-1 space-y-4">
+            
+            <!-- Cell Parameters Group -->
+            <details open class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Cell Design
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-3">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Mirror Distance (L):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-L" value="1132" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">mm</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-L" min="50" max="3000" step="1" value="1132" class="w-full accent-indigo-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Total Passes (N):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-n" value="14" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6"></span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-n" min="2" max="75" step="1" value="14" class="w-full accent-indigo-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Revolutions (k):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-k" value="5" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6"></span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-k" min="1" max="20" step="1" value="5" class="w-full accent-indigo-600">
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-3 pt-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-bold text-slate-800">Cavity Geometry:</label>
+                            <select id="cell-type" class="w-36 border border-slate-300 rounded px-2 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-500 py-1 bg-white shadow-sm">
+                                <option value="cav-cav">Cav-Cav (Concave-Concave)</option>
+                                <option value="cav-vex">Cav-Vex (Concave-Convex)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Symmetric Cavity UI -->
+                        <div id="ui-cav-cav">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="auto-R" checked class="accent-indigo-600 w-3 h-3">
+                                    Auto-calc Mirror ROC (R)
+                                </label>
+                            </div>
+                            <div id="group-R" class="opacity-50 pointer-events-none transition-opacity">
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-500">Mirror Radius (R):</label>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="num-R" value="1999.6" step="0.1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                        <span class="text-xs text-slate-500 w-6">mm</span>
+                                    </div>
+                                </div>
+                                <input type="range" id="param-R" min="100" max="5000" step="0.5" value="1999.6" class="w-full accent-indigo-600">
+                            </div>
+                        </div>
+
+                        <!-- Asymmetric Cavity UI -->
+                        <div id="ui-cav-vex" class="hidden">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="auto-R-vex" checked class="accent-indigo-600 w-3 h-3">
+                                    Auto-calc Ideal |R1|=|R2|
+                                </label>
+                            </div>
+                            <div id="group-R-vex" class="opacity-50 pointer-events-none transition-opacity">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">M1 Concave (R1):</label>
+                                        <div class="flex items-center gap-1">
+                                            <input type="number" id="num-R1" value="2500" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                            <span class="text-xs text-slate-500 w-6">mm</span>
+                                        </div>
+                                    </div>
+                                    <input type="range" id="param-R1" min="100" max="50000" step="1" value="2500" class="w-full accent-indigo-600">
+                                </div>
+                                <div class="mt-1">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">M2 Convex (R2):</label>
+                                        <div class="flex items-center gap-1">
+                                            <input type="number" id="num-R2" value="-2500" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                            <span class="text-xs text-slate-500 w-6">mm</span>
+                                        </div>
+                                    </div>
+                                    <input type="range" id="param-R2" min="-50000" max="-100" step="1" value="-2500" class="w-full accent-indigo-600">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Spot Pattern (r₀):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-r0" value="15.0" step="0.5" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">mm</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-r0" min="5" max="50" step="0.5" value="15.0" class="w-full accent-indigo-600">
+                    </div>
+
+                    <!-- Output Hole Geometry -->
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-slate-800">Output Hole</span>
+                            <label class="text-[10px] font-semibold text-slate-700 flex items-center gap-1 cursor-pointer" title="Auto-place output hole exactly at input coordinates">
+                                <input type="checkbox" id="auto-out-hole" checked class="accent-indigo-600 w-3 h-3">
+                                Auto (Same as Input)
+                            </label>
+                        </div>
+                        <div id="group-out-hole" class="opacity-50 pointer-events-none transition-opacity flex flex-col gap-2">
+                            <div class="flex justify-between items-center">
+                                <label class="block text-[10px] font-semibold text-slate-500">Mirror:</label>
+                                <select id="out-mirror" class="w-24 border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5 focus:outline-none">
+                                    <option value="1">Mirror 1</option>
+                                    <option value="2">Mirror 2</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">X (mm):</label>
+                                        <input type="number" id="num-out_hole_x" value="15.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
+                                    </div>
+                                    <input type="range" id="param-out_hole_x" min="-50" max="50" step="0.1" value="15.0" class="w-full accent-indigo-600">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-[10px] font-semibold text-slate-500">Y (mm):</label>
+                                        <input type="number" id="num-out_hole_y" value="0.0" step="0.1" class="w-12 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold py-0.5">
+                                    </div>
+                                    <input type="range" id="param-out_hole_y" min="-50" max="50" step="0.1" value="0.0" class="w-full accent-indigo-600">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2 border-t border-slate-100 pt-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-[11px] font-semibold text-slate-700">Hole Aperture (r_h):</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-hole_r" value="1.5" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                    <span class="text-[10px] text-slate-500 w-4">mm</span>
+                                </div>
+                            </div>
+                            <input type="range" id="param-hole_r" min="0" max="10" step="0.1" value="1.5" class="w-full accent-indigo-600">
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Peak Power (P):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-peak_power" value="1.0" step="0.1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">GW</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-peak_power" min="0.1" max="100" step="0.1" value="1.0" class="w-full accent-indigo-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Pulse Energy (E):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-pulse_energy" value="1.0" step="0.1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">mJ</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-pulse_energy" min="0.1" max="100" step="0.1" value="1.0" class="w-full accent-indigo-600">
+                    </div>
+
+                    <div class="border-t border-slate-200 mt-2 pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Wavelength (λ):</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="num-lambda" value="1030" step="10" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-indigo-600 font-semibold focus:outline-none focus:border-indigo-500 py-0.5">
+                                <span class="text-xs text-slate-500 w-6">nm</span>
+                            </div>
+                        </div>
+                        <input type="range" id="param-lambda" min="500" max="2000" step="10" value="1030" class="w-full accent-indigo-600">
+                    </div>
+                </div>
+            </details>
+
+            <!-- Transversal Mode & Beam Group -->
+            <details class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Transversal Mode & Beam
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-3">
+                    <div class="flex items-center justify-between mb-1 pb-2 border-b border-slate-100">
+                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="show-beam-profiles" checked class="accent-fuchsia-600 w-4 h-4">
+                            Render Beam Profile Overlays
+                        </label>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Transversal Mode:</label>
+                        <select id="mode-type" class="w-full border border-slate-300 rounded px-2 py-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 bg-white mb-2">
+                            <option value="tem00">Fundamental (TEM00)</option>
+                            <option value="hg">Hermite-Gaussian (HG)</option>
+                            <option value="lg">Laguerre-Gaussian (LG)</option>
+                            <option value="custom">Custom M²</option>
+                        </select>
+                    </div>
+
+                    <!-- HG Settings -->
+                    <div id="group-hg" class="hidden space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index n:</label>
+                                    <input type="number" id="num-hgn" value="0" step="1" min="0" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-hgn" min="0" max="10" step="1" value="0" class="w-full accent-fuchsia-600">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index m:</label>
+                                    <input type="number" id="num-hgm" value="1" step="1" min="0" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-hgm" min="0" max="10" step="1" value="1" class="w-full accent-fuchsia-600">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LG Settings -->
+                    <div id="group-lg" class="hidden space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index p:</label>
+                                    <input type="number" id="num-lgp" value="0" step="1" min="0" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-lgp" min="0" max="10" step="1" value="0" class="w-full accent-fuchsia-600">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Index l:</label>
+                                    <input type="number" id="num-lgl" value="1" step="1" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-lgl" min="-10" max="10" step="1" value="1" class="w-full accent-fuchsia-600">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom M2 Settings -->
+                    <div id="group-custom" class="hidden space-y-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700" title="Beam Quality Factor">M² Factor:</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-M2" value="1.0" step="0.1" min="1.0" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                            </div>
+                            <input type="range" id="param-M2" min="1.0" max="10.0" step="0.1" value="1.0" class="w-full accent-fuchsia-600">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center text-xs font-semibold bg-fuchsia-50 border border-fuchsia-100 p-2 rounded">
+                        <span class="text-fuchsia-800">Effective M² (x, y):</span>
+                        <span id="display-eff-m2" class="font-mono font-bold text-fuchsia-700">1.0, 1.0</span>
+                    </div>
+
+                    <div class="flex items-center justify-between mb-1 pt-2 border-t border-slate-200">
+                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="auto-mode-match" checked class="accent-fuchsia-600 w-4 h-4">
+                            Auto Mode-Matched Input
+                        </label>
+                    </div>
+                    <div id="group-beam" class="opacity-50 pointer-events-none transition-opacity space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-700">Waist X (w₀ₓ):</label>
+                                    <input type="number" id="num-winx" value="1.0" step="0.01" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-winx" min="0.1" max="10" step="0.01" value="1.0" class="w-full accent-fuchsia-600">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] font-semibold text-slate-700">Waist Y (w₀y):</label>
+                                    <input type="number" id="num-winy" value="1.0" step="0.01" class="w-12 text-right border border-slate-300 rounded px-1 text-sm text-cyan-600 font-semibold focus:outline-none focus:border-cyan-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-winy" min="0.1" max="10" step="0.01" value="1.0" class="w-full accent-cyan-600">
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700" title="Distance from M1 to beam waist">Waist Pos (z₀):</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-zin" value="566" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-fuchsia-600 font-semibold focus:outline-none focus:border-fuchsia-500 py-0.5">
+                                    <span class="text-xs text-slate-500 w-6">mm</span>
+                                </div>
+                            </div>
+                            <input type="range" id="param-zin" min="-1500" max="3000" step="1" value="566" class="w-full accent-fuchsia-600">
+                        </div>
+                        <div class="pt-2 border-t border-slate-100">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700" title="Initial rotation angle of the beam transverse profile and polarization">Pol. Angle (θ_p):</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="num-polang" value="0.0" step="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-slate-800 font-semibold focus:outline-none focus:border-slate-500 py-0.5">
+                                    <span class="text-xs text-slate-500 w-6">deg</span>
+                                </div>
+                            </div>
+                            <input type="range" id="param-polang" min="-180" max="180" step="1" value="0" class="w-full accent-slate-600">
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Input Ray Steering Group -->
+            <details class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Input Ray Steering
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-4">
+                    <div class="flex items-center justify-between mb-1 pb-2 border-b border-slate-100">
+                        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="auto-injection" checked class="accent-emerald-600 w-4 h-4">
+                            Auto Ideal Injection
+                        </label>
+                    </div>
+                    <div id="group-injection" class="opacity-50 pointer-events-none transition-opacity space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">X (mm):</label>
+                                    <input type="number" id="num-x" value="15.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-x" min="-50" max="50" step="0.1" value="15.0" class="w-full accent-emerald-500">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">Y (mm):</label>
+                                    <input type="number" id="num-y" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-y" min="-50" max="50" step="0.1" value="0" class="w-full accent-emerald-500">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">θx (mrad):</label>
+                                    <input type="number" id="num-thx" value="-7.5" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-thx" min="-50" max="50" step="0.1" value="-7.5" class="w-full accent-emerald-500">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-semibold text-slate-700">θy (mrad):</label>
+                                    <input type="number" id="num-thy" value="11.9" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-emerald-600 font-semibold focus:outline-none focus:border-emerald-500 py-0.5">
+                                </div>
+                                <input type="range" id="param-thy" min="-50" max="50" step="0.1" value="11.9" class="w-full accent-emerald-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Mirror Pointing Group -->
+            <details class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Mirror Pointing (Tilts)
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-4">
+                    <p class="text-xs text-slate-500 font-semibold mb-2">Mirror 1 (Entrance)</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt X (mrad):</label>
+                                <input type="number" id="num-m1tx" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m1tx" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt Y (mrad):</label>
+                                <input type="number" id="num-m1ty" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m1ty" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                    </div>
+                    <div class="border-t border-slate-100 my-2"></div>
+                    <p class="text-xs text-slate-500 font-semibold mb-2">Mirror 2 (Back)</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt X (mrad):</label>
+                                <input type="number" id="num-m2tx" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m2tx" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-700">Tilt Y (mrad):</label>
+                                <input type="number" id="num-m2ty" value="0.0" step="0.1" class="w-14 text-right border border-slate-300 rounded px-1 text-xs text-amber-600 font-semibold focus:outline-none focus:border-amber-500 py-0.5">
+                            </div>
+                            <input type="range" id="param-m2ty" min="-5" max="5" step="0.1" value="0" class="w-full accent-amber-500">
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Readouts -->
+            <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                <h3 class="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Calculated Properties</h3>
+                <div class="flex justify-between items-center text-sm mb-1">
+                    <span class="text-slate-600">Stability (g₁g₂):</span>
+                    <span id="calc-stab" class="font-mono font-bold text-slate-900">--</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mb-1" title="Cavity eigenmode waist">
+                    <span class="text-slate-600">Cavity Waist (w₀):</span>
+                    <span id="calc-w0" class="font-mono font-bold text-slate-900">-- mm</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mb-1" title="Eigenmode radius on M1, M2">
+                    <span class="text-slate-600">Mirror Beams (w₁, w₂):</span>
+                    <span id="calc-wm" class="font-mono font-bold text-slate-900">-- mm</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mt-3 pt-2 border-t border-indigo-100">
+                    <span class="text-slate-600">Ray Trace Status:</span>
+                    <span id="status-msg" class="font-semibold text-green-600 text-xs text-right break-words max-w-[120px]">--</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-slate-200 flex flex-col gap-2 bg-white">
+            <div class="flex gap-2 w-full">
+                <button id="set-standard" class="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors text-xs font-bold shadow-sm border border-indigo-200">
+                    Set Standard
+                </button>
+                <button id="reset-defaults" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors text-xs font-bold shadow-sm border border-slate-300">
+                    Reset
+                </button>
+            </div>
+            <div class="flex gap-2 w-full">
+                <button id="save-config" class="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded transition-colors text-xs font-bold shadow-sm border border-emerald-200 flex items-center justify-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Save File
+                </button>
+                <button id="load-config-trigger" class="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded transition-colors text-xs font-bold shadow-sm border border-emerald-200 flex items-center justify-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Load File
+                </button>
+                <input type="file" id="config-upload" accept=".json" class="hidden">
+            </div>
+            <a href="https://github.com/onitgnal/Herriott-Cell-Configurator" target="_blank" rel="noopener noreferrer" class="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded transition-colors text-xs font-bold shadow-sm border border-slate-200 flex items-center justify-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg>
+                Documentation
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden relative w-full min-w-0">
+        <!-- Mobile Header (Hamburger Menu) -->
+        <div class="md:hidden flex items-center justify-between bg-white border-b border-slate-200 p-3 shrink-0 z-10 shadow-sm">
+            <div class="flex items-center gap-3">
+                <button id="open-sidebar" class="p-2 rounded hover:bg-slate-100 text-slate-700 transition-colors">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <h1 class="text-lg font-bold text-slate-800 truncate">Herriott Cell Configurator</h1>
+            </div>
+        </div>
+
+        <!-- Scrollable Visualization Area -->
+        <div class="flex-1 overflow-y-auto bg-slate-200/50 p-4 gap-4 flex flex-col w-full">
+            
+            <!-- Gaussian Beam Evolution Plot -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full min-h-[250px] md:min-h-[30vh] max-h-[400px] overflow-hidden relative shrink-0">
+                <div id="plotWaist" class="absolute inset-0"></div>
+            </div>
+
+            <!-- Quadratic Plots Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full justify-items-center">
+                <!-- 3D Ray Trace Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plot3d" class="absolute inset-0"></div>
+                </div>
+
+                <!-- Mirror 1 Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plotM1" class="absolute inset-0"></div>
+                </div>
+                
+                <!-- Center Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plotCenter" class="absolute inset-0"></div>
+                </div>
+
+                <!-- Mirror 2 Plot -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-[700px] aspect-square overflow-hidden relative">
+                    <div id="plotM2" class="absolute inset-0"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/main.js"></script>
+</body>
+</html>

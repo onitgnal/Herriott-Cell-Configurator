@@ -4,16 +4,30 @@ Browser-based Herriott/multipass-cell design tool for exploring dense spot
 patterns, mirror geometry, paraxial beam evolution, transverse modes, and
 mirror/center-plane fluence and intensity estimates.
 
-The application is contained in `index.html`. It has no backend and performs
-all calculations in JavaScript in the browser.
+The app now uses a split architecture:
+
+- `frontend/index.html` plus modular browser JavaScript for UI, state, file
+  import/export, Plotly rendering, and beam-profile overlays.
+- `backend/app` for the FastAPI API, typed schemas, and the ported numerical
+  simulation core.
+- `tests` for backend unit, API, and JavaScript-reference parity tests.
 
 ## Quick Start
 
-### Open directly
+### Run locally
 
-Because the app is a static HTML file, you can open `index.html` directly in a
-browser. An internet connection is needed for the CDN versions of Tailwind CSS
-and Plotly.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev]'
+uvicorn backend.app.main:app --reload
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000/
+```
 
 ### Run with Docker
 
@@ -24,8 +38,83 @@ docker compose up
 Then open:
 
 ```text
-http://localhost:3001
+http://localhost:3003
 ```
+
+## Project Layout
+
+```text
+backend/
+  app/
+    api/
+    core/
+    schemas/
+    services/
+frontend/
+  index.html
+  styles.css
+  js/
+tests/
+  fixtures/
+  reference/
+scripts/
+  profile_backend.py
+```
+
+## Development Workflow
+
+Typical local workflow:
+
+```bash
+source .venv/bin/activate
+uvicorn backend.app.main:app --reload
+```
+
+Run the backend and parity tests:
+
+```bash
+pytest
+```
+
+Profile the current backend hot spots:
+
+```bash
+python scripts/profile_backend.py --iterations 100
+```
+
+## Migration Notes
+
+The first migration keeps the existing visual structure and Plotly output while
+moving the simulation core out of the browser:
+
+- The heavy cavity geometry, ray tracing, stability, mode normalization, and
+  ABCD propagation logic now run in Python.
+- The frontend calls `/api/simulate` and updates the same controls and plots
+  from the API response.
+- Beam-profile image rasterization still happens in the browser because it is
+  tightly coupled to Plotly image overlays and orientation-dependent rendering.
+- The old one-file app has been replaced by a frontend shell plus backend API.
+
+## Performance Notes
+
+Current improvements:
+
+- Expensive browser-side physics calculations now execute server-side.
+- The frontend aborts stale in-flight simulation requests during fast control
+  changes.
+- `compute_mode_norm` is cached in the backend because mode normalization is a
+  repeated hot path.
+
+Known remaining hot spots and future work:
+
+- Plot overlay rasterization is still client-side and can become expensive for
+  dense patterns with image overlays enabled.
+- A future batch simulation endpoint would reduce round trips for sweeps and
+  optimization tooling.
+- If profiling shows it matters, `compute_mode_norm` and beam propagation are
+  good candidates for NumPy vectorization.
+- If overlay generation becomes dominant, move it behind a cached backend image
+  endpoint or precompute reusable intensity tiles.
 
 ## What The Web App Can Do
 
@@ -311,11 +400,12 @@ transverse mode. They do not include losses, nonlinear propagation, pulse-front
 effects, temporal profile changes, aperture diffraction, or mirror damage
 models.
 
-## Physics And Equations Implemented In JavaScript
+## Physics And Equations Implemented In The Simulation Core
 
-This section documents the equations currently implemented in `index.html`. The
-formulas are written in plain ASCII inside code blocks so they render reliably
-on GitHub without relying on LaTeX support.
+This section documents the equations currently implemented in the shared
+simulation core that now exists as a JavaScript reference module and a Python
+backend port. The formulas are written in plain ASCII inside code blocks so
+they render reliably on GitHub without relying on LaTeX support.
 
 ### Basic Vector Operations
 

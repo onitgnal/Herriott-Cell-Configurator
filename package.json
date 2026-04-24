@@ -1,0 +1,8 @@
+{
+  "name": "herriott-cell-configurator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "reference:simulate": "node tests/reference/run_js_simulation.mjs"
+  }
+}
