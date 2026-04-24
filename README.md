@@ -274,7 +274,9 @@ This plot shows spot coordinates on mirror 1 near `z = 0`.
 - Black line overlay: projected profile/polarization axis.
 
 Hover text includes spot number, `X`, `Y`, `w_x`, `w_y`, profile/polarization
-angle, peak intensity, and peak fluence.
+angle, the incidence angle relative to the local mirror normal, incoming and
+reflected steering angles in the `theta_x/theta_y` frame, peak intensity, and
+peak fluence.
 
 ### Center Spots
 
@@ -284,7 +286,7 @@ It is useful for checking focusing or crossing behavior inside the cell.
 - Markers are numbered by center-plane crossing order.
 - The plot auto-scales to the center-hit extent.
 - Hover text reports the same beam and intensity/fluence quantities as the
-  mirror plots.
+  mirror plots, excluding the mirror-only incidence and steering-angle fields.
 
 ### Mirror 2 Spots
 
@@ -1026,6 +1028,25 @@ The displayed value is folded into:
 ```
 
 by adding or subtracting `180` degrees as needed.
+
+For mirror hits, the incidence angle shown in hover text is measured relative to
+the local surface normal:
+
+```text
+theta_inc = acos(abs(v_in . normal))*180/pi
+```
+
+The incoming/reflected steering values shown in hover text use the same
+parameterization as the input-ray steering controls:
+
+```text
+theta_x = 1000*v_x/v_z   [mrad]
+theta_y = 1000*v_y/v_z   [mrad]
+```
+
+When a plotted hit exits through an input or output hole, the reflected
+steering angle pair is reported as unavailable because no reflected cavity
+segment exists after that point.
 
 Mirror-plot labels use these pass-index formulas:
 

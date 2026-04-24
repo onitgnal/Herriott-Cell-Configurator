@@ -583,6 +583,7 @@
         const vScale = (a, s) => [a[0]*s, a[1]*s, a[2]*s];
         const vNormalize = (a) => vScale(a, 1/vNorm(a));
         const vCross = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+        const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
         function Hermite(n, x) {
             if(n===0) return 1;
@@ -870,14 +871,26 @@
                     
                     points.push(P_int);
                     let escaped = false;
+                    let v_reflected = vNormalize(reflect(v, normal));
+                    let u1_reflected = vNormalize(reflect(u1, normal));
+                    let u2_reflected = vNormalize(reflect(u2, normal));
+                    let hitRecord = {
+                        P: [...P_int],
+                        u1: [...u1],
+                        u2: [...u2],
+                        v_in: [...v],
+                        v_out: [...v_reflected],
+                        normal: [...normal]
+                    };
                     
                     if (target_mirror === 1) {
-                        mirror_hits[1].push({ P: [...P_int], u1: [...u1], u2: [...u2] });
+                        mirror_hits[1].push(hitRecord);
                         
                         if (this.out_mirror === 1) {
                             let d_out = Math.sqrt(Math.pow(P_int[0] - this.out_hole[0], 2) + Math.pow(P_int[1] - this.out_hole[1], 2));
                             if (d_out <= this.hole_radius) {
                                 exit_status = `Exited cleanly pass ${bounce+1} (Out Hole)`;
+                                hitRecord.v_out = null;
                                 escaped = true;
                             }
                         }
@@ -886,16 +899,18 @@
                             let d_in = Math.sqrt(Math.pow(P_int[0] - this.in_hole[0], 2) + Math.pow(P_int[1] - this.in_hole[1], 2));
                             if (d_in <= this.hole_radius) {
                                 exit_status = `Escaped pass ${bounce+1} (In Hole)`;
+                                hitRecord.v_out = null;
                                 escaped = true;
                             }
                         }
                     } else {
-                        m2_hits.push({ P: [...P_int], u1: [...u1], u2: [...u2] });
+                        m2_hits.push(hitRecord);
                         
                         if (this.out_mirror === 2) {
                             let d_out = Math.sqrt(Math.pow(P_int[0] - this.out_hole[0], 2) + Math.pow(P_int[1] - this.out_hole[1], 2));
                             if (d_out <= this.hole_radius) {
                                 exit_status = `Exited cleanly pass ${bounce+1} (Out Hole)`;
+                                hitRecord.v_out = null;
                                 escaped = true;
                             }
                         }
@@ -903,9 +918,9 @@
 
                     if (escaped) break;
 
-                    v = vNormalize(reflect(v, normal));
-                    u1 = vNormalize(reflect(u1, normal));
-                    u2 = vNormalize(reflect(u2, normal));
+                    v = v_reflected;
+                    u1 = u1_reflected;
+                    u2 = u2_reflected;
                     
                     P = P_int;
                     target_mirror = target_mirror === 1 ? 2 : 1;
@@ -1483,6 +1498,34 @@
                 return 'top center';
             };
 
+            const getRayAngleToNormalDeg = (ray, normal) => {
+                if (!ray || !normal) return null;
+                let cosTheta = clamp(Math.abs(vDot(vNormalize(ray), vNormalize(normal))), 0, 1);
+                return Math.acos(cosTheta) * 180 / Math.PI;
+            };
+
+            const getSteeringAnglesMrad = (ray) => {
+                if (!ray || Math.abs(ray[2]) < 1e-12) return null;
+                return {
+                    thx: 1000 * ray[0] / ray[2],
+                    thy: 1000 * ray[1] / ray[2]
+                };
+            };
+
+            const formatSteeringAngles = (ray) => {
+                let steering = getSteeringAnglesMrad(ray);
+                if (!steering) return 'N/A';
+                return `(${steering.thx.toFixed(2)}, ${steering.thy.toFixed(2)}) mrad`;
+            };
+
+            const getMirrorRayInfoHtml = (hit) => {
+                let incidenceAngle = getRayAngleToNormalDeg(hit.v_in, hit.normal);
+                if (incidenceAngle === null) return '';
+
+                let reflectedSteering = hit.v_out ? formatSteeringAngles(hit.v_out) : 'N/A (hole exit)';
+                return `<br>Incidence: ${incidenceAngle.toFixed(2)}°<br>Incoming (θx, θy): ${formatSteeringAngles(hit.v_in)}<br>Reflected (θx, θy): ${reflectedSteering}`;
+            };
+
             let layout2D_base = {
                 margin: { l: 40, r: 40, b: 40, t: 60 }, uirevision: 'true', showlegend: false,
                 xaxis: { title: 'X [mm]', range: [-limit, limit], zeroline: false },
@@ -1542,7 +1585,8 @@
                     while (hoverAng <= -90) hoverAng += 180;
                     while (hoverAng > 90) hoverAng -= 180;
 
-                    ph.push(`Hit: ${text}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
+                    let rayAngleHtml = (!isCenter && mirrorNum !== 0) ? getMirrorRayInfoHtml(hit) : '';
+                    ph.push(`Hit: ${text}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
                     pc.push(getWIndex(i));
 
                     let w_max = Math.max(wx, wy);
