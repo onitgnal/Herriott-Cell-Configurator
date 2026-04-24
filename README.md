@@ -308,6 +308,7 @@ does not include the mirror tilts; it remains a paraxial unfolded-axis estimate.
 | --- | --- |
 | `Set Standard` | Stores the current values as the in-memory reset target for this page session. |
 | `Reset` | Restores the current in-memory standard configuration. |
+| `Calculate Wave-Optics Beam Profiles` | Runs the explicit adaptive-grid 2D solver. The result is marked stale whenever any optical input or wave-optics setting changes, and the UI falls back to the fast analytic overlays until you recalculate. |
 | `Save File` | Downloads the current configuration as `herriott_config.json`. |
 | `Load File` | Loads a previously saved JSON configuration. |
 
@@ -371,6 +372,11 @@ peak fluence.
 
 This plot shows where each traced segment crosses the center plane `z = L/2`.
 It is useful for checking focusing or crossing behavior inside the cell.
+
+When a fresh wave-optics result is available, this panel switches from the
+geometric center plane to the adaptive minimum-area focus/waist plane chosen
+for each mirror-to-mirror segment. If the wave-optics result becomes stale, the
+plot automatically falls back to the original `z = L/2` view.
 
 - Markers are numbered by center-plane crossing order.
 - The plot auto-scales to the center-hit extent.
@@ -611,6 +617,65 @@ The ABCD reflection radius alternates by pass:
 if pass is even: current_R = R2
 if pass is odd:  current_R = R1
 ```
+
+### Adaptive 2D Wave-Optics Propagation
+
+The optional wave-optics feature is implemented as an adaptive-grid 2D
+Collins/Fresnel diffraction solver. It is triggered only by the dedicated
+**Calculate Wave-Optics Beam Profiles** button; the main `/api/simulate`
+endpoint and live-edit UI continue to use the fast ABCD path.
+
+For each traced mirror-to-mirror segment, the solver:
+
+1. Uses the existing ABCD `q` calculation to estimate the beam radii and phase
+   curvatures on the launch mirror, on the next mirror, and at the internal
+   minimum-area focus/waist plane.
+2. Chooses a separate transverse window for each of those planes using a
+   configurable safety factor times the ABCD-predicted beam radius.
+3. Chooses the grid spacing from explicit sampling limits:
+   - real-space resolution near the smallest expected waist,
+   - quadratic-phase sampling on curved wavefronts,
+   - and the Collins kernel coupling limit `dx <= margin*lambda*B/(2*x_max)`.
+4. Raises a clear sampling error if the required grid exceeds the configured
+   per-axis grid cap or memory budget.
+
+The propagated field is always complex-valued. The solver never rescales
+profiles by interpolating intensity alone. Instead, it evaluates the scalar
+diffraction integral directly on the target output grid, so the mirror, focus,
+and next-mirror windows can all differ.
+
+Mirror handling in the 2D solver follows the existing paraxial model:
+
+- spherical mirror curvature is applied as the thin-mirror phase
+  `exp(-i*k*(x^2 + y^2)/R)`,
+- the launch segment starts after the mirror-1 bounce so Gaussian wave-optics
+  propagation matches the ABCD reference,
+- and the existing input/output hole geometry is applied as a clipping mask on
+  subsequent mirror bounces.
+
+The minimum supported launch profiles are:
+
+- `gaussian`
+- `super_gaussian`
+- `round_super_gaussian`
+
+Both use the existing mm-based transverse coordinates and the current
+waist/waist-position conventions. The Gaussian launch profile uses the ABCD
+beam radii and phase curvature on the starting mirror plane. The super-Gaussian
+launch profile uses the same radii and curvature, but replaces the amplitude
+with a configurable super-Gaussian order. The round super-Gaussian uses a
+radially symmetric amplitude with a geometric-mean launch radius so it stays
+circular even when the existing x/y beam radii differ.
+
+Known limitations:
+
+- The adaptive 2D solver currently follows the local paraxial beam frame, not a
+  full non-paraxial vector model.
+- Higher-order HG/LG modes remain part of the fast analytic overlay path; the
+  explicit 2D launch profiles currently cover Gaussian plus two super-Gaussian
+  variants.
+- When the x/y minima do not occur at exactly the same `z`, the solver uses the
+  shared minimum-area plane as the internal adaptive focus plane.
 
 ### Auto Ideal Injection
 

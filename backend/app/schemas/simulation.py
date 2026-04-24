@@ -50,6 +50,26 @@ class SimulationRequest(BaseModel):
     mirror2_tilt_y_mrad: float = 0.0
 
 
+class WaveOpticsSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian"] = "gaussian"
+    super_gaussian_order: float = Field(4.0, ge=1.0, le=20.0)
+    window_safety_factor: float = Field(4.0, gt=1.0, le=12.0)
+    samples_per_radius: int = Field(14, ge=4, le=64)
+    guard_band_fraction: float = Field(0.12, ge=0.02, lt=0.45)
+    kernel_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
+    curvature_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
+    max_grid_points: int = Field(160, ge=32, le=1024)
+    max_memory_mb: float = Field(192.0, ge=16.0, le=4096.0)
+    display_grid_points: int = Field(72, ge=24, le=256)
+    display_safety_factor: float = Field(2.0, gt=1.0, le=6.0)
+
+
+class WaveOpticsSimulationRequest(SimulationRequest):
+    wave_optics: WaveOpticsSettings = Field(default_factory=WaveOpticsSettings)
+
+
 class ResolvedInputs(BaseModel):
     mirror_distance_mm: float
     total_passes: int
@@ -162,6 +182,68 @@ class BeamPropagation(BaseModel):
     y: AxisPropagation
 
 
+class WaveOpticsGridDiagnostic(BaseModel):
+    half_width_x_mm: float
+    half_width_y_mm: float
+    dx_mm: float
+    dy_mm: float
+    nx: int
+    ny: int
+    predicted_radius_x_mm: float
+    predicted_radius_y_mm: float
+
+
+class WaveOpticsFrame(BaseModel):
+    plane_kind: Literal["launch", "mirror", "focus"]
+    mirror_number: int | None = None
+    segment_index: int
+    bounce_index: int | None = None
+    label: str
+    position: Vector3
+    u1: Vector3
+    u2: Vector3
+    display_half_width_x_mm: float
+    display_half_width_y_mm: float
+    display_box_size_mm: float
+    intensity_map: list[list[float]]
+    equivalent_radius_x_mm: float
+    equivalent_radius_y_mm: float
+    peak_density_per_mm2: float
+    power_fraction: float
+    edge_power_fraction: float
+    spectral_edge_fraction: float
+
+
+class WaveOpticsSegmentDiagnostic(BaseModel):
+    segment_index: int
+    start_mirror: int
+    end_mirror: int
+    focus_distance_mm: float
+    start_grid: WaveOpticsGridDiagnostic
+    focus_grid: WaveOpticsGridDiagnostic
+    end_grid: WaveOpticsGridDiagnostic
+    start_radius_x_mm: float
+    start_radius_y_mm: float
+    focus_radius_x_mm: float
+    focus_radius_y_mm: float
+    end_radius_x_mm: float
+    end_radius_y_mm: float
+    warnings: list[str]
+
+
+class WaveOpticsResult(BaseModel):
+    method: str
+    profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian"]
+    super_gaussian_order: float | None = None
+    settings: WaveOpticsSettings
+    warnings: list[str]
+    launch_profile: WaveOpticsFrame
+    mirror1_profiles: list[WaveOpticsFrame]
+    mirror2_profiles: list[WaveOpticsFrame]
+    focus_profiles: list[WaveOpticsFrame]
+    segments: list[WaveOpticsSegmentDiagnostic]
+
+
 class SimulationResponse(BaseModel):
     stable: bool
     status_message: str
@@ -171,6 +253,7 @@ class SimulationResponse(BaseModel):
     cavity: CavityResult | None
     ray_trace: RayTraceResult | None
     beam_propagation: BeamPropagation | None
+    wave_optics: WaveOpticsResult | None = None
 
 
 class ErrorDetail(BaseModel):

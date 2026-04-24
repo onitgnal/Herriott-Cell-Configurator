@@ -60,6 +60,73 @@ function generateSpotDataUrl(waistX, waistY, u1, u2, mode, sizePx = 60) {
   return { url: canvas.toDataURL(), box_size: boxSize };
 }
 
+function sampleWaveIntensity(frame, localX, localY) {
+  const rows = frame.intensity_map.length;
+  const columns = frame.intensity_map[0]?.length ?? 0;
+  if (rows === 0 || columns === 0) {
+    return 0;
+  }
+
+  const xFraction = (localX + frame.display_half_width_x_mm) / (2 * frame.display_half_width_x_mm);
+  const yFraction = (localY + frame.display_half_width_y_mm) / (2 * frame.display_half_width_y_mm);
+  if (xFraction < 0 || xFraction > 1 || yFraction < 0 || yFraction > 1) {
+    return 0;
+  }
+
+  const xIndex = xFraction * (columns - 1);
+  const yIndex = yFraction * (rows - 1);
+  const x0 = Math.floor(xIndex);
+  const y0 = Math.floor(yIndex);
+  const x1 = Math.min(x0 + 1, columns - 1);
+  const y1 = Math.min(y0 + 1, rows - 1);
+  const tx = xIndex - x0;
+  const ty = yIndex - y0;
+
+  const v00 = frame.intensity_map[y0][x0];
+  const v10 = frame.intensity_map[y0][x1];
+  const v01 = frame.intensity_map[y1][x0];
+  const v11 = frame.intensity_map[y1][x1];
+
+  return (
+    (1 - tx) * (1 - ty) * v00 +
+    tx * (1 - ty) * v10 +
+    (1 - tx) * ty * v01 +
+    tx * ty * v11
+  );
+}
+
+function generateWaveProfileDataUrl(frame, sizePx = 72) {
+  const canvas = document.createElement("canvas");
+  canvas.width = sizePx;
+  canvas.height = sizePx;
+  const context = canvas.getContext("2d");
+  const imageData = context.createImageData(sizePx, sizePx);
+  const data = imageData.data;
+  const boxSize = frame.display_box_size_mm;
+
+  let index = 0;
+  for (let pixelY = 0; pixelY < sizePx; pixelY += 1) {
+    const deltaY = (0.5 - pixelY / (sizePx - 1)) * boxSize;
+    for (let pixelX = 0; pixelX < sizePx; pixelX += 1) {
+      const deltaX = (pixelX / (sizePx - 1) - 0.5) * boxSize;
+      const localX = deltaX * frame.u1[0] + deltaY * frame.u1[1];
+      const localY = deltaX * frame.u2[0] + deltaY * frame.u2[1];
+      const intensity = clamp(sampleWaveIntensity(frame, localX, localY), 0, 1);
+      const alpha = intensity < 0.01 ? 0 : 255;
+      const [r, g, b] = turboColor(intensity);
+
+      data[index] = r;
+      data[index + 1] = g;
+      data[index + 2] = b;
+      data[index + 3] = alpha;
+      index += 4;
+    }
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return { url: canvas.toDataURL(), box_size: boxSize };
+}
+
 function renderPlaceholderPlot(divId, title, message) {
   Plotly.react(
     divId,
@@ -148,7 +215,7 @@ function renderWaistPlot(beamPropagation, totalPasses, mirrorDistanceMm, modeTit
   );
 }
 
-function renderRayPlots(result, showBeamProfiles) {
+function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
   const { ray_trace: rayTrace, beam_propagation: beamPropagation, resolved_inputs: inputs, mode } = result;
   const points = rayTrace.points;
   const hits = rayTrace.mirror_hits;
@@ -268,7 +335,16 @@ function renderRayPlots(result, showBeamProfiles) {
     yaxis: { title: "Y [mm]", range: [-limit, limit], zeroline: false, scaleanchor: "x", scaleratio: 1 },
   };
 
-  const build2dPlot = (divId, title, hitsData, getWIndex, isCenter, mirrorNumber) => {
+  const build2dPlot = ({
+    divId,
+    title,
+    hitsData,
+    getWIndex,
+    isCenter,
+    mirrorNumber,
+    waveFrames = null,
+    launchFrame = null,
+  }) => {
     const layout = JSON.parse(JSON.stringify(baseLayout));
     layout.shapes = [];
     layout.images = [];
@@ -323,36 +399,68 @@ function renderRayPlots(result, showBeamProfiles) {
       });
     }
 
-    hitsData.forEach((hit, index) => {
-      const waistIndex = getWIndex(index);
-      const waistX = wxArray[waistIndex] ?? wxArray[wxArray.length - 1];
-      const waistY = wyArray[waistIndex] ?? wyArray[wyArray.length - 1];
-      const areaFactor = waistX * waistY;
-      const intensity = (100 * (inputs.peak_power_gw * mode.peak_factor)) / areaFactor;
-      const fluence = (100 * (inputs.pulse_energy_mj * mode.peak_factor)) / areaFactor;
+    const activeFrames = Array.isArray(waveFrames) ? waveFrames : [];
+    const usingWaveFrames = activeFrames.length > 0;
+    const plotCount = usingWaveFrames ? activeFrames.length : hitsData.length;
+
+    for (let index = 0; index < plotCount; index += 1) {
+      const hit = hitsData[index] ?? null;
+      const frame = usingWaveFrames ? activeFrames[index] : null;
+
+      let waistX;
+      let waistY;
+      let pointX;
+      let pointY;
+      let basisU1;
+      let basisU2;
+      let label;
+      let intensity;
+      let fluence;
+
+      if (frame) {
+        waistX = frame.equivalent_radius_x_mm;
+        waistY = frame.equivalent_radius_y_mm;
+        pointX = frame.position[0];
+        pointY = frame.position[1];
+        basisU1 = frame.u1;
+        basisU2 = frame.u2;
+        label = frame.label;
+        intensity = 100 * inputs.peak_power_gw * frame.peak_density_per_mm2;
+        fluence = 100 * inputs.pulse_energy_mj * frame.peak_density_per_mm2;
+      } else {
+        const waistIndex = getWIndex(index);
+        waistX = wxArray[waistIndex] ?? wxArray[wxArray.length - 1];
+        waistY = wyArray[waistIndex] ?? wyArray[wyArray.length - 1];
+        pointX = hit.P[0];
+        pointY = hit.P[1];
+        basisU1 = hit.u1;
+        basisU2 = hit.u2;
+        label = isCenter ? String(index + 1) : String(waistIndex);
+        const areaFactor = waistX * waistY;
+        intensity = (100 * (inputs.peak_power_gw * mode.peak_factor)) / areaFactor;
+        fluence = (100 * (inputs.pulse_energy_mj * mode.peak_factor)) / areaFactor;
+      }
 
       minIntensity = Math.min(minIntensity, intensity);
       maxIntensity = Math.max(maxIntensity, intensity);
       minFluence = Math.min(minFluence, fluence);
       maxFluence = Math.max(maxFluence, fluence);
 
-      px.push(hit.P[0]);
-      py.push(hit.P[1]);
-
-      let label = isCenter ? String(index + 1) : String(waistIndex);
       if (
         !isCenter &&
         mirrorNumber === inputs.output_mirror &&
-        hit === hitsData[hitsData.length - 1] &&
+        index === plotCount - 1 &&
         result.status_message.includes("Out Hole")
       ) {
         label = "<b>Out</b>";
       }
 
+      px.push(pointX);
+      py.push(pointY);
       text.push(label);
-      positions.push(getRadialTextPosition(hit.P[0], hit.P[1]));
+      positions.push(getRadialTextPosition(pointX, pointY));
 
-      let hoverAngle = (Math.atan2(hit.u1[1], hit.u1[0]) * 180) / Math.PI;
+      let hoverAngle = (Math.atan2(basisU1[1], basisU1[0]) * 180) / Math.PI;
       while (hoverAngle <= -90) {
         hoverAngle += 180;
       }
@@ -360,21 +468,25 @@ function renderRayPlots(result, showBeamProfiles) {
         hoverAngle -= 180;
       }
 
-      const rayAngleHtml = !isCenter && mirrorNumber !== 0 ? getMirrorRayInfoHtml(hit) : "";
+      const rayAngleHtml = !isCenter && mirrorNumber !== 0 && hit ? getMirrorRayInfoHtml(hit) : "";
+      const waveWarningHtml = frame
+        ? `<br>Edge Power: ${(100 * frame.edge_power_fraction).toFixed(2)}%<br>Spectral Edge: ${(100 * frame.spectral_edge_fraction).toFixed(2)}%`
+        : "";
       hover.push(
-        `Hit: ${label}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${waistX.toFixed(3)}<br>wy: ${waistY.toFixed(3)}<br>Pol: ${hoverAngle.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${intensity.toFixed(2)} GW/cm²<br>Fluence: ${fluence.toFixed(2)} mJ/cm²`,
+        `Hit: ${label}<br>X: ${pointX.toFixed(2)}<br>Y: ${pointY.toFixed(2)}<br>wx: ${waistX.toFixed(3)}<br>wy: ${waistY.toFixed(3)}<br>Pol: ${hoverAngle.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${intensity.toFixed(2)} GW/cm²<br>Fluence: ${fluence.toFixed(2)} mJ/cm²${waveWarningHtml}`,
       );
-      colorscale.push(waistIndex);
+      colorscale.push(frame ? (frame.bounce_index ?? frame.segment_index + 1) : getWIndex(index));
 
-      const maxWaist = Math.max(waistX, waistY);
       if (showBeamProfiles) {
-        const image = generateSpotDataUrl(waistX, waistY, hit.u1, hit.u2, mode, 60);
+        const image = frame
+          ? generateWaveProfileDataUrl(frame, 72)
+          : generateSpotDataUrl(waistX, waistY, basisU1, basisU2, mode, 60);
         layout.images.push({
           source: image.url,
           xref: "x",
           yref: "y",
-          x: hit.P[0],
-          y: hit.P[1],
+          x: pointX,
+          y: pointY,
           sizex: image.box_size,
           sizey: image.box_size,
           xanchor: "center",
@@ -382,23 +494,34 @@ function renderRayPlots(result, showBeamProfiles) {
           layer: "below",
         });
 
-        const vectorLength = maxWaist * 1.5;
-        polX.push(hit.P[0] - vectorLength * hit.u1[0], hit.P[0] + vectorLength * hit.u1[0], null);
-        polY.push(hit.P[1] - vectorLength * hit.u1[1], hit.P[1] + vectorLength * hit.u1[1], null);
-      } else {
+        const vectorLength = Math.max(waistX, waistY) * 1.5;
+        polX.push(pointX - vectorLength * basisU1[0], pointX + vectorLength * basisU1[0], null);
+        polY.push(pointY - vectorLength * basisU1[1], pointY + vectorLength * basisU1[1], null);
+      } else if (frame) {
         layout.shapes.push({
           type: "circle",
-          x0: hit.P[0] - maxWaist,
-          y0: hit.P[1] - maxWaist,
-          x1: hit.P[0] + maxWaist,
-          y1: hit.P[1] + maxWaist,
+          x0: pointX - waistX,
+          y0: pointY - waistY,
+          x1: pointX + waistX,
+          y1: pointY + waistY,
+          line: { color: "rgba(217, 70, 239, 0.6)", width: 1.5 },
+          fillcolor: "rgba(217, 70, 239, 0.15)",
+        });
+      } else {
+        const maxWaist = Math.max(waistX, waistY);
+        layout.shapes.push({
+          type: "circle",
+          x0: pointX - maxWaist,
+          y0: pointY - maxWaist,
+          x1: pointX + maxWaist,
+          y1: pointY + maxWaist,
           line: { color: "rgba(217, 70, 239, 0.6)", width: 1.5 },
           fillcolor: "rgba(217, 70, 239, 0.15)",
         });
       }
-    });
+    }
 
-    if (hitsData.length === 0) {
+    if (plotCount === 0) {
       minIntensity = 0;
       maxIntensity = 0;
       minFluence = 0;
@@ -408,7 +531,7 @@ function renderRayPlots(result, showBeamProfiles) {
     const statsHtml = `<br><span style="font-size:11px; color:#64748b; font-weight:normal;">Fluence: ${minFluence.toFixed(2)} - ${maxFluence.toFixed(2)} mJ/cm² | Intensity: ${minIntensity.toFixed(2)} - ${maxIntensity.toFixed(2)} GW/cm²</span>`;
     layout.title = { text: title + statsHtml, font: { size: 13, color: "#334155" }, y: 0.95 };
 
-    if (isCenter && hitsData.length > 0) {
+    if (plotCount > 0 && (isCenter || usingWaveFrames)) {
       const maxExtent = Math.max(...px.map(Math.abs), ...py.map(Math.abs)) * 1.2 + 2;
       layout.xaxis.range = [-maxExtent, maxExtent];
       layout.yaxis.range = [-maxExtent, maxExtent];
@@ -430,9 +553,13 @@ function renderRayPlots(result, showBeamProfiles) {
     ];
 
     if (mirrorNumber === 1) {
-      const waistX = wxArray[0];
-      const waistY = wyArray[0];
-      let hoverAngle = (Math.atan2(inputBasis.u1[1], inputBasis.u1[0]) * 180) / Math.PI;
+      const startFrame = launchFrame;
+      const startWaistX = startFrame ? startFrame.equivalent_radius_x_mm : wxArray[0];
+      const startWaistY = startFrame ? startFrame.equivalent_radius_y_mm : wyArray[0];
+      const startPoint = startFrame ? startFrame.position : inputPoint;
+      const startBasis = startFrame ? startFrame.u1 : inputBasis.u1;
+
+      let hoverAngle = (Math.atan2(startBasis[1], startBasis[0]) * 180) / Math.PI;
       while (hoverAngle <= -90) {
         hoverAngle += 180;
       }
@@ -441,26 +568,28 @@ function renderRayPlots(result, showBeamProfiles) {
       }
 
       traces.push({
-        x: [inputPoint[0]],
-        y: [inputPoint[1]],
+        x: [startPoint[0]],
+        y: [startPoint[1]],
         mode: "markers+text",
         type: "scatter",
         text: ["<b>In</b>"],
-        textposition: getRadialTextPosition(inputPoint[0], inputPoint[1]),
-        hovertext: [`Start (0)<br>X: ${inputPoint[0].toFixed(2)}<br>Y: ${inputPoint[1].toFixed(2)}<br>Pol: ${hoverAngle.toFixed(1)}°`],
+        textposition: getRadialTextPosition(startPoint[0], startPoint[1]),
+        hovertext: [`Start (0)<br>X: ${startPoint[0].toFixed(2)}<br>Y: ${startPoint[1].toFixed(2)}<br>Pol: ${hoverAngle.toFixed(1)}°`],
         hoverinfo: "text",
         textfont: { size: 11, color: "#16a34a" },
         marker: { color: "#16a34a", size: 8, symbol: "star" },
       });
 
       if (showBeamProfiles) {
-        const image = generateSpotDataUrl(waistX, waistY, inputBasis.u1, inputBasis.u2, mode, 60);
+        const image = startFrame
+          ? generateWaveProfileDataUrl(startFrame, 72)
+          : generateSpotDataUrl(startWaistX, startWaistY, inputBasis.u1, inputBasis.u2, mode, 60);
         layout.images.push({
           source: image.url,
           xref: "x",
           yref: "y",
-          x: inputPoint[0],
-          y: inputPoint[1],
+          x: startPoint[0],
+          y: startPoint[1],
           sizex: image.box_size,
           sizey: image.box_size,
           xanchor: "center",
@@ -468,9 +597,9 @@ function renderRayPlots(result, showBeamProfiles) {
           layer: "below",
         });
 
-        const vectorLength = Math.max(waistX, waistY) * 1.5;
-        polX.push(inputPoint[0] - vectorLength * inputBasis.u1[0], inputPoint[0] + vectorLength * inputBasis.u1[0], null);
-        polY.push(inputPoint[1] - vectorLength * inputBasis.u1[1], inputPoint[1] + vectorLength * inputBasis.u1[1], null);
+        const vectorLength = Math.max(startWaistX, startWaistY) * 1.5;
+        polX.push(startPoint[0] - vectorLength * startBasis[0], startPoint[0] + vectorLength * startBasis[0], null);
+        polY.push(startPoint[1] - vectorLength * startBasis[1], startPoint[1] + vectorLength * startBasis[1], null);
       }
     }
 
@@ -488,14 +617,39 @@ function renderRayPlots(result, showBeamProfiles) {
     Plotly.react(divId, traces, layout, { responsive: true });
   };
 
-  build2dPlot("plotM1", "Mirror 1 Spots (z=0)", hits[1] || [], (index) => 2 * index + 2, false, 1);
-  build2dPlot("plotCenter", "Center Spots (z=L/2)", centerHits, (index) => index, true, 0);
-  build2dPlot("plotM2", "Mirror 2 Spots (z=L)", hits[2] || [], (index) => 2 * index + 1, false, 2);
+  build2dPlot({
+    divId: "plotM1",
+    title: waveOptics ? "Mirror 1 Spots (Wave Optics)" : "Mirror 1 Spots (z=0)",
+    hitsData: hits[1] || [],
+    getWIndex: (index) => 2 * index + 2,
+    isCenter: false,
+    mirrorNumber: 1,
+    waveFrames: waveOptics?.mirror1_profiles ?? null,
+    launchFrame: waveOptics?.launch_profile ?? null,
+  });
+  build2dPlot({
+    divId: "plotCenter",
+    title: waveOptics ? "Adaptive Focus / Waist Planes" : "Center Spots (z=L/2)",
+    hitsData: centerHits,
+    getWIndex: (index) => index,
+    isCenter: true,
+    mirrorNumber: 0,
+    waveFrames: waveOptics?.focus_profiles ?? null,
+  });
+  build2dPlot({
+    divId: "plotM2",
+    title: waveOptics ? "Mirror 2 Spots (Wave Optics)" : "Mirror 2 Spots (z=L)",
+    hitsData: hits[2] || [],
+    getWIndex: (index) => 2 * index + 1,
+    isCenter: false,
+    mirrorNumber: 2,
+    waveFrames: waveOptics?.mirror2_profiles ?? null,
+  });
 }
 
-export function renderSimulationPlots(result, showBeamProfiles) {
+export function renderSimulationPlots(result, showBeamProfiles, waveOptics = null) {
   renderWaistPlot(result.beam_propagation, result.resolved_inputs.total_passes, result.resolved_inputs.mirror_distance_mm, result.mode.title);
-  renderRayPlots(result, showBeamProfiles);
+  renderRayPlots(result, showBeamProfiles, waveOptics);
 }
 
 export function renderUnstablePlots(statusMessage) {

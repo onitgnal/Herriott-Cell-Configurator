@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.routes.simulation import router as simulation_router
+from backend.app.core.wave_optics import WaveOpticsSamplingError
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = ROOT_DIR / "frontend"
@@ -38,6 +39,19 @@ async def request_validation_exception_handler(
                 "message": "Request validation failed.",
             },
             "details": details,
+        },
+    )
+
+
+@app.exception_handler(WaveOpticsSamplingError)
+async def wave_optics_sampling_exception_handler(_: Request, exc: WaveOpticsSamplingError) -> JSONResponse:
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": {
+                "code": "wave_optics_sampling_error",
+                "message": str(exc),
+            }
         },
     )
 

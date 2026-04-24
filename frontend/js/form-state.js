@@ -43,6 +43,15 @@ const LEGACY_TOGGLE_FIELDS = [
   { key: "show_beam_profiles", elementId: "show-beam-profiles", legacyKey: "showBeamProfiles", type: "checkbox" },
 ];
 
+const WAVE_OPTICS_FIELDS = [
+  { key: "profile_type", elementId: "wave-profile-type", type: "select" },
+  { key: "super_gaussian_order", elementId: "wave-super-order", type: "float" },
+  { key: "window_safety_factor", elementId: "wave-window-safety", type: "float" },
+  { key: "samples_per_radius", elementId: "wave-samples-per-radius", type: "int" },
+  { key: "max_grid_points", elementId: "wave-max-grid", type: "int" },
+  { key: "max_memory_mb", elementId: "wave-max-memory", type: "float" },
+];
+
 const AUTO_GROUPS = [
   { checkboxId: "auto-R", groupId: "group-R" },
   { checkboxId: "auto-R-vex", groupId: "group-R-vex" },
@@ -163,6 +172,14 @@ export function updateModeUI() {
   document.getElementById("group-custom").classList.toggle("hidden", modeType !== "custom");
 }
 
+export function updateWaveOpticsUI() {
+  const profileType = document.getElementById("wave-profile-type")?.value;
+  document.getElementById("wave-super-order-group")?.classList.toggle(
+    "hidden",
+    profileType !== "super_gaussian" && profileType !== "round_super_gaussian",
+  );
+}
+
 export function updateCellTypeUI() {
   const cellType = document.getElementById("cell-type").value;
   document.getElementById("ui-cav-cav").classList.toggle("hidden", cellType !== "cav-cav");
@@ -200,6 +217,34 @@ export function buildSimulationRequest(config = captureConfig()) {
   return request;
 }
 
+export function captureWaveOpticsSettings() {
+  const settings = {};
+
+  WAVE_OPTICS_FIELDS.forEach((field) => {
+    const element = document.getElementById(field.elementId);
+    if (!element) {
+      return;
+    }
+
+    if (field.type === "select") {
+      settings[field.key] = element.value;
+    } else if (field.type === "int") {
+      settings[field.key] = parseInt(element.value, 10);
+    } else {
+      settings[field.key] = parseFloat(element.value);
+    }
+  });
+
+  return settings;
+}
+
+export function buildWaveOpticsRequest(config = captureConfig(), waveOptics = captureWaveOpticsSettings()) {
+  return {
+    ...buildSimulationRequest(config),
+    wave_optics: waveOptics,
+  };
+}
+
 export function applyConfig(config) {
   NUMERIC_FIELDS.forEach((field) => {
     if (config[field.key] === undefined || config[field.key] === null) {
@@ -223,8 +268,22 @@ export function applyConfig(config) {
     }
   });
 
+  if (config.wave_optics) {
+    WAVE_OPTICS_FIELDS.forEach((field) => {
+      if (config.wave_optics[field.key] === undefined) {
+        return;
+      }
+      const element = document.getElementById(field.elementId);
+      if (!element) {
+        return;
+      }
+      element.value = String(config.wave_optics[field.key]);
+    });
+  }
+
   updateCellTypeUI();
   updateModeUI();
+  updateWaveOpticsUI();
   updateToggleGroups();
 }
 
@@ -331,6 +390,17 @@ export function bindNumericFields(onChange) {
   });
 }
 
+export function bindWaveOpticsFields(onChange) {
+  WAVE_OPTICS_FIELDS.forEach((field) => {
+    const element = document.getElementById(field.elementId);
+    if (!element) {
+      return;
+    }
+    element.addEventListener("input", onChange);
+    element.addEventListener("change", onChange);
+  });
+}
+
 export function initializeStandardConfig() {
   standardConfig = captureConfig();
 }
@@ -353,7 +423,7 @@ export function flashStandardSaved() {
 }
 
 export function saveConfigToFile() {
-  const json = JSON.stringify(captureLegacyConfig(), null, 2);
+  const json = JSON.stringify({ ...captureConfig(), wave_optics: captureWaveOpticsSettings() }, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 

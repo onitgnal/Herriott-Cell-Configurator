@@ -20,7 +20,15 @@ function getErrorMessage(body, fallbackMessage) {
 }
 
 export async function simulateConfiguration(payload, { signal } = {}) {
-  const response = await fetch("/api/simulate", {
+  return postJson("/api/simulate", payload, { signal });
+}
+
+export async function simulateWaveOptics(payload, { signal } = {}) {
+  return postJson("/api/simulate-wave-optics", payload, { signal });
+}
+
+async function postJson(url, payload, { signal } = {}) {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
