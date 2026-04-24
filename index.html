@@ -665,6 +665,18 @@
             return 0;
         }
 
+        function turboColor(t) {
+            let x = clamp(t, 0, 1);
+            let r = 34.61 + x * (1172.33 + x * (-10793.56 + x * (33300.12 + x * (-38394.49 + x * 14825.05))));
+            let g = 23.31 + x * (557.33 + x * (1225.33 + x * (-3574.96 + x * (1073.77 + x * 707.56))));
+            let b = 27.20 + x * (3211.10 + x * (-15327.97 + x * (27814.00 + x * (-22569.18 + x * 6838.66))));
+            return [
+                Math.round(clamp(r, 0, 255)),
+                Math.round(clamp(g, 0, 255)),
+                Math.round(clamp(b, 0, 255))
+            ];
+        }
+
         function generateSpotDataURL(Wx, Wy, u1, u2, mode, size_px=60) {
             let canvas = document.createElement('canvas');
             canvas.width = size_px; canvas.height = size_px;
@@ -683,12 +695,14 @@
                     let lx = dX * u1[0] + dY * u1[1];
                     let ly = dX * u2[0] + dY * u2[1];
                     
-                    let I = evaluateModeIntensity(lx, ly, Wx, Wy, mode);
-                    let alpha = Math.min(255, Math.floor(I * 255));
+                    let I = clamp(evaluateModeIntensity(lx, ly, Wx, Wy, mode), 0, 1);
+                    let isTransparent = I < 0.01;
+                    let alpha = isTransparent ? 0 : 255;
+                    let [r, g, b] = turboColor(I);
                     
-                    data[i++] = 217; 
-                    data[i++] = 70;  
-                    data[i++] = 239; 
+                    data[i++] = r;
+                    data[i++] = g;
+                    data[i++] = b;
                     data[i++] = alpha; 
                 }
             }

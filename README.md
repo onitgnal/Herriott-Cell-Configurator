@@ -181,7 +181,7 @@ distinct spot positions.
 
 | Control | Meaning |
 | --- | --- |
-| `Render Beam Profile Overlays` | Shows generated intensity images under each spot and projected polarization/profile-axis lines. When disabled, spots use simple radius circles. |
+| `Render Beam Profile Overlays` | Shows generated intensity images under each spot using the Turbo colormap, with values below 1% rendered transparent, plus projected polarization/profile-axis lines. When disabled, spots use simple radius circles. |
 | `Transversal Mode` | Selects TEM00, Hermite-Gaussian, Laguerre-Gaussian, or custom `M^2`. |
 | `HG Index n` | Horizontal Hermite-Gaussian order. The app uses `M_x^2 = 2n + 1`. |
 | `HG Index m` | Vertical Hermite-Gaussian order. The app uses `M_y^2 = 2m + 1`. |
