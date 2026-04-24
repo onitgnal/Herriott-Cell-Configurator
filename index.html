@@ -641,8 +641,13 @@
         }
 
         function evaluateModeIntensity(lx, ly, Wx, Wy, mode) {
-            let w0x = Wx / Math.sqrt(mode.M2x || 1);
-            let w0y = Wy / Math.sqrt(mode.M2y || 1);
+            let w0x = Wx;
+            let w0y = Wy;
+
+            if (mode.type === 'hg' || mode.type === 'lg') {
+                w0x = Wx / Math.sqrt(mode.M2x || 1);
+                w0y = Wy / Math.sqrt(mode.M2y || 1);
+            }
             
             let sx = Math.SQRT2 * lx / w0x;
             let sy = Math.SQRT2 * ly / w0y;

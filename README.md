@@ -878,6 +878,17 @@ Custom `M^2` uses:
 M2x = M2y = M2_custom
 ```
 
+For the overlay image, custom `M^2` uses the propagated spot radii directly:
+
+```text
+w0x = W_x
+w0y = W_y
+```
+
+The custom `M^2` factor enlarges the propagated beam through the ABCD model, but
+the visualization does not apply an additional `1/sqrt(M^2)` shrink factor to
+the Gaussian profile.
+
 ### Mode Normalization And Peak Factor
 
 The app samples a square normalized-coordinate grid:
