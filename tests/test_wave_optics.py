@@ -22,6 +22,18 @@ def build_wave_request(**wave_overrides) -> WaveOpticsSimulationRequest:
     return WaveOpticsSimulationRequest.model_validate(config)
 
 
+def build_cav_vex_wave_request(**wave_overrides) -> WaveOpticsSimulationRequest:
+    config = load_fixture("cav_vex_lg_auto.json")
+    config["wave_optics"] = {
+        "profile_type": "gaussian",
+        "max_grid_points": 640,
+        "max_memory_mb": 192,
+        "display_grid_points": 48,
+        **wave_overrides,
+    }
+    return WaveOpticsSimulationRequest.model_validate(config)
+
+
 def test_gaussian_wave_optics_matches_abcd_mirror_radii() -> None:
     result = run_wave_optics_simulation(build_wave_request())
     assert result.wave_optics is not None
@@ -61,13 +73,33 @@ def test_gaussian_wave_optics_matches_abcd_mirror_radii() -> None:
             abs_tol=1e-8,
         )
 
+    for index, frame in enumerate(result.wave_optics.center_profiles):
+        assert frame.plane_kind == "center"
+        assert isclose(
+            frame.equivalent_radius_x_mm,
+            result.beam_propagation.x.w_center_w[index],
+            rel_tol=1e-6,
+            abs_tol=1e-8,
+        )
+        assert isclose(
+            frame.equivalent_radius_y_mm,
+            result.beam_propagation.y.w_center_w[index],
+            rel_tol=1e-6,
+            abs_tol=1e-8,
+        )
+
 
 def test_wave_optics_segment_uses_mirror_focus_mirror_path_with_adaptive_window() -> None:
     result = run_wave_optics_simulation(build_wave_request())
     assert result.wave_optics is not None
 
     segment = result.wave_optics.segments[0]
+    assert segment.propagation_mode == "split_focus"
+    assert segment.focus_distance_mm is not None
     assert 0 < segment.focus_distance_mm < result.resolved_inputs.mirror_distance_mm
+    assert segment.focus_grid is not None
+    assert segment.focus_radius_x_mm is not None
+    assert segment.center_grid.half_width_x_mm >= segment.focus_grid.half_width_x_mm
     assert segment.focus_radius_x_mm < segment.start_radius_x_mm
     assert segment.focus_radius_x_mm < segment.end_radius_x_mm
     assert segment.focus_grid.half_width_x_mm < segment.start_grid.half_width_x_mm
@@ -180,3 +212,18 @@ def test_wave_optics_reports_guard_band_pressure() -> None:
     assert result.wave_optics is not None
     assert result.wave_optics.warnings
     assert any("guard band" in warning for warning in result.wave_optics.warnings)
+
+
+def test_cav_vex_wave_optics_uses_direct_segments_without_forced_focus() -> None:
+    result = run_wave_optics_simulation(build_cav_vex_wave_request())
+    assert result.wave_optics is not None
+
+    assert result.wave_optics.focus_profiles == []
+    assert len(result.wave_optics.center_profiles) == len(result.wave_optics.segments)
+    assert result.wave_optics.mirror1_profiles
+    assert result.wave_optics.mirror2_profiles
+    assert all(segment.propagation_mode == "direct" for segment in result.wave_optics.segments)
+    assert all(segment.focus_distance_mm is None for segment in result.wave_optics.segments)
+    assert all(segment.focus_grid is None for segment in result.wave_optics.segments)
+    assert all(segment.focus_radius_x_mm is None for segment in result.wave_optics.segments)
+    assert all(frame.plane_kind == "center" for frame in result.wave_optics.center_profiles)

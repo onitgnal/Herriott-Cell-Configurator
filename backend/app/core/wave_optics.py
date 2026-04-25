@@ -62,7 +62,8 @@ class SegmentState:
     segment_index: int
     start_mirror: int
     end_mirror: int
-    focus_distance_mm: float
+    propagation_mode: str
+    focus_distance_mm: float | None
     focus_boundary_warning: str | None
     start_q_x: complex
     start_q_y: complex
@@ -72,14 +73,18 @@ class SegmentState:
     reflected_q_y: complex
     start_radius_x_mm: float
     start_radius_y_mm: float
-    focus_radius_x_mm: float
-    focus_radius_y_mm: float
+    center_radius_x_mm: float
+    center_radius_y_mm: float
+    focus_radius_x_mm: float | None
+    focus_radius_y_mm: float | None
     end_radius_x_mm: float
     end_radius_y_mm: float
     start_curvature_x_mm: float
     start_curvature_y_mm: float
-    focus_curvature_x_mm: float
-    focus_curvature_y_mm: float
+    center_curvature_x_mm: float
+    center_curvature_y_mm: float
+    focus_curvature_x_mm: float | None
+    focus_curvature_y_mm: float | None
     end_curvature_x_mm: float
     end_curvature_y_mm: float
     reflected_curvature_x_mm: float
@@ -141,7 +146,7 @@ def _find_focus_distance_mm(
     wavelength_mm: float,
     m2_x: float,
     m2_y: float,
-) -> tuple[float, str | None]:
+) -> tuple[float | None, str | None]:
     sample_count = 513
     z_samples = np.linspace(0.0, distance_mm, sample_count)
     area_samples = _beam_radius_mm(q_x + z_samples, wavelength_mm, m2_x) * _beam_radius_mm(
@@ -152,16 +157,11 @@ def _find_focus_distance_mm(
     focus_index = int(np.argmin(area_samples))
     focus_distance_mm = float(z_samples[focus_index])
     clamp_margin_mm = max(distance_mm * 1e-3, 1e-4)
-    warning: str | None = None
 
     if focus_distance_mm <= clamp_margin_mm or focus_distance_mm >= distance_mm - clamp_margin_mm:
-        focus_distance_mm = min(max(focus_distance_mm, clamp_margin_mm), distance_mm - clamp_margin_mm)
-        warning = (
-            "The minimum-area ABCD plane collapsed onto a mirror. "
-            "The adaptive solver clamped the internal focus plane to keep the two-step propagation well-posed."
-        )
+        return None, None
 
-    return focus_distance_mm, warning
+    return focus_distance_mm, None
 
 
 def _efficient_grid_size(required_points: int, max_grid_points: int) -> int:
@@ -214,6 +214,24 @@ def _estimate_segment_memory_bytes(start: PlanePlan, focus: PlanePlan, end: Plan
         + (focus.ny * end.ny)
     )
     diagnostic_bytes = float_bytes * ((focus.nx * focus.ny) + (end.nx * end.ny))
+    return field_bytes + kernel_bytes + diagnostic_bytes
+
+
+def _estimate_direct_segment_memory_bytes(start: PlanePlan, end: PlanePlan) -> int:
+    complex_bytes = 16
+    float_bytes = 8
+    field_bytes = complex_bytes * ((start.nx * start.ny) + (end.nx * end.ny))
+    kernel_bytes = complex_bytes * ((start.nx * end.nx) + (start.ny * end.ny))
+    diagnostic_bytes = float_bytes * (end.nx * end.ny)
+    return field_bytes + kernel_bytes + diagnostic_bytes
+
+
+def _estimate_center_diagnostic_memory_bytes(start: PlanePlan, center: PlanePlan) -> int:
+    complex_bytes = 16
+    float_bytes = 8
+    field_bytes = complex_bytes * (center.nx * center.ny)
+    kernel_bytes = complex_bytes * ((start.nx * center.nx) + (start.ny * center.ny))
+    diagnostic_bytes = float_bytes * (center.nx * center.ny)
     return field_bytes + kernel_bytes + diagnostic_bytes
 
 
@@ -627,8 +645,10 @@ def _segment_states(
             m2_x,
             m2_y,
         )
-        q_focus_x = _propagate_q(q_x, focus_distance_mm)
-        q_focus_y = _propagate_q(q_y, focus_distance_mm)
+        q_focus_x = _propagate_q(q_x, focus_distance_mm) if focus_distance_mm is not None else None
+        q_focus_y = _propagate_q(q_y, focus_distance_mm) if focus_distance_mm is not None else None
+        q_center_x = _propagate_q(q_x, 0.5 * mirror_distance_mm)
+        q_center_y = _propagate_q(q_y, 0.5 * mirror_distance_mm)
         q_end_x = _propagate_q(q_x, mirror_distance_mm)
         q_end_y = _propagate_q(q_y, mirror_distance_mm)
         q_reflected_x = _mirror_q(q_end_x, end_mirror_radius_mm)
@@ -639,6 +659,7 @@ def _segment_states(
                 segment_index=segment_index,
                 start_mirror=start_mirror,
                 end_mirror=end_mirror,
+                propagation_mode="split_focus" if focus_distance_mm is not None else "direct",
                 focus_distance_mm=focus_distance_mm,
                 focus_boundary_warning=focus_warning,
                 start_q_x=q_x,
@@ -649,14 +670,22 @@ def _segment_states(
                 reflected_q_y=q_reflected_y,
                 start_radius_x_mm=float(_beam_radius_mm(q_x, wavelength_mm, m2_x)),
                 start_radius_y_mm=float(_beam_radius_mm(q_y, wavelength_mm, m2_y)),
-                focus_radius_x_mm=float(_beam_radius_mm(q_focus_x, wavelength_mm, m2_x)),
-                focus_radius_y_mm=float(_beam_radius_mm(q_focus_y, wavelength_mm, m2_y)),
+                center_radius_x_mm=float(_beam_radius_mm(q_center_x, wavelength_mm, m2_x)),
+                center_radius_y_mm=float(_beam_radius_mm(q_center_y, wavelength_mm, m2_y)),
+                focus_radius_x_mm=(
+                    float(_beam_radius_mm(q_focus_x, wavelength_mm, m2_x)) if q_focus_x is not None else None
+                ),
+                focus_radius_y_mm=(
+                    float(_beam_radius_mm(q_focus_y, wavelength_mm, m2_y)) if q_focus_y is not None else None
+                ),
                 end_radius_x_mm=float(_beam_radius_mm(q_end_x, wavelength_mm, m2_x)),
                 end_radius_y_mm=float(_beam_radius_mm(q_end_y, wavelength_mm, m2_y)),
                 start_curvature_x_mm=_curvature_radius_mm(q_x),
                 start_curvature_y_mm=_curvature_radius_mm(q_y),
-                focus_curvature_x_mm=_curvature_radius_mm(q_focus_x),
-                focus_curvature_y_mm=_curvature_radius_mm(q_focus_y),
+                center_curvature_x_mm=_curvature_radius_mm(q_center_x),
+                center_curvature_y_mm=_curvature_radius_mm(q_center_y),
+                focus_curvature_x_mm=_curvature_radius_mm(q_focus_x) if q_focus_x is not None else None,
+                focus_curvature_y_mm=_curvature_radius_mm(q_focus_y) if q_focus_y is not None else None,
                 end_curvature_x_mm=_curvature_radius_mm(q_end_x),
                 end_curvature_y_mm=_curvature_radius_mm(q_end_y),
                 reflected_curvature_x_mm=_curvature_radius_mm(q_reflected_x),
@@ -674,9 +703,10 @@ def _plan_planes(
     mirror_distance_mm: float,
     wavelength_mm: float,
     settings: WaveOpticsSettings,
-) -> tuple[list[PlanePlan], list[PlanePlan]]:
+) -> tuple[list[PlanePlan], list[PlanePlan | None], list[PlanePlan]]:
     mirror_half_widths: list[tuple[float, float]] = []
-    focus_half_widths: list[tuple[float, float]] = []
+    center_half_widths: list[tuple[float, float]] = []
+    focus_half_widths: list[tuple[float, float] | None] = []
 
     for plane_index in range(len(states) + 1):
         if plane_index == len(states):
@@ -693,6 +723,17 @@ def _plan_planes(
         )
 
     for state in states:
+        center_half_widths.append(
+            (
+                _plane_half_width_mm(state.center_radius_x_mm, settings),
+                _plane_half_width_mm(state.center_radius_y_mm, settings),
+            ),
+        )
+
+    for state in states:
+        if state.focus_radius_x_mm is None or state.focus_radius_y_mm is None:
+            focus_half_widths.append(None)
+            continue
         focus_half_widths.append(
             (
                 _plane_half_width_mm(state.focus_radius_x_mm, settings),
@@ -733,12 +774,22 @@ def _plan_planes(
 
         if plane_index > 0:
             prev_state = states[plane_index - 1]
-            prev_focus_half_x_mm, prev_focus_half_y_mm = focus_half_widths[plane_index - 1]
+            prev_focus_half_width = focus_half_widths[plane_index - 1]
+            prev_opposite_half_x_mm, prev_opposite_half_y_mm = (
+                prev_focus_half_width
+                if prev_focus_half_width is not None
+                else mirror_half_widths[plane_index - 1]
+            )
+            prev_distance_mm = (
+                mirror_distance_mm - prev_state.focus_distance_mm
+                if prev_state.focus_distance_mm is not None
+                else mirror_distance_mm
+            )
             dx_limit_x_mm = min(
                 dx_limit_x_mm,
                 _dx_from_kernel(
-                    mirror_distance_mm - prev_state.focus_distance_mm,
-                    prev_focus_half_x_mm,
+                    prev_distance_mm,
+                    prev_opposite_half_x_mm,
                     wavelength_mm,
                     settings.kernel_nyquist_margin,
                 ),
@@ -746,8 +797,8 @@ def _plan_planes(
             dx_limit_y_mm = min(
                 dx_limit_y_mm,
                 _dx_from_kernel(
-                    mirror_distance_mm - prev_state.focus_distance_mm,
-                    prev_focus_half_y_mm,
+                    prev_distance_mm,
+                    prev_opposite_half_y_mm,
                     wavelength_mm,
                     settings.kernel_nyquist_margin,
                 ),
@@ -755,12 +806,13 @@ def _plan_planes(
 
         if plane_index < len(states):
             next_state = states[plane_index]
-            next_focus_half_x_mm, next_focus_half_y_mm = focus_half_widths[plane_index]
+            center_half_width_x_mm, center_half_width_y_mm = center_half_widths[plane_index]
+            center_distance_mm = 0.5 * mirror_distance_mm
             dx_limit_x_mm = min(
                 dx_limit_x_mm,
                 _dx_from_kernel(
-                    next_state.focus_distance_mm,
-                    next_focus_half_x_mm,
+                    center_distance_mm,
+                    center_half_width_x_mm,
                     wavelength_mm,
                     settings.kernel_nyquist_margin,
                 ),
@@ -768,8 +820,34 @@ def _plan_planes(
             dx_limit_y_mm = min(
                 dx_limit_y_mm,
                 _dx_from_kernel(
-                    next_state.focus_distance_mm,
-                    next_focus_half_y_mm,
+                    center_distance_mm,
+                    center_half_width_y_mm,
+                    wavelength_mm,
+                    settings.kernel_nyquist_margin,
+                ),
+            )
+
+            next_focus_half_width = focus_half_widths[plane_index]
+            next_opposite_half_x_mm, next_opposite_half_y_mm = (
+                next_focus_half_width
+                if next_focus_half_width is not None
+                else mirror_half_widths[plane_index + 1]
+            )
+            next_distance_mm = next_state.focus_distance_mm if next_state.focus_distance_mm is not None else mirror_distance_mm
+            dx_limit_x_mm = min(
+                dx_limit_x_mm,
+                _dx_from_kernel(
+                    next_distance_mm,
+                    next_opposite_half_x_mm,
+                    wavelength_mm,
+                    settings.kernel_nyquist_margin,
+                ),
+            )
+            dx_limit_y_mm = min(
+                dx_limit_y_mm,
+                _dx_from_kernel(
+                    next_distance_mm,
+                    next_opposite_half_y_mm,
                     wavelength_mm,
                     settings.kernel_nyquist_margin,
                 ),
@@ -790,9 +868,65 @@ def _plan_planes(
             ),
         )
 
-    focus_plans: list[PlanePlan] = []
+    center_plans: list[PlanePlan] = []
     for state_index, state in enumerate(states):
-        half_width_x_mm, half_width_y_mm = focus_half_widths[state_index]
+        half_width_x_mm, half_width_y_mm = center_half_widths[state_index]
+        start_half_width_x_mm, start_half_width_y_mm = mirror_half_widths[state_index]
+        center_distance_mm = 0.5 * mirror_distance_mm
+
+        dx_limit_x_mm = state.center_radius_x_mm / settings.samples_per_radius
+        dx_limit_y_mm = state.center_radius_y_mm / settings.samples_per_radius
+        dx_limit_x_mm = min(
+            dx_limit_x_mm,
+            _dx_from_curvature(state.center_curvature_x_mm, half_width_x_mm, wavelength_mm, settings.curvature_nyquist_margin),
+            _dx_from_kernel(
+                center_distance_mm,
+                start_half_width_x_mm,
+                wavelength_mm,
+                settings.kernel_nyquist_margin,
+            ),
+        )
+        dx_limit_y_mm = min(
+            dx_limit_y_mm,
+            _dx_from_curvature(state.center_curvature_y_mm, half_width_y_mm, wavelength_mm, settings.curvature_nyquist_margin),
+            _dx_from_kernel(
+                center_distance_mm,
+                start_half_width_y_mm,
+                wavelength_mm,
+                settings.kernel_nyquist_margin,
+            ),
+        )
+
+        nx = _efficient_grid_size(_grid_requirement_points(half_width_x_mm, dx_limit_x_mm), settings.max_grid_points)
+        ny = _efficient_grid_size(_grid_requirement_points(half_width_y_mm, dx_limit_y_mm), settings.max_grid_points)
+        center_plans.append(
+            PlanePlan(
+                half_width_x_mm=half_width_x_mm,
+                half_width_y_mm=half_width_y_mm,
+                nx=nx,
+                ny=ny,
+                dx_mm=(2 * half_width_x_mm) / (nx - 1),
+                dy_mm=(2 * half_width_y_mm) / (ny - 1),
+                predicted_radius_x_mm=state.center_radius_x_mm,
+                predicted_radius_y_mm=state.center_radius_y_mm,
+            ),
+        )
+
+    focus_plans: list[PlanePlan | None] = []
+    for state_index, state in enumerate(states):
+        focus_half_width = focus_half_widths[state_index]
+        if (
+            focus_half_width is None
+            or state.focus_distance_mm is None
+            or state.focus_radius_x_mm is None
+            or state.focus_radius_y_mm is None
+            or state.focus_curvature_x_mm is None
+            or state.focus_curvature_y_mm is None
+        ):
+            focus_plans.append(None)
+            continue
+
+        half_width_x_mm, half_width_y_mm = focus_half_width
         start_half_width_x_mm, start_half_width_y_mm = mirror_half_widths[state_index]
         end_half_width_x_mm, end_half_width_y_mm = mirror_half_widths[state_index + 1]
 
@@ -847,7 +981,13 @@ def _plan_planes(
         )
 
     for index, state in enumerate(states):
-        bytes_required = _estimate_segment_memory_bytes(mirror_plans[index], focus_plans[index], mirror_plans[index + 1])
+        focus_plan = focus_plans[index]
+        bytes_required = (
+            _estimate_segment_memory_bytes(mirror_plans[index], focus_plan, mirror_plans[index + 1])
+            if focus_plan is not None
+            else _estimate_direct_segment_memory_bytes(mirror_plans[index], mirror_plans[index + 1])
+        )
+        bytes_required += _estimate_center_diagnostic_memory_bytes(mirror_plans[index], center_plans[index])
         if bytes_required > settings.max_memory_mb * 1024 * 1024:
             raise WaveOpticsSamplingError(
                 f"Segment {index + 1} would require roughly {bytes_required / (1024 * 1024):.1f} MiB, exceeding the "
@@ -855,7 +995,27 @@ def _plan_planes(
                 "loosen the grid settings.",
             )
 
-    return mirror_plans, focus_plans
+    return mirror_plans, focus_plans, center_plans
+
+
+def _segment_propagation_step_label(state: SegmentState, segment_number: int, segment_count: int) -> str:
+    if state.focus_distance_mm is None:
+        return f"Segment {segment_number}/{segment_count}: direct mirror-to-mirror propagation"
+    return f"Segment {segment_number}/{segment_count}: mirror to focus propagation"
+
+
+def _segment_center_step_label(segment_number: int, segment_count: int) -> str:
+    return f"Segment {segment_number}/{segment_count}: mirror to MPC center-plane propagation"
+
+
+def _wave_optics_progress_step_count(states: list[SegmentState]) -> int:
+    total_steps = 2
+    for segment_index, state in enumerate(states):
+        total_steps += 2
+        total_steps += 4 if state.focus_distance_mm is not None else 2
+        if segment_index < len(states) - 1:
+            total_steps += 1
+    return total_steps
 
 
 def compute_wave_optics_result(
@@ -891,7 +1051,7 @@ def compute_wave_optics_result(
         mode["M2x"],
         mode["M2y"],
     )
-    total_steps = 2 + (len(states) * 4) + max(len(states) - 1, 0)
+    total_steps = _wave_optics_progress_step_count(states)
     _emit_progress(
         progress_callback,
         completed_steps=0,
@@ -899,7 +1059,7 @@ def compute_wave_optics_result(
         current_step="Planning adaptive wave-optics grids",
         start_time=progress_start,
     )
-    mirror_plans, focus_plans = _plan_planes(states, mirror_distance_mm, wavelength_mm, settings)
+    mirror_plans, focus_plans, center_plans = _plan_planes(states, mirror_distance_mm, wavelength_mm, settings)
     progress_steps = 1
     _emit_progress(
         progress_callback,
@@ -939,7 +1099,7 @@ def compute_wave_optics_result(
         progress_callback,
         completed_steps=progress_steps,
         total_steps=total_steps,
-        current_step=f"Segment 1/{len(states)}: mirror to focus propagation",
+        current_step=_segment_center_step_label(1, len(states)),
         start_time=progress_start,
         current_segment=1,
         segment_count=len(states),
@@ -957,67 +1117,124 @@ def compute_wave_optics_result(
 
     mirror1_profiles: list[dict[str, Any]] = []
     mirror2_profiles: list[dict[str, Any]] = []
+    center_profiles: list[dict[str, Any]] = []
     focus_profiles: list[dict[str, Any]] = []
     segment_diagnostics: list[dict[str, Any]] = []
     overall_warnings: list[str] = []
 
     for segment_index, state in enumerate(states):
         segment_number = segment_index + 1
-        focus_field, focus_grid = solver.propagate(
+        segment_start = _segment_start_point(ray_trace, segment_index)
+        segment_end = ray_trace["points"][segment_index + 1]
+        start_u1, start_u2 = _segment_start_basis(ray_trace, segment_index)
+
+        center_field, center_grid = solver.propagate(
             field,
             current_grid,
-            focus_plans[segment_index],
-            state.focus_distance_mm,
+            center_plans[segment_index],
+            0.5 * mirror_distance_mm,
         )
         progress_steps += 1
         _emit_progress(
             progress_callback,
             completed_steps=progress_steps,
             total_steps=total_steps,
-            current_step=f"Segment {segment_number}/{len(states)}: sampling focus plane",
+            current_step=f"Segment {segment_number}/{len(states)}: sampling MPC center plane",
             start_time=progress_start,
             current_segment=segment_number,
             segment_count=len(states),
         )
-        segment_start = _segment_start_point(ray_trace, segment_index)
-        segment_end = ray_trace["points"][segment_index + 1]
-        start_u1, start_u2 = _segment_start_basis(ray_trace, segment_index)
-        focus_fraction = state.focus_distance_mm / mirror_distance_mm
-        focus_point = (
-            segment_start[0] + focus_fraction * (segment_end[0] - segment_start[0]),
-            segment_start[1] + focus_fraction * (segment_end[1] - segment_start[1]),
-            segment_start[2] + focus_fraction * (segment_end[2] - segment_start[2]),
+        center_point = (
+            0.5 * (segment_start[0] + segment_end[0]),
+            0.5 * (segment_start[1] + segment_end[1]),
+            0.5 * (segment_start[2] + segment_end[2]),
         )
-        focus_profile = solver.summarize_field(
-            focus_field,
-            focus_grid,
-            focus_point,
+        center_profile = solver.summarize_field(
+            center_field,
+            center_grid,
+            center_point,
             start_u1,
             start_u2,
-            "focus",
+            "center",
             None,
             segment_index,
             None,
             str(segment_index + 1),
         )
-        focus_profiles.append(focus_profile)
+        center_profiles.append(center_profile)
         progress_steps += 1
         _emit_progress(
             progress_callback,
             completed_steps=progress_steps,
             total_steps=total_steps,
-            current_step=f"Segment {segment_number}/{len(states)}: focus to mirror propagation",
+            current_step=_segment_propagation_step_label(state, segment_number, len(states)),
             start_time=progress_start,
             current_segment=segment_number,
             segment_count=len(states),
         )
 
-        mirror_field, mirror_grid = solver.propagate(
-            focus_field,
-            focus_grid,
-            mirror_plans[segment_index + 1],
-            mirror_distance_mm - state.focus_distance_mm,
-        )
+        focus_profile: dict[str, Any] | None = None
+        focus_plan = focus_plans[segment_index]
+        if focus_plan is not None and state.focus_distance_mm is not None:
+            focus_field, focus_grid = solver.propagate(
+                field,
+                current_grid,
+                focus_plan,
+                state.focus_distance_mm,
+            )
+            progress_steps += 1
+            _emit_progress(
+                progress_callback,
+                completed_steps=progress_steps,
+                total_steps=total_steps,
+                current_step=f"Segment {segment_number}/{len(states)}: sampling focus plane",
+                start_time=progress_start,
+                current_segment=segment_number,
+                segment_count=len(states),
+            )
+            focus_fraction = state.focus_distance_mm / mirror_distance_mm
+            focus_point = (
+                segment_start[0] + focus_fraction * (segment_end[0] - segment_start[0]),
+                segment_start[1] + focus_fraction * (segment_end[1] - segment_start[1]),
+                segment_start[2] + focus_fraction * (segment_end[2] - segment_start[2]),
+            )
+            focus_profile = solver.summarize_field(
+                focus_field,
+                focus_grid,
+                focus_point,
+                start_u1,
+                start_u2,
+                "focus",
+                None,
+                segment_index,
+                None,
+                str(segment_index + 1),
+            )
+            focus_profiles.append(focus_profile)
+            progress_steps += 1
+            _emit_progress(
+                progress_callback,
+                completed_steps=progress_steps,
+                total_steps=total_steps,
+                current_step=f"Segment {segment_number}/{len(states)}: focus to mirror propagation",
+                start_time=progress_start,
+                current_segment=segment_number,
+                segment_count=len(states),
+            )
+
+            mirror_field, mirror_grid = solver.propagate(
+                focus_field,
+                focus_grid,
+                mirror_plans[segment_index + 1],
+                mirror_distance_mm - state.focus_distance_mm,
+            )
+        else:
+            mirror_field, mirror_grid = solver.propagate(
+                field,
+                current_grid,
+                mirror_plans[segment_index + 1],
+                mirror_distance_mm,
+            )
         progress_steps += 1
         _emit_progress(
             progress_callback,
@@ -1050,40 +1267,51 @@ def compute_wave_optics_result(
         segment_warnings: list[str] = []
         if state.focus_boundary_warning:
             segment_warnings.append(f"Segment {segment_index + 1}: {state.focus_boundary_warning}")
-        segment_warnings.extend(_frame_sampling_warnings(focus_profile, f"Focus plane {segment_index + 1}"))
+        if focus_profile is not None:
+            segment_warnings.extend(_frame_sampling_warnings(focus_profile, f"Focus plane {segment_index + 1}"))
+        segment_warnings.extend(_frame_sampling_warnings(center_profile, f"MPC center plane {segment_index + 1}"))
         segment_warnings.extend(_frame_sampling_warnings(mirror_profile, f"Mirror bounce {bounce_index}"))
         overall_warnings.extend(segment_warnings)
 
-        segment_diagnostics.append(
-            {
-                "segment_index": segment_index,
-                "start_mirror": state.start_mirror,
-                "end_mirror": state.end_mirror,
-                "focus_distance_mm": state.focus_distance_mm,
-                "start_grid": _plan_dict(mirror_plans[segment_index]),
-                "focus_grid": _plan_dict(focus_plans[segment_index]),
-                "end_grid": _plan_dict(mirror_plans[segment_index + 1]),
-                "start_radius_x_mm": state.start_radius_x_mm,
-                "start_radius_y_mm": state.start_radius_y_mm,
-                "focus_radius_x_mm": state.focus_radius_x_mm,
-                "focus_radius_y_mm": state.focus_radius_y_mm,
-                "end_radius_x_mm": state.end_radius_x_mm,
-                "end_radius_y_mm": state.end_radius_y_mm,
-                "warnings": segment_warnings,
-            },
+        segment_diagnostic: dict[str, Any] = {
+            "segment_index": segment_index,
+            "start_mirror": state.start_mirror,
+            "end_mirror": state.end_mirror,
+            "propagation_mode": state.propagation_mode,
+            "focus_distance_mm": state.focus_distance_mm,
+            "start_grid": _plan_dict(mirror_plans[segment_index]),
+            "focus_grid": _plan_dict(focus_plan) if focus_plan is not None else None,
+            "center_grid": _plan_dict(center_plans[segment_index]),
+            "end_grid": _plan_dict(mirror_plans[segment_index + 1]),
+            "start_radius_x_mm": state.start_radius_x_mm,
+            "start_radius_y_mm": state.start_radius_y_mm,
+            "center_radius_x_mm": state.center_radius_x_mm,
+            "center_radius_y_mm": state.center_radius_y_mm,
+            "focus_radius_x_mm": state.focus_radius_x_mm,
+            "focus_radius_y_mm": state.focus_radius_y_mm,
+            "end_radius_x_mm": state.end_radius_x_mm,
+            "end_radius_y_mm": state.end_radius_y_mm,
+            "warnings": segment_warnings,
+        }
+        segment_diagnostics.append(segment_diagnostic)
+
+        progress_steps += 1
+        next_step = (
+            "Wave-optics propagation completed"
+            if segment_index == len(states) - 1
+            else f"Segment {segment_number}/{len(states)}: applying mirror effects"
+        )
+        _emit_progress(
+            progress_callback,
+            completed_steps=progress_steps,
+            total_steps=total_steps,
+            current_step=next_step,
+            start_time=progress_start,
+            current_segment=segment_number,
+            segment_count=len(states),
         )
 
         if segment_index == len(states) - 1:
-            progress_steps += 1
-            _emit_progress(
-                progress_callback,
-                completed_steps=progress_steps,
-                total_steps=total_steps,
-                current_step="Wave-optics propagation completed",
-                start_time=progress_start,
-                current_segment=len(states),
-                segment_count=len(states),
-            )
             continue
 
         hole_masks: list[tuple[float, float, float]] = []
@@ -1113,7 +1341,7 @@ def compute_wave_optics_result(
             progress_callback,
             completed_steps=progress_steps,
             total_steps=total_steps,
-            current_step=f"Segment {segment_number + 1}/{len(states)}: mirror to focus propagation",
+            current_step=_segment_center_step_label(segment_number + 1, len(states)),
             start_time=progress_start,
             current_segment=segment_number + 1,
             segment_count=len(states),
@@ -1133,6 +1361,7 @@ def compute_wave_optics_result(
         "launch_profile": launch_profile,
         "mirror1_profiles": mirror1_profiles,
         "mirror2_profiles": mirror2_profiles,
+        "center_profiles": center_profiles,
         "focus_profiles": focus_profiles,
         "segments": segment_diagnostics,
     }

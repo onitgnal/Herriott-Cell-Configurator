@@ -48,6 +48,8 @@ def test_wave_optics_endpoint_returns_profiles(client) -> None:
     assert body["wave_optics"]["profile_type"] == "round_super_gaussian"
     assert body["wave_optics"]["super_gaussian_order"] == 6.0
     assert body["wave_optics"]["launch_profile"]["plane_kind"] == "launch"
+    assert body["wave_optics"]["center_profiles"]
+    assert body["wave_optics"]["center_profiles"][0]["plane_kind"] == "center"
     assert body["wave_optics"]["mirror2_profiles"]
     assert body["wave_optics"]["focus_profiles"]
 

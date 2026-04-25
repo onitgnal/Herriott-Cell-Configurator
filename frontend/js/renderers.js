@@ -627,14 +627,15 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     waveFrames: waveOptics?.mirror1_profiles ?? null,
     launchFrame: waveOptics?.launch_profile ?? null,
   });
+  const hasWaveCenterFrames = Boolean(waveOptics?.center_profiles?.length);
   build2dPlot({
     divId: "plotCenter",
-    title: waveOptics ? "Adaptive Focus / Waist Planes" : "Center Spots (z=L/2)",
+    title: "MPC Center Plane",
     hitsData: centerHits,
     getWIndex: (index) => index,
     isCenter: true,
     mirrorNumber: 0,
-    waveFrames: waveOptics?.focus_profiles ?? null,
+    waveFrames: hasWaveCenterFrames ? waveOptics.center_profiles : null,
   });
   build2dPlot({
     divId: "plotM2",

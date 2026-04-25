@@ -117,21 +117,33 @@ This path:
 - polls live backend progress
 - shows actual loop progress and estimated remaining time
 - marks the 2D result stale after relevant input changes
+- renders wave-optics profiles on the MPC center plane and mirror planes when fresh
 - falls back to the fast analytic overlays when the 2D result is stale or unavailable
 
 ## Wave-Optics Implementation
 
 The optional wave-optics feature uses an adaptive-grid 2D Collins/Fresnel
-scalar diffraction solver that follows the paraxial ABCD beam envelope from:
+scalar diffraction solver that follows the paraxial ABCD beam envelope. When a
+segment has a real internal ABCD minimum, it uses:
 
 `mirror n -> internal focus / waist plane -> mirror n+1`
+
+For monotonic segments with no internal focus, such as the supported `cav-vex`
+case, it uses direct scaled mirror-to-mirror propagation instead of fabricating
+a focus plane near one mirror.
+
+In both cases, the solver also samples the propagated field at the MPC center
+plane halfway between the mirrors. The UI center panel displays these center
+plane profiles, while real internal focus profiles remain available as
+diagnostics for split-focus segments.
 
 Key implementation points:
 
 - The field is propagated as a full complex 2D field, not only as Gaussian beam parameters.
-- Separate transverse windows are chosen for the start mirror, internal focus plane, and end mirror.
+- Separate transverse windows are chosen for the start mirror, any real internal focus plane, and the end mirror.
+- A separate transverse window is also chosen for the MPC center plane at `L/2`.
 - ABCD-predicted beam size and curvature are used to plan those windows and sample spacings.
-- The window shrinks near the focus and expands again toward the next mirror.
+- The window shrinks near a real focus and expands again toward the next mirror; direct segments scale between the two mirror windows.
 - Real-space sampling, curvature sampling, and kernel Nyquist limits are enforced explicitly.
 - Configurations that exceed the configured grid or memory limits raise a clear error instead of silently aliasing.
 - Mirror curvature is applied as thin-mirror phase.
@@ -147,7 +159,7 @@ Current limitations:
 
 - The 2D solver is scalar and paraxial, not a full vector or non-paraxial field solver.
 - Higher-order HG and LG modes remain part of the analytic overlay path rather than the explicit 2D launch-profile path.
-- The internal adaptive focus plane is chosen from the shared minimum-area ABCD estimate when the x and y minima do not occur at the same longitudinal position.
+- The internal adaptive focus plane is chosen from the shared minimum-area ABCD estimate when the x and y minima do not occur at the same longitudinal position. If that minimum lies on a mirror, the segment is treated as a no-focus direct propagation.
 
 ## API Endpoints
 

@@ -60,7 +60,7 @@ class WaveOpticsSettings(BaseModel):
     guard_band_fraction: float = Field(0.12, ge=0.02, lt=0.45)
     kernel_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
     curvature_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
-    max_grid_points: int = Field(256, ge=32, le=1024)
+    max_grid_points: int = Field(640, ge=32, le=1024)
     max_memory_mb: float = Field(192.0, ge=16.0, le=4096.0)
     display_grid_points: int = Field(72, ge=24, le=256)
     display_safety_factor: float = Field(2.0, gt=1.0, le=6.0)
@@ -194,7 +194,7 @@ class WaveOpticsGridDiagnostic(BaseModel):
 
 
 class WaveOpticsFrame(BaseModel):
-    plane_kind: Literal["launch", "mirror", "focus"]
+    plane_kind: Literal["launch", "mirror", "center", "focus"]
     mirror_number: int | None = None
     segment_index: int
     bounce_index: int | None = None
@@ -218,14 +218,18 @@ class WaveOpticsSegmentDiagnostic(BaseModel):
     segment_index: int
     start_mirror: int
     end_mirror: int
-    focus_distance_mm: float
+    propagation_mode: Literal["split_focus", "direct"]
+    focus_distance_mm: float | None = None
     start_grid: WaveOpticsGridDiagnostic
-    focus_grid: WaveOpticsGridDiagnostic
+    center_grid: WaveOpticsGridDiagnostic
+    focus_grid: WaveOpticsGridDiagnostic | None = None
     end_grid: WaveOpticsGridDiagnostic
     start_radius_x_mm: float
     start_radius_y_mm: float
-    focus_radius_x_mm: float
-    focus_radius_y_mm: float
+    center_radius_x_mm: float
+    center_radius_y_mm: float
+    focus_radius_x_mm: float | None = None
+    focus_radius_y_mm: float | None = None
     end_radius_x_mm: float
     end_radius_y_mm: float
     warnings: list[str]
@@ -240,6 +244,7 @@ class WaveOpticsResult(BaseModel):
     launch_profile: WaveOpticsFrame
     mirror1_profiles: list[WaveOpticsFrame]
     mirror2_profiles: list[WaveOpticsFrame]
+    center_profiles: list[WaveOpticsFrame]
     focus_profiles: list[WaveOpticsFrame]
     segments: list[WaveOpticsSegmentDiagnostic]
 
