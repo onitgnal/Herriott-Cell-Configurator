@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from math import ceil, inf, pi, sqrt
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -94,6 +96,9 @@ class FieldGrid:
     half_width_y_mm: float
 
 
+WaveOpticsProgressCallback = Callable[[dict[str, Any]], None]
+
+
 def _reflect(vector: tuple[float, float, float], normal: tuple[float, float, float]) -> tuple[float, float, float]:
     scale = 2 * v_dot(vector, normal)
     return (
@@ -165,9 +170,16 @@ def _efficient_grid_size(required_points: int, max_grid_points: int) -> int:
             return size
     if required_points <= max_grid_points:
         return required_points
+    suggested_grid = None
+    for size in FAST_GRID_SIZES:
+        if size >= required_points:
+            suggested_grid = size
+            break
+    if suggested_grid is None:
+        suggested_grid = required_points
     raise WaveOpticsSamplingError(
         f"Wave-optics sampling would require {required_points} points on one axis, exceeding the configured "
-        f"limit of {max_grid_points}. Increase the grid limit or relax the sampling margins.",
+        f"limit of {max_grid_points}. Increase Max Grid to at least {suggested_grid} or relax the sampling margins.",
     )
 
 
@@ -210,6 +222,40 @@ def _normalize_field(field: np.ndarray, grid: FieldGrid) -> np.ndarray:
     if power <= EPSILON:
         raise WaveOpticsSamplingError("The generated launch field has zero power on the adaptive grid.")
     return field / sqrt(power)
+
+
+def _emit_progress(
+    progress_callback: WaveOpticsProgressCallback | None,
+    *,
+    completed_steps: int,
+    total_steps: int,
+    current_step: str,
+    start_time: float,
+    current_segment: int | None = None,
+    segment_count: int | None = None,
+) -> None:
+    if progress_callback is None:
+        return
+
+    progress_fraction = min(max(completed_steps / total_steps, 0.0), 1.0)
+    elapsed_seconds = max(perf_counter() - start_time, 0.0)
+    estimated_remaining_seconds: float | None = None
+    if completed_steps > 0 and completed_steps < total_steps and elapsed_seconds > 0.0:
+        estimated_remaining_seconds = elapsed_seconds * ((total_steps - completed_steps) / completed_steps)
+
+    progress_callback(
+        {
+            "completed_steps": completed_steps,
+            "total_steps": total_steps,
+            "progress_fraction": progress_fraction,
+            "progress_percent": progress_fraction * 100.0,
+            "current_step": current_step,
+            "current_segment": current_segment,
+            "segment_count": segment_count,
+            "elapsed_seconds": elapsed_seconds,
+            "estimated_remaining_seconds": estimated_remaining_seconds,
+        },
+    )
 
 
 class AdaptiveWaveOpticsSolver:
@@ -812,7 +858,11 @@ def _plan_planes(
     return mirror_plans, focus_plans
 
 
-def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dict[str, Any] | None:
+def compute_wave_optics_result(
+    base_result: dict[str, Any],
+    request: Any,
+    progress_callback: WaveOpticsProgressCallback | None = None,
+) -> dict[str, Any] | None:
     if not base_result.get("stable") or base_result.get("ray_trace") is None or base_result.get("beam_propagation") is None:
         return None
 
@@ -828,6 +878,7 @@ def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dic
     if segment_count < 1:
         return None
 
+    progress_start = perf_counter()
     states = _segment_states(
         mirror_distance_mm,
         mirror1_radius_mm,
@@ -840,7 +891,23 @@ def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dic
         mode["M2x"],
         mode["M2y"],
     )
+    total_steps = 2 + (len(states) * 4) + max(len(states) - 1, 0)
+    _emit_progress(
+        progress_callback,
+        completed_steps=0,
+        total_steps=total_steps,
+        current_step="Planning adaptive wave-optics grids",
+        start_time=progress_start,
+    )
     mirror_plans, focus_plans = _plan_planes(states, mirror_distance_mm, wavelength_mm, settings)
+    progress_steps = 1
+    _emit_progress(
+        progress_callback,
+        completed_steps=progress_steps,
+        total_steps=total_steps,
+        current_step="Building launch field",
+        start_time=progress_start,
+    )
     solver = AdaptiveWaveOpticsSolver(wavelength_mm, settings)
 
     launch_u1, launch_u2 = _segment_start_basis(ray_trace, 0)
@@ -867,6 +934,16 @@ def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dic
         "In",
     )
     field = solver.apply_mirror(field, current_grid, mirror1_radius_mm, [])
+    progress_steps += 1
+    _emit_progress(
+        progress_callback,
+        completed_steps=progress_steps,
+        total_steps=total_steps,
+        current_step=f"Segment 1/{len(states)}: mirror to focus propagation",
+        start_time=progress_start,
+        current_segment=1,
+        segment_count=len(states),
+    )
 
     cell_centers = ray_trace["cell_centers"]
     mirror_centers = {
@@ -885,11 +962,22 @@ def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dic
     overall_warnings: list[str] = []
 
     for segment_index, state in enumerate(states):
+        segment_number = segment_index + 1
         focus_field, focus_grid = solver.propagate(
             field,
             current_grid,
             focus_plans[segment_index],
             state.focus_distance_mm,
+        )
+        progress_steps += 1
+        _emit_progress(
+            progress_callback,
+            completed_steps=progress_steps,
+            total_steps=total_steps,
+            current_step=f"Segment {segment_number}/{len(states)}: sampling focus plane",
+            start_time=progress_start,
+            current_segment=segment_number,
+            segment_count=len(states),
         )
         segment_start = _segment_start_point(ray_trace, segment_index)
         segment_end = ray_trace["points"][segment_index + 1]
@@ -913,12 +1001,32 @@ def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dic
             str(segment_index + 1),
         )
         focus_profiles.append(focus_profile)
+        progress_steps += 1
+        _emit_progress(
+            progress_callback,
+            completed_steps=progress_steps,
+            total_steps=total_steps,
+            current_step=f"Segment {segment_number}/{len(states)}: focus to mirror propagation",
+            start_time=progress_start,
+            current_segment=segment_number,
+            segment_count=len(states),
+        )
 
         mirror_field, mirror_grid = solver.propagate(
             focus_field,
             focus_grid,
             mirror_plans[segment_index + 1],
             mirror_distance_mm - state.focus_distance_mm,
+        )
+        progress_steps += 1
+        _emit_progress(
+            progress_callback,
+            completed_steps=progress_steps,
+            total_steps=total_steps,
+            current_step=f"Segment {segment_number}/{len(states)}: sampling next mirror",
+            start_time=progress_start,
+            current_segment=segment_number,
+            segment_count=len(states),
         )
         end_hit = _mirror_hit_for_segment(ray_trace, segment_index)
         bounce_index = segment_index + 1
@@ -966,6 +1074,16 @@ def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dic
         )
 
         if segment_index == len(states) - 1:
+            progress_steps += 1
+            _emit_progress(
+                progress_callback,
+                completed_steps=progress_steps,
+                total_steps=total_steps,
+                current_step="Wave-optics propagation completed",
+                start_time=progress_start,
+                current_segment=len(states),
+                segment_count=len(states),
+            )
             continue
 
         hole_masks: list[tuple[float, float, float]] = []
@@ -990,6 +1108,16 @@ def compute_wave_optics_result(base_result: dict[str, Any], request: Any) -> dic
 
         field = solver.apply_mirror(mirror_field, mirror_grid, mirror_radii[state.end_mirror], hole_masks)
         current_grid = mirror_grid
+        progress_steps += 1
+        _emit_progress(
+            progress_callback,
+            completed_steps=progress_steps,
+            total_steps=total_steps,
+            current_step=f"Segment {segment_number + 1}/{len(states)}: mirror to focus propagation",
+            start_time=progress_start,
+            current_segment=segment_number + 1,
+            segment_count=len(states),
+        )
 
     deduplicated_warnings = list(dict.fromkeys(overall_warnings))
     return {

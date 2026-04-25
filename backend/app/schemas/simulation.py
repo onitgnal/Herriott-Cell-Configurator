@@ -60,7 +60,7 @@ class WaveOpticsSettings(BaseModel):
     guard_band_fraction: float = Field(0.12, ge=0.02, lt=0.45)
     kernel_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
     curvature_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
-    max_grid_points: int = Field(160, ge=32, le=1024)
+    max_grid_points: int = Field(256, ge=32, le=1024)
     max_memory_mb: float = Field(192.0, ge=16.0, le=4096.0)
     display_grid_points: int = Field(72, ge=24, le=256)
     display_safety_factor: float = Field(2.0, gt=1.0, le=6.0)
@@ -256,6 +256,18 @@ class SimulationResponse(BaseModel):
     wave_optics: WaveOpticsResult | None = None
 
 
+class WaveOpticsJobProgress(BaseModel):
+    completed_steps: int = Field(0, ge=0)
+    total_steps: int = Field(1, ge=1)
+    progress_fraction: float = Field(0.0, ge=0.0, le=1.0)
+    progress_percent: float = Field(0.0, ge=0.0, le=100.0)
+    current_step: str
+    current_segment: int | None = None
+    segment_count: int | None = None
+    elapsed_seconds: float = Field(0.0, ge=0.0)
+    estimated_remaining_seconds: float | None = Field(default=None, ge=0.0)
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str
@@ -270,3 +282,11 @@ class ValidationDetail(BaseModel):
 class ErrorResponse(BaseModel):
     error: ErrorDetail
     details: list[ValidationDetail] | None = None
+
+
+class WaveOpticsJobStatusResponse(BaseModel):
+    job_id: str
+    status: Literal["pending", "running", "completed", "failed"]
+    progress: WaveOpticsJobProgress
+    result: SimulationResponse | None = None
+    error: ErrorDetail | None = None

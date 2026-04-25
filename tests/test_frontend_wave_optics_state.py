@@ -60,3 +60,21 @@ console.log(JSON.stringify({
     assert payload["freshSamePayload"] is True
     assert payload["sameSignatureDespiteKeyOrder"] is True
     assert payload["staleAfterOpticalChange"] is True
+
+
+def test_wave_optics_progress_bar_markup_exists() -> None:
+    index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
+    styles = (ROOT_DIR / "frontend" / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="wave-optics-progress"' in index_html
+    assert 'id="wave-optics-progress-bar"' in index_html
+    assert 'id="wave-optics-progress-text"' in index_html
+    assert 'id="wave-optics-progress-eta"' in index_html
+    assert 'id="calculate-wave-optics-bar"' in index_html
+    assert 'id="wave-optics-status-card"' in index_html
+    assert 'id="calculate-wave-optics-label"' in index_html
+    assert 'data-running="false"' in index_html
+    assert ".wave-optics-run-button" in styles
+    assert "@keyframes wave-optics-button-progress" in styles
+    assert ".wave-optics-progress-track" in styles
+    assert "@keyframes wave-optics-progress-slide" in styles

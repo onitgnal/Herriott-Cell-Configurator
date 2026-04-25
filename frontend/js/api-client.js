@@ -27,6 +27,14 @@ export async function simulateWaveOptics(payload, { signal } = {}) {
   return postJson("/api/simulate-wave-optics", payload, { signal });
 }
 
+export async function startWaveOpticsJob(payload, { signal } = {}) {
+  return postJson("/api/simulate-wave-optics/jobs", payload, { signal });
+}
+
+export async function getWaveOpticsJob(jobId, { signal } = {}) {
+  return getJson(`/api/simulate-wave-optics/jobs/${encodeURIComponent(jobId)}`, { signal });
+}
+
 async function postJson(url, payload, { signal } = {}) {
   const response = await fetch(url, {
     method: "POST",
@@ -36,6 +44,27 @@ async function postJson(url, payload, { signal } = {}) {
     body: JSON.stringify(payload),
     signal,
   });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      getErrorMessage(body, `Backend request failed with status ${response.status}.`),
+      response.status,
+      body?.details ?? null,
+    );
+  }
+
+  return body;
+}
+
+async function getJson(url, { signal } = {}) {
+  const response = await fetch(url, { signal });
 
   let body = null;
   try {

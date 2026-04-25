@@ -23,14 +23,28 @@ export function createWaveOpticsState() {
     result: null,
     signature: null,
     error: null,
+    jobId: null,
+    progress: null,
   };
 }
 
-export function markWaveOpticsPending(state) {
+export function markWaveOpticsPending(state, job = {}) {
   return {
     ...state,
     pending: true,
     error: null,
+    jobId: job.jobId ?? null,
+    progress: job.progress ?? null,
+  };
+}
+
+export function updateWaveOpticsProgress(state, progress, jobId = state.jobId) {
+  return {
+    ...state,
+    pending: true,
+    error: null,
+    jobId,
+    progress,
   };
 }
 
@@ -41,6 +55,8 @@ export function storeWaveOpticsResult(state, signature, result) {
     result,
     signature,
     error: null,
+    jobId: null,
+    progress: null,
   };
 }
 
@@ -49,6 +65,8 @@ export function storeWaveOpticsError(state, error) {
     ...state,
     pending: false,
     error,
+    jobId: null,
+    progress: null,
   };
 }
 

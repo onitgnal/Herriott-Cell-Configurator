@@ -1,4 +1,4 @@
-import { ApiError, simulateConfiguration, simulateWaveOptics } from "./api-client.js";
+import { ApiError, getWaveOpticsJob, simulateConfiguration, startWaveOpticsJob } from "./api-client.js";
 import {
   applyResolvedInputs,
   bindNumericFields,
@@ -26,6 +26,7 @@ import {
   markWaveOpticsPending,
   storeWaveOpticsError,
   storeWaveOpticsResult,
+  updateWaveOpticsProgress,
 } from "./wave-optics-state.js";
 
 const sidebar = document.getElementById("sidebar");
@@ -43,8 +44,18 @@ const saveButton = document.getElementById("save-config");
 const loadButton = document.getElementById("load-config-trigger");
 const fileInput = document.getElementById("config-upload");
 const waveOpticsButton = document.getElementById("calculate-wave-optics");
+const waveOpticsButtonBar = document.getElementById("calculate-wave-optics-bar");
+const waveOpticsButtonLabel = document.getElementById("calculate-wave-optics-label");
 const waveOpticsStatus = document.getElementById("wave-optics-status");
 const waveOpticsSummary = document.getElementById("wave-optics-summary");
+const waveOpticsStatusCard = document.getElementById("wave-optics-status-card");
+const waveOpticsProgress = document.getElementById("wave-optics-progress");
+const waveOpticsProgressBar = document.getElementById("wave-optics-progress-bar");
+const waveOpticsProgressText = document.getElementById("wave-optics-progress-text");
+const waveOpticsProgressEta = document.getElementById("wave-optics-progress-eta");
+const WAVE_OPTICS_IDLE_LABEL = "Calculate Wave-Optics Beam Profiles";
+const WAVE_OPTICS_PENDING_LABEL = "Calculating Wave-Optics Beam Profiles";
+const WAVE_OPTICS_JOB_POLL_INTERVAL_MS = 180;
 
 let simulationTimer = null;
 let activeController = null;
@@ -74,11 +85,82 @@ function setStatus(text, className) {
   statusMessage.className = className;
 }
 
+function formatWaveOpticsEta(seconds) {
+  if (!Number.isFinite(seconds) || seconds == null) {
+    return "ETA --";
+  }
+
+  if (seconds < 1) {
+    return "ETA <1s";
+  }
+
+  if (seconds < 10) {
+    return `ETA ${seconds.toFixed(1)}s`;
+  }
+
+  if (seconds < 60) {
+    return `ETA ${Math.round(seconds)}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `ETA ${minutes}m ${remainingSeconds}s`;
+}
+
+function waveOpticsPercent(progress) {
+  const fraction = Number(progress?.progress_fraction ?? 0);
+  return Math.max(0, Math.min(100, Math.round(fraction * 100)));
+}
+
+function setWaveOpticsProgressUi(progress, pending) {
+  const progressPercent = pending ? waveOpticsPercent(progress) : 0;
+  const completedSteps = progress?.completed_steps ?? 0;
+  const totalSteps = progress?.total_steps ?? 1;
+  const etaText = pending ? formatWaveOpticsEta(progress?.estimated_remaining_seconds) : "ETA --";
+
+  if (waveOpticsButtonBar) {
+    waveOpticsButtonBar.style.width = `${progressPercent}%`;
+  }
+  if (waveOpticsProgressBar) {
+    waveOpticsProgressBar.style.width = `${progressPercent}%`;
+  }
+  if (waveOpticsProgressText) {
+    waveOpticsProgressText.textContent = pending
+      ? `${progressPercent}% complete (${completedSteps}/${totalSteps} steps)`
+      : "0% complete";
+  }
+  if (waveOpticsProgressEta) {
+    waveOpticsProgressEta.textContent = etaText;
+  }
+  if (waveOpticsProgress) {
+    waveOpticsProgress.setAttribute("aria-valuenow", String(progressPercent));
+    waveOpticsProgress.setAttribute(
+      "aria-valuetext",
+      pending
+        ? `${progressPercent}% complete, ${etaText}`
+        : "Wave-optics calculation idle",
+    );
+  }
+}
+
 function setWaveOpticsStatus(text, className, summary = "") {
+  const progress = waveOpticsState.progress;
+  const progressPercent = waveOpticsPercent(progress);
+
   waveOpticsStatus.textContent = text;
   waveOpticsStatus.className = className;
   waveOpticsSummary.textContent = summary;
   waveOpticsButton.disabled = Boolean(waveOpticsState.pending);
+  waveOpticsButton?.setAttribute("data-running", waveOpticsState.pending ? "true" : "false");
+  waveOpticsButton?.setAttribute("aria-busy", waveOpticsState.pending ? "true" : "false");
+  if (waveOpticsButtonLabel) {
+    waveOpticsButtonLabel.textContent = waveOpticsState.pending
+      ? `${WAVE_OPTICS_PENDING_LABEL} (${progressPercent}%)`
+      : WAVE_OPTICS_IDLE_LABEL;
+  }
+  waveOpticsStatusCard?.setAttribute("aria-busy", waveOpticsState.pending ? "true" : "false");
+  waveOpticsProgress?.classList.toggle("hidden", !waveOpticsState.pending);
+  setWaveOpticsProgressUi(progress, Boolean(waveOpticsState.pending));
 }
 
 function setLoadingState() {
@@ -151,10 +233,14 @@ function refreshWaveOpticsStatus(config = captureConfig()) {
   const warningCount = waveOpticsState.result?.wave_optics?.warnings?.length ?? 0;
 
   if (waveOpticsState.pending) {
+    const progress = waveOpticsState.progress;
+    const progressPercent = waveOpticsPercent(progress);
+    const etaText = formatWaveOpticsEta(progress?.estimated_remaining_seconds);
+    const currentStep = progress?.current_step ?? "Preparing wave-optics propagation";
     setWaveOpticsStatus(
-      "Calculating...",
+      `Calculating ${progressPercent}%`,
       "text-xs font-semibold text-slate-600",
-      "Adaptive 2D propagation is running on the current mirror-to-focus-to-mirror path.",
+      `${currentStep}. ${etaText}.`,
     );
     return;
   }
@@ -169,6 +255,15 @@ function refreshWaveOpticsStatus(config = captureConfig()) {
       "Not Calculated",
       "text-xs font-semibold text-slate-500",
       "The fast ABCD/Gaussian beam overlays are active until you run the wave-optics solver.",
+    );
+    return;
+  }
+
+  if (isWaveOpticsFresh(waveOpticsState, signature) && !waveOpticsState.result?.wave_optics) {
+    setWaveOpticsStatus(
+      "Unavailable",
+      "text-xs font-semibold text-slate-500",
+      "Wave-optics propagation is unavailable for the current configuration. The fast analytic overlays remain active.",
     );
     return;
   }
@@ -213,6 +308,28 @@ function handleSimulationError(error) {
   renderErrorPlots(message);
   refreshWaveOpticsStatus();
   console.error(error);
+}
+
+function waitForDuration(milliseconds, signal) {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    }, milliseconds);
+
+    function handleAbort() {
+      window.clearTimeout(timeoutId);
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+    }
+
+    if (signal) {
+      if (signal.aborted) {
+        handleAbort();
+        return;
+      }
+      signal.addEventListener("abort", handleAbort, { once: true });
+    }
+  });
 }
 
 async function runSimulation() {
@@ -266,18 +383,63 @@ async function runWaveOptics() {
 
   const controller = new AbortController();
   activeWaveController = controller;
-  waveOpticsState = markWaveOpticsPending(waveOpticsState);
+  waveOpticsState = markWaveOpticsPending(waveOpticsState, {
+    progress: {
+      completed_steps: 0,
+      total_steps: 1,
+      progress_fraction: 0,
+      estimated_remaining_seconds: null,
+      current_step: "Submitting wave-optics job",
+    },
+  });
   refreshWaveOpticsStatus(config);
 
   try {
-    const result = await simulateWaveOptics(payload, { signal: controller.signal });
+    const job = await startWaveOpticsJob(payload, { signal: controller.signal });
     if (activeWaveController !== controller) {
       return;
     }
 
-    waveOpticsState = storeWaveOpticsResult(waveOpticsState, signature, result);
+    waveOpticsState = markWaveOpticsPending(waveOpticsState, {
+      jobId: job.job_id,
+      progress: job.progress,
+    });
     refreshWaveOpticsStatus(captureConfig());
-    renderCurrentPlots(captureConfig());
+
+    while (true) {
+      const jobStatus = await getWaveOpticsJob(job.job_id, { signal: controller.signal });
+      if (activeWaveController !== controller) {
+        return;
+      }
+
+      waveOpticsState = updateWaveOpticsProgress(waveOpticsState, jobStatus.progress, jobStatus.job_id);
+      refreshWaveOpticsStatus(captureConfig());
+
+      if (jobStatus.status === "completed") {
+        if (!jobStatus.result) {
+          waveOpticsState = storeWaveOpticsError(waveOpticsState, "Wave-optics job completed without a result payload.");
+          refreshWaveOpticsStatus(captureConfig());
+          renderCurrentPlots(captureConfig());
+          break;
+        }
+        waveOpticsState = storeWaveOpticsResult(waveOpticsState, signature, jobStatus.result);
+        refreshWaveOpticsStatus(captureConfig());
+        renderCurrentPlots(captureConfig());
+        break;
+      }
+
+      if (jobStatus.status === "failed") {
+        waveOpticsState = storeWaveOpticsError(
+          waveOpticsState,
+          jobStatus.error?.message ?? "Wave-optics request failed.",
+        );
+        refreshWaveOpticsStatus(captureConfig());
+        renderCurrentPlots(captureConfig());
+        break;
+      }
+
+      await waitForDuration(WAVE_OPTICS_JOB_POLL_INTERVAL_MS, controller.signal);
+    }
   } catch (error) {
     if (error?.name === "AbortError") {
       return;
