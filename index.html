@@ -16,6 +16,104 @@
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
+
+        .wave-optics-run-button {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+        }
+
+        .wave-optics-run-button-track {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 160ms ease;
+            pointer-events: none;
+            background: linear-gradient(90deg, rgba(14, 116, 144, 0.12) 0%, rgba(8, 145, 178, 0.22) 100%);
+        }
+
+        .wave-optics-run-button-bar {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0;
+            border-radius: inherit;
+            overflow: hidden;
+            transition: width 180ms linear;
+            background: linear-gradient(90deg, rgba(6, 182, 212, 0.22) 0%, rgba(6, 182, 212, 0.92) 58%, rgba(165, 243, 252, 0.85) 100%);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+        }
+
+        .wave-optics-run-button-bar::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                -45deg,
+                rgba(255, 255, 255, 0.16) 0,
+                rgba(255, 255, 255, 0.16) 10px,
+                rgba(255, 255, 255, 0.04) 10px,
+                rgba(255, 255, 255, 0.04) 20px
+            );
+            animation: wave-optics-button-progress 1.1s linear infinite;
+        }
+
+        .wave-optics-run-button[data-running="true"] {
+            cursor: progress;
+            color: #164e63;
+            border-color: rgba(14, 116, 144, 0.35);
+            background: #ecfeff;
+        }
+
+        .wave-optics-run-button[data-running="true"] .wave-optics-run-button-track {
+            opacity: 1;
+        }
+
+        .wave-optics-run-button:disabled {
+            opacity: 1;
+        }
+
+        .wave-optics-progress-track {
+            position: relative;
+            overflow: hidden;
+            height: 0.375rem;
+            border-radius: 9999px;
+            background: rgba(8, 145, 178, 0.16);
+        }
+
+        .wave-optics-progress-bar {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0;
+            border-radius: 9999px;
+            overflow: hidden;
+            transition: width 180ms linear;
+            background: linear-gradient(90deg, rgba(14, 116, 144, 0.28) 0%, rgba(6, 182, 212, 0.95) 55%, rgba(34, 211, 238, 0.72) 100%);
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+        }
+
+        .wave-optics-progress-bar::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                -45deg,
+                rgba(255, 255, 255, 0.18) 0,
+                rgba(255, 255, 255, 0.18) 8px,
+                rgba(255, 255, 255, 0.05) 8px,
+                rgba(255, 255, 255, 0.05) 16px
+            );
+            animation: wave-optics-progress-slide 1.1s linear infinite;
+        }
+
+        @keyframes wave-optics-button-progress {
+            0% { background-position: 0 0; }
+            100% { background-position: 40px 0; }
+        }
+
+        @keyframes wave-optics-progress-slide {
+            0% { background-position: 0 0; }
+            100% { background-position: 32px 0; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-row overflow-hidden w-full relative">
@@ -356,6 +454,88 @@
                                 </div>
                             </div>
                             <input type="range" id="param-polang" min="-180" max="180" step="1" value="0" class="w-full accent-slate-600">
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="group bg-white border border-slate-200 rounded-lg shadow-sm">
+                <summary class="font-bold cursor-pointer text-slate-800 bg-slate-50 p-3 rounded-t-lg border-b border-slate-200 select-none flex justify-between items-center">
+                    Wave-Optics Profiles
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 space-y-3">
+                    <p class="text-xs text-slate-500">Runs the adaptive 2D Collins/Fresnel solver only when you explicitly request it. The fast ABCD/Gaussian path remains the live-edit default.</p>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Launch Profile:</label>
+                        <select id="wave-profile-type" class="w-full border border-slate-300 rounded px-2 py-1 text-sm text-cyan-700 font-semibold focus:outline-none focus:border-cyan-500 bg-white">
+                            <option value="gaussian">Gaussian</option>
+                            <option value="super_gaussian">Super-Gaussian</option>
+                            <option value="round_super_gaussian">Round Super-Gaussian</option>
+                        </select>
+                    </div>
+
+                    <div id="wave-super-order-group" class="hidden">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Super-Gaussian Order:</label>
+                            <input type="number" id="wave-super-order" value="4.0" step="1" min="1" class="w-16 text-right border border-slate-300 rounded px-1 text-sm text-cyan-700 font-semibold focus:outline-none focus:border-cyan-500 py-0.5">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-[11px] font-semibold text-slate-700">Window Margin:</label>
+                                <input type="number" id="wave-window-safety" value="4.0" step="0.1" min="1.1" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-cyan-700 font-semibold py-0.5 focus:outline-none focus:border-cyan-500">
+                            </div>
+                            <p class="text-[10px] text-slate-500">Adaptive half-width in beam radii.</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-[11px] font-semibold text-slate-700">Samples / Radius:</label>
+                                <input type="number" id="wave-samples-per-radius" value="14" step="1" min="4" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-cyan-700 font-semibold py-0.5 focus:outline-none focus:border-cyan-500">
+                            </div>
+                            <p class="text-[10px] text-slate-500">Near-focus real-space resolution target.</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-[11px] font-semibold text-slate-700">Max Grid:</label>
+                                <input type="number" id="wave-max-grid" value="1024" step="8" min="32" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-cyan-700 font-semibold py-0.5 focus:outline-none focus:border-cyan-500">
+                            </div>
+                            <p class="text-[10px] text-slate-500">Per-axis solver cap.</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-[11px] font-semibold text-slate-700">Max Memory:</label>
+                                <input type="number" id="wave-max-memory" value="192" step="8" min="16" class="w-14 text-right border border-slate-300 rounded px-1 text-[11px] text-cyan-700 font-semibold py-0.5 focus:outline-none focus:border-cyan-500">
+                            </div>
+                            <p class="text-[10px] text-slate-500">MiB budget for kernels and fields.</p>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-100 pt-3 space-y-2">
+                        <button id="calculate-wave-optics" class="wave-optics-run-button w-full py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded transition-colors text-xs font-bold shadow-sm border border-cyan-200" data-running="false" aria-busy="false">
+                            <span class="wave-optics-run-button-track" aria-hidden="true">
+                                <span id="calculate-wave-optics-bar" class="wave-optics-run-button-bar"></span>
+                            </span>
+                            <span id="calculate-wave-optics-label" class="relative z-[1]">Calculate Wave-Optics Beam Profiles</span>
+                        </button>
+                        <div id="wave-optics-status-card" class="rounded border border-cyan-100 bg-cyan-50/60 px-3 py-2" aria-busy="false">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-[11px] font-semibold text-slate-700">2D Status</span>
+                                <span id="wave-optics-status" class="text-xs font-semibold text-slate-500">Not Calculated</span>
+                            </div>
+                            <p id="wave-optics-summary" class="mt-1 text-[11px] text-slate-500">The fast ABCD/Gaussian beam overlays are active until you run the wave-optics solver.</p>
+                            <div id="wave-optics-progress" class="hidden mt-2" role="progressbar" aria-label="Wave-optics calculation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Wave-optics calculation idle">
+                                <div class="wave-optics-progress-track">
+                                    <div id="wave-optics-progress-bar" class="wave-optics-progress-bar"></div>
+                                </div>
+                                <div class="mt-1 flex items-center justify-between gap-3 text-[10px] text-slate-500">
+                                    <span id="wave-optics-progress-text">0% complete</span>
+                                    <span id="wave-optics-progress-eta">ETA --</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -782,15 +962,189 @@
             { id: 'm1tx', type: 'float' }, { id: 'm1ty', type: 'float' },
             { id: 'm2tx', type: 'float' }, { id: 'm2ty', type: 'float' }
         ];
-        
-        let standardConfig = { cellType: 'cav-cav', autoR: true, autoRVex: true, autoOutHole: true, outMirror: "1", autoModeMatch: true, autoInjection: true, modeType: 'tem00', showBeamProfiles: true };
+        const waveOpticsFieldConfig = [
+            { id: 'wave-profile-type', key: 'profile_type', type: 'select' },
+            { id: 'wave-super-order', key: 'super_gaussian_order', type: 'float' },
+            { id: 'wave-window-safety', key: 'window_safety_factor', type: 'float' },
+            { id: 'wave-samples-per-radius', key: 'samples_per_radius', type: 'int' },
+            { id: 'wave-max-grid', key: 'max_grid_points', type: 'int' },
+            { id: 'wave-max-memory', key: 'max_memory_mb', type: 'float' }
+        ];
+        const WAVE_OPTICS_IDLE_LABEL = 'Calculate Wave-Optics Beam Profiles';
+        const WAVE_OPTICS_PENDING_LABEL = 'Calculating Wave-Optics Beam Profiles';
+        const WAVE_OPTICS_DEFAULTS = {
+            profile_type: 'gaussian',
+            super_gaussian_order: 4.0,
+            window_safety_factor: 4.0,
+            samples_per_radius: 14,
+            guard_band_fraction: 0.12,
+            kernel_nyquist_margin: 0.85,
+            curvature_nyquist_margin: 0.85,
+            max_grid_points: 256,
+            max_memory_mb: 192.0,
+            display_grid_points: 72,
+            display_safety_factor: 2.0
+        };
+
+        let standardConfig = {
+            cellType: 'cav-cav',
+            autoR: true,
+            autoRVex: true,
+            autoOutHole: true,
+            outMirror: "1",
+            autoModeMatch: true,
+            autoInjection: true,
+            modeType: 'tem00',
+            showBeamProfiles: true,
+            waveOptics: { ...WAVE_OPTICS_DEFAULTS }
+        };
         let simulationTimeout = null;
+        let currentSimulationResult = null;
+        let activeWaveController = null;
+        let waveOpticsState = createWaveOpticsState();
+        let waveOpticsWorker = null;
+        let waveOpticsWorkerJobs = new Map();
+        let waveOpticsWorkerRequestId = 0;
+        let waveOpticsWorkerUrl = null;
+
+        function stableSerialize(value) {
+            if (Array.isArray(value)) {
+                return `[${value.map((item) => stableSerialize(item)).join(',')}]`;
+            }
+            if (value && typeof value === 'object') {
+                return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+            }
+            return JSON.stringify(value);
+        }
+
+        function buildWaveOpticsSignature(payload) {
+            return stableSerialize(payload);
+        }
+
+        function createWaveOpticsState() {
+            return {
+                pending: false,
+                result: null,
+                signature: null,
+                error: null,
+                progress: null
+            };
+        }
+
+        function markWaveOpticsPending(state, progress = null) {
+            return {
+                ...state,
+                pending: true,
+                error: null,
+                progress
+            };
+        }
+
+        function updateWaveOpticsProgress(state, progress) {
+            return {
+                ...state,
+                pending: true,
+                error: null,
+                progress
+            };
+        }
+
+        function storeWaveOpticsResult(state, signature, result) {
+            return {
+                ...state,
+                pending: false,
+                result,
+                signature,
+                error: null,
+                progress: null
+            };
+        }
+
+        function storeWaveOpticsError(state, error) {
+            return {
+                ...state,
+                pending: false,
+                error,
+                progress: null
+            };
+        }
+
+        function isWaveOpticsFresh(state, currentSignature) {
+            return Boolean(state.result && state.signature === currentSignature && !state.error);
+        }
+
+        function isWaveOpticsStale(state, currentSignature) {
+            return Boolean(state.result && state.signature !== currentSignature);
+        }
+
+        function captureWaveOpticsSettings() {
+            return {
+                profile_type: document.getElementById('wave-profile-type').value,
+                super_gaussian_order: parseFloat(document.getElementById('wave-super-order').value),
+                window_safety_factor: parseFloat(document.getElementById('wave-window-safety').value),
+                samples_per_radius: parseInt(document.getElementById('wave-samples-per-radius').value, 10),
+                guard_band_fraction: WAVE_OPTICS_DEFAULTS.guard_band_fraction,
+                kernel_nyquist_margin: WAVE_OPTICS_DEFAULTS.kernel_nyquist_margin,
+                curvature_nyquist_margin: WAVE_OPTICS_DEFAULTS.curvature_nyquist_margin,
+                max_grid_points: parseInt(document.getElementById('wave-max-grid').value, 10),
+                max_memory_mb: parseFloat(document.getElementById('wave-max-memory').value),
+                display_grid_points: WAVE_OPTICS_DEFAULTS.display_grid_points,
+                display_safety_factor: WAVE_OPTICS_DEFAULTS.display_safety_factor
+            };
+        }
+
+        function applyWaveOpticsSettings(settings = {}) {
+            const resolved = { ...WAVE_OPTICS_DEFAULTS, ...settings };
+            document.getElementById('wave-profile-type').value = resolved.profile_type;
+            document.getElementById('wave-super-order').value = resolved.super_gaussian_order;
+            document.getElementById('wave-window-safety').value = resolved.window_safety_factor;
+            document.getElementById('wave-samples-per-radius').value = resolved.samples_per_radius;
+            document.getElementById('wave-max-grid').value = resolved.max_grid_points;
+            document.getElementById('wave-max-memory').value = resolved.max_memory_mb;
+            updateWaveOpticsUI();
+        }
+
+        function captureSimulationSignatureConfig() {
+            const config = {};
+            paramConfig.forEach((param) => {
+                const element = document.getElementById(`num-${param.id}`);
+                if (!element) return;
+                config[param.id] = param.type === 'int' ? parseInt(element.value, 10) : parseFloat(element.value);
+            });
+            config.cellType = document.getElementById('cell-type').value;
+            config.autoR = document.getElementById('auto-R').checked;
+            config.autoRVex = document.getElementById('auto-R-vex').checked;
+            config.autoOutHole = document.getElementById('auto-out-hole').checked;
+            config.outMirror = parseInt(document.getElementById('out-mirror').value, 10);
+            config.autoModeMatch = document.getElementById('auto-mode-match').checked;
+            config.autoInjection = document.getElementById('auto-injection').checked;
+            config.modeType = document.getElementById('mode-type').value;
+            config.wave_optics = captureWaveOpticsSettings();
+            return config;
+        }
+
+        function currentWaveOpticsSignature() {
+            return buildWaveOpticsSignature(captureSimulationSignatureConfig());
+        }
+
+        function getActiveWaveOptics() {
+            const signature = currentWaveOpticsSignature();
+            if (!isWaveOpticsFresh(waveOpticsState, signature)) {
+                return null;
+            }
+            return waveOpticsState.result ? waveOpticsState.result.wave_optics : null;
+        }
 
         function updateModeUI() {
             const mode = document.getElementById('mode-type').value;
             document.getElementById('group-hg').classList.toggle('hidden', mode !== 'hg');
             document.getElementById('group-lg').classList.toggle('hidden', mode !== 'lg');
             document.getElementById('group-custom').classList.toggle('hidden', mode !== 'custom');
+        }
+
+        function updateWaveOpticsUI() {
+            const profileType = document.getElementById('wave-profile-type').value;
+            document.getElementById('wave-super-order-group').classList.toggle('hidden', profileType !== 'super_gaussian' && profileType !== 'round_super_gaussian');
         }
 
         function updateCellTypeUI() {
@@ -950,6 +1304,148 @@
             }
         }
 
+        function formatWaveOpticsEta(seconds) {
+            if (!Number.isFinite(seconds) || seconds === null) {
+                return 'ETA --';
+            }
+            if (seconds < 1) {
+                return 'ETA <1s';
+            }
+            if (seconds < 10) {
+                return `ETA ${seconds.toFixed(1)}s`;
+            }
+            if (seconds < 60) {
+                return `ETA ${Math.round(seconds)}s`;
+            }
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.round(seconds % 60);
+            return `ETA ${minutes}m ${remainingSeconds}s`;
+        }
+
+        function waveOpticsPercent(progress) {
+            const fraction = Number(progress && progress.progress_fraction !== undefined ? progress.progress_fraction : 0);
+            return Math.max(0, Math.min(100, Math.round(fraction * 100)));
+        }
+
+        function setWaveOpticsProgressUi(progress, pending) {
+            const progressPercent = pending ? waveOpticsPercent(progress) : 0;
+            const completedSteps = progress && progress.completed_steps !== undefined ? progress.completed_steps : 0;
+            const totalSteps = progress && progress.total_steps !== undefined ? progress.total_steps : 1;
+            const etaText = pending ? formatWaveOpticsEta(progress ? progress.estimated_remaining_seconds : null) : 'ETA --';
+
+            document.getElementById('calculate-wave-optics-bar').style.width = `${progressPercent}%`;
+            document.getElementById('wave-optics-progress-bar').style.width = `${progressPercent}%`;
+            document.getElementById('wave-optics-progress-text').textContent = pending
+                ? `${progressPercent}% complete (${completedSteps}/${totalSteps} steps)`
+                : '0% complete';
+            document.getElementById('wave-optics-progress-eta').textContent = etaText;
+            document.getElementById('wave-optics-progress').setAttribute('aria-valuenow', String(progressPercent));
+            document.getElementById('wave-optics-progress').setAttribute(
+                'aria-valuetext',
+                pending ? `${progressPercent}% complete, ${etaText}` : 'Wave-optics calculation idle'
+            );
+        }
+
+        function setWaveOpticsStatus(text, className, summary = '') {
+            const progress = waveOpticsState.progress;
+            const progressPercent = waveOpticsPercent(progress);
+            const runButton = document.getElementById('calculate-wave-optics');
+
+            document.getElementById('wave-optics-status').textContent = text;
+            document.getElementById('wave-optics-status').className = className;
+            document.getElementById('wave-optics-summary').textContent = summary;
+            runButton.disabled = Boolean(waveOpticsState.pending);
+            runButton.setAttribute('data-running', waveOpticsState.pending ? 'true' : 'false');
+            runButton.setAttribute('aria-busy', waveOpticsState.pending ? 'true' : 'false');
+            document.getElementById('calculate-wave-optics-label').textContent = waveOpticsState.pending
+                ? `${WAVE_OPTICS_PENDING_LABEL} (${progressPercent}%)`
+                : WAVE_OPTICS_IDLE_LABEL;
+            document.getElementById('wave-optics-status-card').setAttribute('aria-busy', waveOpticsState.pending ? 'true' : 'false');
+            document.getElementById('wave-optics-progress').classList.toggle('hidden', !waveOpticsState.pending);
+            setWaveOpticsProgressUi(progress, Boolean(waveOpticsState.pending));
+        }
+
+        function refreshWaveOpticsStatus() {
+            const signature = currentWaveOpticsSignature();
+            const warningCount = waveOpticsState.result && waveOpticsState.result.wave_optics
+                ? waveOpticsState.result.wave_optics.warnings.length
+                : 0;
+
+            if (waveOpticsState.pending) {
+                const progress = waveOpticsState.progress;
+                const progressPercent = waveOpticsPercent(progress);
+                const etaText = formatWaveOpticsEta(progress ? progress.estimated_remaining_seconds : null);
+                const currentStep = progress && progress.current_step ? progress.current_step : 'Preparing wave-optics propagation';
+                setWaveOpticsStatus(
+                    `Calculating ${progressPercent}%`,
+                    'text-xs font-semibold text-slate-600',
+                    `${currentStep}. ${etaText}.`
+                );
+                return;
+            }
+
+            if (!waveOpticsState.result && waveOpticsState.error) {
+                setWaveOpticsStatus('Failed', 'text-xs font-semibold text-red-600', waveOpticsState.error);
+                return;
+            }
+
+            if (!waveOpticsState.result) {
+                setWaveOpticsStatus(
+                    'Not Calculated',
+                    'text-xs font-semibold text-slate-500',
+                    'The fast ABCD/Gaussian beam overlays are active until you run the wave-optics solver.'
+                );
+                return;
+            }
+
+            if (isWaveOpticsFresh(waveOpticsState, signature) && !waveOpticsState.result.wave_optics) {
+                setWaveOpticsStatus(
+                    'Unavailable',
+                    'text-xs font-semibold text-slate-500',
+                    'Wave-optics propagation is unavailable for the current configuration. The fast analytic overlays remain active.'
+                );
+                return;
+            }
+
+            if (isWaveOpticsFresh(waveOpticsState, signature)) {
+                const summary = warningCount > 0
+                    ? `${warningCount} sampling warning${warningCount === 1 ? '' : 's'} reported.`
+                    : 'Fresh wave-optics profiles are active on the mirror/focus plots.';
+                setWaveOpticsStatus(
+                    warningCount > 0 ? 'Fresh With Warnings' : 'Fresh',
+                    warningCount > 0 ? 'text-xs font-semibold text-amber-600' : 'text-xs font-semibold text-emerald-600',
+                    summary
+                );
+                return;
+            }
+
+            if (isWaveOpticsStale(waveOpticsState, signature)) {
+                const staleSummary = waveOpticsState.error
+                    ? `${waveOpticsState.error} The UI is showing the fast analytic fallback.`
+                    : 'Inputs changed after the last 2D run. The UI has fallen back to the fast analytic overlays.';
+                setWaveOpticsStatus(
+                    'Stale',
+                    'text-xs font-semibold text-amber-600',
+                    staleSummary
+                );
+                return;
+            }
+
+            setWaveOpticsStatus('Unavailable', 'text-xs font-semibold text-slate-500', 'Wave-optics data is not available.');
+        }
+
+        function renderCurrentPlots() {
+            if (!currentSimulationResult) {
+                return;
+            }
+            const waveOptics = getActiveWaveOptics();
+            if (currentSimulationResult.stable && currentSimulationResult.ray_trace && currentSimulationResult.beam_propagation) {
+                renderSimulationPlots(currentSimulationResult, document.getElementById('show-beam-profiles').checked, waveOptics);
+            } else {
+                renderUnstablePlots(currentSimulationResult.status_message || 'Stability Error (g₁g₂ bounds)');
+            }
+        }
+
         // --- UI Setup & Synchronization ---
         function setupEventListeners() {
             const cellTypeSelect = document.getElementById('cell-type');
@@ -968,10 +1464,23 @@
             const groupInjection = document.getElementById('group-injection');
             const modeSelect = document.getElementById('mode-type');
             const showBeamProfilesCheckbox = document.getElementById('show-beam-profiles');
+            const calculateWaveOpticsButton = document.getElementById('calculate-wave-optics');
+
+            const setGroupState = (groupEl, enabled) => {
+                groupEl.classList.toggle('opacity-50', !enabled);
+                groupEl.classList.toggle('pointer-events-none', !enabled);
+            };
 
             const triggerRun = () => {
+                refreshWaveOpticsStatus();
                 clearTimeout(simulationTimeout);
-                simulationTimeout = setTimeout(runSimulation, 5); 
+                simulationTimeout = setTimeout(runSimulation, 5);
+            };
+
+            const handleWaveOpticsInputChange = () => {
+                updateWaveOpticsUI();
+                refreshWaveOpticsStatus();
+                renderCurrentPlots();
             };
 
             cellTypeSelect.addEventListener('change', () => {
@@ -980,34 +1489,29 @@
             });
 
             autoRCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) groupR.classList.add('opacity-50', 'pointer-events-none');
-                else groupR.classList.remove('opacity-50', 'pointer-events-none');
+                setGroupState(groupR, !e.target.checked);
                 triggerRun();
             });
 
             autoRVexCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) groupRVex.classList.add('opacity-50', 'pointer-events-none');
-                else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
+                setGroupState(groupRVex, !e.target.checked);
                 triggerRun();
             });
 
             autoOutHoleCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
-                else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
+                setGroupState(groupOutHole, !e.target.checked);
                 triggerRun();
             });
 
             outMirrorSelect.addEventListener('change', triggerRun);
 
             autoModeMatchCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) groupBeam.classList.add('opacity-50', 'pointer-events-none');
-                else groupBeam.classList.remove('opacity-50', 'pointer-events-none');
+                setGroupState(groupBeam, !e.target.checked);
                 triggerRun();
             });
 
             autoInjectionCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) groupInjection.classList.add('opacity-50', 'pointer-events-none');
-                else groupInjection.classList.remove('opacity-50', 'pointer-events-none');
+                setGroupState(groupInjection, !e.target.checked);
                 triggerRun();
             });
 
@@ -1016,7 +1520,17 @@
                 triggerRun();
             });
 
-            showBeamProfilesCheckbox.addEventListener('change', triggerRun);
+            showBeamProfilesCheckbox.addEventListener('change', renderCurrentPlots);
+            calculateWaveOpticsButton.addEventListener('click', () => {
+                void runWaveOptics();
+            });
+
+            waveOpticsFieldConfig.forEach((field) => {
+                const element = document.getElementById(field.id);
+                if (!element) return;
+                element.addEventListener('input', handleWaveOpticsInputChange);
+                element.addEventListener('change', handleWaveOpticsInputChange);
+            });
 
             paramConfig.forEach(p => {
                 const rangeEl = document.getElementById('param-' + p.id);
@@ -1076,6 +1590,7 @@
             standardConfig['autoInjection'] = document.getElementById('auto-injection').checked;
             standardConfig['modeType'] = document.getElementById('mode-type').value;
             standardConfig['showBeamProfiles'] = document.getElementById('show-beam-profiles').checked;
+            standardConfig['waveOptics'] = captureWaveOpticsSettings();
             
             const btn = document.querySelector('button[onclick="setStandard()"]');
             const originalText = btn.innerText;
@@ -1089,34 +1604,35 @@
 
             document.getElementById('auto-R').checked = standardConfig['autoR'];
             const groupR = document.getElementById('group-R');
-            if (standardConfig['autoR']) groupR.classList.add('opacity-50', 'pointer-events-none');
-            else groupR.classList.remove('opacity-50', 'pointer-events-none');
+            groupR.classList.toggle('opacity-50', standardConfig['autoR']);
+            groupR.classList.toggle('pointer-events-none', standardConfig['autoR']);
 
             document.getElementById('auto-R-vex').checked = standardConfig['autoRVex'];
             const groupRVex = document.getElementById('group-R-vex');
-            if (standardConfig['autoRVex']) groupRVex.classList.add('opacity-50', 'pointer-events-none');
-            else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
+            groupRVex.classList.toggle('opacity-50', standardConfig['autoRVex']);
+            groupRVex.classList.toggle('pointer-events-none', standardConfig['autoRVex']);
 
             document.getElementById('auto-out-hole').checked = standardConfig['autoOutHole'];
             const groupOutHole = document.getElementById('group-out-hole');
-            if (standardConfig['autoOutHole']) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
-            else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
+            groupOutHole.classList.toggle('opacity-50', standardConfig['autoOutHole']);
+            groupOutHole.classList.toggle('pointer-events-none', standardConfig['autoOutHole']);
 
             document.getElementById('out-mirror').value = standardConfig['outMirror'];
 
             document.getElementById('auto-mode-match').checked = standardConfig['autoModeMatch'];
             const groupBeam = document.getElementById('group-beam');
-            if (standardConfig['autoModeMatch']) groupBeam.classList.add('opacity-50', 'pointer-events-none');
-            else groupBeam.classList.remove('opacity-50', 'pointer-events-none');
+            groupBeam.classList.toggle('opacity-50', standardConfig['autoModeMatch']);
+            groupBeam.classList.toggle('pointer-events-none', standardConfig['autoModeMatch']);
 
             document.getElementById('auto-injection').checked = standardConfig['autoInjection'];
             const groupInjection = document.getElementById('group-injection');
-            if (standardConfig['autoInjection']) groupInjection.classList.add('opacity-50', 'pointer-events-none');
-            else groupInjection.classList.remove('opacity-50', 'pointer-events-none');
+            groupInjection.classList.toggle('opacity-50', standardConfig['autoInjection']);
+            groupInjection.classList.toggle('pointer-events-none', standardConfig['autoInjection']);
 
             document.getElementById('show-beam-profiles').checked = standardConfig['showBeamProfiles'];
             document.getElementById('mode-type').value = standardConfig['modeType'];
             updateModeUI();
+            applyWaveOpticsSettings(standardConfig['waveOptics']);
 
             paramConfig.forEach(p => {
                 if(standardConfig[p.id] !== undefined) {
@@ -1133,6 +1649,7 @@
                     }
                 }
             });
+            refreshWaveOpticsStatus();
             runSimulation();
         }
 
@@ -1151,6 +1668,7 @@
             configToSave['autoInjection'] = document.getElementById('auto-injection').checked;
             configToSave['modeType'] = document.getElementById('mode-type').value;
             configToSave['showBeamProfiles'] = document.getElementById('show-beam-profiles').checked;
+            configToSave['wave_optics'] = captureWaveOpticsSettings();
 
             const jsonString = JSON.stringify(configToSave, null, 2);
             const blob = new Blob([jsonString], { type: "application/json" });
@@ -1188,28 +1706,30 @@
                     if (loadedConfig.autoInjection !== undefined) document.getElementById('auto-injection').checked = loadedConfig.autoInjection;
                     if (loadedConfig.modeType !== undefined) document.getElementById('mode-type').value = loadedConfig.modeType;
                     if (loadedConfig.showBeamProfiles !== undefined) document.getElementById('show-beam-profiles').checked = loadedConfig.showBeamProfiles;
+                    if (loadedConfig.wave_optics !== undefined) applyWaveOpticsSettings(loadedConfig.wave_optics);
 
                     const groupR = document.getElementById('group-R');
-                    if (loadedConfig.autoR) groupR.classList.add('opacity-50', 'pointer-events-none');
-                    else groupR.classList.remove('opacity-50', 'pointer-events-none');
+                    groupR.classList.toggle('opacity-50', Boolean(loadedConfig.autoR));
+                    groupR.classList.toggle('pointer-events-none', Boolean(loadedConfig.autoR));
 
                     const groupRVex = document.getElementById('group-R-vex');
-                    if (loadedConfig.autoRVex) groupRVex.classList.add('opacity-50', 'pointer-events-none');
-                    else groupRVex.classList.remove('opacity-50', 'pointer-events-none');
+                    groupRVex.classList.toggle('opacity-50', Boolean(loadedConfig.autoRVex));
+                    groupRVex.classList.toggle('pointer-events-none', Boolean(loadedConfig.autoRVex));
 
                     const groupOutHole = document.getElementById('group-out-hole');
-                    if (loadedConfig.autoOutHole) groupOutHole.classList.add('opacity-50', 'pointer-events-none');
-                    else groupOutHole.classList.remove('opacity-50', 'pointer-events-none');
+                    groupOutHole.classList.toggle('opacity-50', Boolean(loadedConfig.autoOutHole));
+                    groupOutHole.classList.toggle('pointer-events-none', Boolean(loadedConfig.autoOutHole));
 
                     const groupBeam = document.getElementById('group-beam');
-                    if (loadedConfig.autoModeMatch) groupBeam.classList.add('opacity-50', 'pointer-events-none');
-                    else groupBeam.classList.remove('opacity-50', 'pointer-events-none');
+                    groupBeam.classList.toggle('opacity-50', Boolean(loadedConfig.autoModeMatch));
+                    groupBeam.classList.toggle('pointer-events-none', Boolean(loadedConfig.autoModeMatch));
 
                     const groupInjection = document.getElementById('group-injection');
-                    if (loadedConfig.autoInjection) groupInjection.classList.add('opacity-50', 'pointer-events-none');
-                    else groupInjection.classList.remove('opacity-50', 'pointer-events-none');
+                    groupInjection.classList.toggle('opacity-50', Boolean(loadedConfig.autoInjection));
+                    groupInjection.classList.toggle('pointer-events-none', Boolean(loadedConfig.autoInjection));
 
                     updateModeUI();
+                    updateWaveOpticsUI();
 
                     paramConfig.forEach(p => {
                         if (loadedConfig[p.id] !== undefined) {
@@ -1228,6 +1748,7 @@
                         }
                     });
 
+                    refreshWaveOpticsStatus();
                     runSimulation();
                     event.target.value = '';
                 } catch (error) {
@@ -1239,41 +1760,1572 @@
             reader.readAsText(file);
         }
 
+        function waveOpticsWorkerMain() {
+            const EPSILON = 1e-9;
+            const EDGE_WARNING_THRESHOLD = 5e-3;
+            const SPECTRAL_WARNING_THRESHOLD = 5e-3;
+            const FAST_GRID_SIZES = [32, 40, 48, 56, 64, 72, 80, 96, 112, 128, 144, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024];
+            const AXIS_CACHE_LIMIT = 64;
+            const KERNEL_CACHE_LIMIT = 24;
+            const MIRROR_PHASE_CACHE_LIMIT = 16;
+            const sharedAxisCache = new Map();
+            const sharedKernelCache = new Map();
+            const sharedMirrorPhaseCache = new Map();
+
+            function vDot(a, b) {
+                return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]);
+            }
+
+            function vSub(a, b) {
+                return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+            }
+
+            function reflect(vector, normal) {
+                const scale = 2 * vDot(vector, normal);
+                return [
+                    vector[0] - scale * normal[0],
+                    vector[1] - scale * normal[1],
+                    vector[2] - scale * normal[2]
+                ];
+            }
+
+            function qFromWaist(waistMm, waistPositionMm, wavelengthMm, m2) {
+                const rayleighRangeMm = (Math.PI * waistMm * waistMm) / (m2 * wavelengthMm);
+                return { r: -waistPositionMm, i: rayleighRangeMm };
+            }
+
+            function propagateQValue(qValue, distanceMm) {
+                return { r: qValue.r + distanceMm, i: qValue.i };
+            }
+
+            function mirrorQValue(qValue, mirrorRadiusMm) {
+                const denR = 1 - ((2 * qValue.r) / mirrorRadiusMm);
+                const denI = -((2 * qValue.i) / mirrorRadiusMm);
+                const denMag2 = (denR * denR) + (denI * denI);
+                return {
+                    r: ((qValue.r * denR) + (qValue.i * denI)) / denMag2,
+                    i: ((qValue.i * denR) - (qValue.r * denI)) / denMag2
+                };
+            }
+
+            function beamRadiusMm(qValue, wavelengthMm, m2) {
+                const mag2 = (qValue.r * qValue.r) + (qValue.i * qValue.i);
+                const inverseImag = -qValue.i / mag2;
+                const curvatureTerm = Math.max(-inverseImag, 1e-18);
+                return Math.sqrt((m2 * wavelengthMm) / (Math.PI * curvatureTerm));
+            }
+
+            function curvatureRadiusMm(qValue) {
+                const mag2 = (qValue.r * qValue.r) + (qValue.i * qValue.i);
+                const inverseReal = qValue.r / mag2;
+                if (Math.abs(inverseReal) <= EPSILON) {
+                    return Infinity;
+                }
+                return 1 / inverseReal;
+            }
+
+            function findFocusDistanceMm(qX, qY, distanceMm, wavelengthMm, m2X, m2Y) {
+                const sampleCount = 513;
+                let focusDistanceMm = 0;
+                let bestArea = Infinity;
+                for (let index = 0; index < sampleCount; index += 1) {
+                    const zSample = (distanceMm * index) / (sampleCount - 1);
+                    const radiusX = beamRadiusMm({ r: qX.r + zSample, i: qX.i }, wavelengthMm, m2X);
+                    const radiusY = beamRadiusMm({ r: qY.r + zSample, i: qY.i }, wavelengthMm, m2Y);
+                    const area = radiusX * radiusY;
+                    if (area < bestArea) {
+                        bestArea = area;
+                        focusDistanceMm = zSample;
+                    }
+                }
+
+                const clampMarginMm = Math.max(distanceMm * 1e-3, 1e-4);
+                let warning = null;
+                if (focusDistanceMm <= clampMarginMm || focusDistanceMm >= distanceMm - clampMarginMm) {
+                    focusDistanceMm = Math.min(Math.max(focusDistanceMm, clampMarginMm), distanceMm - clampMarginMm);
+                    warning = 'The minimum-area ABCD plane collapsed onto a mirror. The adaptive solver clamped the internal focus plane to keep the two-step propagation well-posed.';
+                }
+                return { focusDistanceMm, warning };
+            }
+
+            function efficientGridSize(requiredPoints, maxGridPoints) {
+                for (const size of FAST_GRID_SIZES) {
+                    if (size >= requiredPoints && size <= maxGridPoints) {
+                        return size;
+                    }
+                }
+                if (requiredPoints <= maxGridPoints) {
+                    return requiredPoints;
+                }
+                let suggestedGrid = requiredPoints;
+                for (const size of FAST_GRID_SIZES) {
+                    if (size >= requiredPoints) {
+                        suggestedGrid = size;
+                        break;
+                    }
+                }
+                throw new Error(
+                    `Wave-optics sampling would require ${requiredPoints} points on one axis, exceeding the configured limit of ${maxGridPoints}. Increase Max Grid to at least ${suggestedGrid} or relax the sampling margins.`
+                );
+            }
+
+            function planeHalfWidthMm(radiusMm, settings) {
+                return Math.max(settings.window_safety_factor * radiusMm, radiusMm * 1.5, 0.05);
+            }
+
+            function dxFromCurvature(curvatureMm, halfWidthMm, wavelengthMm, margin) {
+                if (!Number.isFinite(curvatureMm) || Math.abs(curvatureMm) <= EPSILON) {
+                    return Infinity;
+                }
+                return (margin * wavelengthMm * Math.abs(curvatureMm)) / (2 * halfWidthMm);
+            }
+
+            function dxFromKernel(distanceMm, oppositeHalfWidthMm, wavelengthMm, margin) {
+                return (margin * wavelengthMm * distanceMm) / (2 * oppositeHalfWidthMm);
+            }
+
+            function gridRequirementPoints(halfWidthMm, dxLimitMm) {
+                if (!Number.isFinite(dxLimitMm) || dxLimitMm <= 0) {
+                    return 32;
+                }
+                return Math.max(32, Math.ceil((2 * halfWidthMm) / dxLimitMm) + 1);
+            }
+
+            function estimateSegmentMemoryBytes(start, focus, end) {
+                const complexBytes = 16;
+                const floatBytes = 8;
+                const fieldBytes = complexBytes * ((start.nx * start.ny) + (focus.nx * focus.ny) + (end.nx * end.ny));
+                const kernelBytes = complexBytes * (
+                    (start.nx * focus.nx) +
+                    (start.ny * focus.ny) +
+                    (focus.nx * end.nx) +
+                    (focus.ny * end.ny)
+                );
+                const diagnosticBytes = floatBytes * ((focus.nx * focus.ny) + (end.nx * end.ny));
+                return fieldBytes + kernelBytes + diagnosticBytes;
+            }
+
+            function normalizeField(field, grid) {
+                let power = 0;
+                const length = field.re.length;
+                for (let index = 0; index < length; index += 1) {
+                    power += (field.re[index] * field.re[index]) + (field.im[index] * field.im[index]);
+                }
+                power *= grid.dx_mm * grid.dy_mm;
+                if (power <= EPSILON) {
+                    throw new Error('The generated launch field has zero power on the adaptive grid.');
+                }
+                const scale = 1 / Math.sqrt(power);
+                for (let index = 0; index < length; index += 1) {
+                    field.re[index] *= scale;
+                    field.im[index] *= scale;
+                }
+                return field;
+            }
+
+            function emitProgress(progressCallback, payload) {
+                if (!progressCallback) {
+                    return;
+                }
+                progressCallback(payload);
+            }
+
+            function cacheGet(cache, key) {
+                if (!cache.has(key)) {
+                    return null;
+                }
+                const value = cache.get(key);
+                cache.delete(key);
+                cache.set(key, value);
+                return value;
+            }
+
+            function cacheSet(cache, key, value, limit) {
+                if (cache.has(key)) {
+                    cache.delete(key);
+                }
+                cache.set(key, value);
+                while (cache.size > limit) {
+                    const oldestKey = cache.keys().next().value;
+                    cache.delete(oldestKey);
+                }
+                return value;
+            }
+
+            function ensureKernelTranspose(kernel) {
+                if (kernel.transposeRe && kernel.transposeIm) {
+                    return kernel;
+                }
+                const transposeRe = new Float64Array(kernel.inPoints * kernel.outPoints);
+                const transposeIm = new Float64Array(kernel.inPoints * kernel.outPoints);
+                for (let outIndex = 0; outIndex < kernel.outPoints; outIndex += 1) {
+                    const rowOffset = outIndex * kernel.inPoints;
+                    for (let inIndex = 0; inIndex < kernel.inPoints; inIndex += 1) {
+                        const sourceIndex = rowOffset + inIndex;
+                        const targetIndex = (inIndex * kernel.outPoints) + outIndex;
+                        transposeRe[targetIndex] = kernel.re[sourceIndex];
+                        transposeIm[targetIndex] = kernel.im[sourceIndex];
+                    }
+                }
+                kernel.transposeRe = transposeRe;
+                kernel.transposeIm = transposeIm;
+                return kernel;
+            }
+
+            function leftMultiplyKernelField(kernel, field) {
+                const outRe = new Float64Array(kernel.outPoints * field.ny);
+                const outIm = new Float64Array(kernel.outPoints * field.ny);
+                const kernelRe = kernel.re;
+                const kernelIm = kernel.im;
+                const fieldRe = field.re;
+                const fieldIm = field.im;
+                const inputPoints = kernel.inPoints;
+                const rowLength = field.ny;
+                for (let row = 0; row < kernel.outPoints; row += 1) {
+                    const kernelRow = row * inputPoints;
+                    const outRow = row * rowLength;
+                    for (let inner = 0; inner < inputPoints; inner += 1) {
+                        const kernelIndex = kernelRow + inner;
+                        const ar = kernelRe[kernelIndex];
+                        const ai = kernelIm[kernelIndex];
+                        const fieldRow = inner * rowLength;
+                        for (let column = 0; column < rowLength; column += 1) {
+                            const fieldIndex = fieldRow + column;
+                            const outIndex = outRow + column;
+                            const br = fieldRe[fieldIndex];
+                            const bi = fieldIm[fieldIndex];
+                            outRe[outIndex] += (ar * br) - (ai * bi);
+                            outIm[outIndex] += (ar * bi) + (ai * br);
+                        }
+                    }
+                }
+                return { re: outRe, im: outIm, nx: kernel.outPoints, ny: field.ny };
+            }
+
+            function rightMultiplyFieldKernelTranspose(field, kernel) {
+                const cachedKernel = ensureKernelTranspose(kernel);
+                const outRe = new Float64Array(field.nx * kernel.outPoints);
+                const outIm = new Float64Array(field.nx * kernel.outPoints);
+                const kernelRe = cachedKernel.transposeRe;
+                const kernelIm = cachedKernel.transposeIm;
+                const fieldRe = field.re;
+                const fieldIm = field.im;
+                const inputPoints = field.ny;
+                const outPoints = kernel.outPoints;
+                for (let row = 0; row < field.nx; row += 1) {
+                    const fieldRow = row * inputPoints;
+                    const outRow = row * outPoints;
+                    for (let inner = 0; inner < inputPoints; inner += 1) {
+                        const fieldIndex = fieldRow + inner;
+                        const ar = fieldRe[fieldIndex];
+                        const ai = fieldIm[fieldIndex];
+                        const kernelRow = inner * outPoints;
+                        for (let column = 0; column < outPoints; column += 1) {
+                            const outIndex = outRow + column;
+                            const kernelIndex = kernelRow + column;
+                            const br = kernelRe[kernelIndex];
+                            const bi = kernelIm[kernelIndex];
+                            outRe[outIndex] += (ar * br) - (ai * bi);
+                            outIm[outIndex] += (ar * bi) + (ai * br);
+                        }
+                    }
+                }
+                return { re: outRe, im: outIm, nx: field.nx, ny: kernel.outPoints };
+            }
+
+            function greatestPowerOfTwoLE(value) {
+                let size = 1;
+                while ((size * 2) <= value) {
+                    size *= 2;
+                }
+                return Math.max(8, size);
+            }
+
+            function fft1d(real, imag) {
+                const length = real.length;
+                let j = 0;
+                for (let i = 1; i < length; i += 1) {
+                    let bit = length >> 1;
+                    while (j & bit) {
+                        j ^= bit;
+                        bit >>= 1;
+                    }
+                    j ^= bit;
+                    if (i < j) {
+                        const tempRe = real[i];
+                        const tempIm = imag[i];
+                        real[i] = real[j];
+                        imag[i] = imag[j];
+                        real[j] = tempRe;
+                        imag[j] = tempIm;
+                    }
+                }
+
+                for (let blockSize = 2; blockSize <= length; blockSize <<= 1) {
+                    const angle = (-2 * Math.PI) / blockSize;
+                    const wLenRe = Math.cos(angle);
+                    const wLenIm = Math.sin(angle);
+                    for (let start = 0; start < length; start += blockSize) {
+                        let wRe = 1;
+                        let wIm = 0;
+                        const halfBlock = blockSize >> 1;
+                        for (let offset = 0; offset < halfBlock; offset += 1) {
+                            const evenIndex = start + offset;
+                            const oddIndex = evenIndex + halfBlock;
+                            const vRe = (real[oddIndex] * wRe) - (imag[oddIndex] * wIm);
+                            const vIm = (real[oddIndex] * wIm) + (imag[oddIndex] * wRe);
+                            const uRe = real[evenIndex];
+                            const uIm = imag[evenIndex];
+                            real[evenIndex] = uRe + vRe;
+                            imag[evenIndex] = uIm + vIm;
+                            real[oddIndex] = uRe - vRe;
+                            imag[oddIndex] = uIm - vIm;
+                            const nextWRe = (wRe * wLenRe) - (wIm * wLenIm);
+                            const nextWIm = (wRe * wLenIm) + (wIm * wLenRe);
+                            wRe = nextWRe;
+                            wIm = nextWIm;
+                        }
+                    }
+                }
+            }
+
+            function fft2ShiftedMagnitudeSquared(fieldRe, fieldIm, nx, ny) {
+                const real = new Float64Array(fieldRe);
+                const imag = new Float64Array(fieldIm);
+
+                for (let row = 0; row < nx; row += 1) {
+                    const rowRe = new Float64Array(ny);
+                    const rowIm = new Float64Array(ny);
+                    for (let col = 0; col < ny; col += 1) {
+                        const index = (row * ny) + col;
+                        rowRe[col] = real[index];
+                        rowIm[col] = imag[index];
+                    }
+                    fft1d(rowRe, rowIm);
+                    for (let col = 0; col < ny; col += 1) {
+                        const index = (row * ny) + col;
+                        real[index] = rowRe[col];
+                        imag[index] = rowIm[col];
+                    }
+                }
+
+                for (let col = 0; col < ny; col += 1) {
+                    const colRe = new Float64Array(nx);
+                    const colIm = new Float64Array(nx);
+                    for (let row = 0; row < nx; row += 1) {
+                        const index = (row * ny) + col;
+                        colRe[row] = real[index];
+                        colIm[row] = imag[index];
+                    }
+                    fft1d(colRe, colIm);
+                    for (let row = 0; row < nx; row += 1) {
+                        const index = (row * ny) + col;
+                        real[index] = colRe[row];
+                        imag[index] = colIm[row];
+                    }
+                }
+
+                const shifted = new Float64Array(nx * ny);
+                const halfX = Math.floor(nx / 2);
+                const halfY = Math.floor(ny / 2);
+                for (let row = 0; row < nx; row += 1) {
+                    for (let col = 0; col < ny; col += 1) {
+                        const shiftedRow = (row + halfX) % nx;
+                        const shiftedCol = (col + halfY) % ny;
+                        const srcIndex = (row * ny) + col;
+                        const dstIndex = (shiftedRow * ny) + shiftedCol;
+                        shifted[dstIndex] = (real[srcIndex] * real[srcIndex]) + (imag[srcIndex] * imag[srcIndex]);
+                    }
+                }
+                return shifted;
+            }
+
+            function sampleRegularScalarGrid(values, grid, xMm, yMm) {
+                const xPos = (xMm + grid.half_width_x_mm) / grid.dx_mm;
+                const yPos = (yMm + grid.half_width_y_mm) / grid.dy_mm;
+                if (xPos < 0 || yPos < 0 || xPos > (grid.nx - 1) || yPos > (grid.ny - 1)) {
+                    return 0;
+                }
+                const x0 = Math.floor(xPos);
+                const y0 = Math.floor(yPos);
+                const x1 = Math.min(x0 + 1, grid.nx - 1);
+                const y1 = Math.min(y0 + 1, grid.ny - 1);
+                const tx = xPos - x0;
+                const ty = yPos - y0;
+                const v00 = values[(x0 * grid.ny) + y0];
+                const v10 = values[(x1 * grid.ny) + y0];
+                const v01 = values[(x0 * grid.ny) + y1];
+                const v11 = values[(x1 * grid.ny) + y1];
+                return (
+                    ((1 - tx) * (1 - ty) * v00) +
+                    (tx * (1 - ty) * v10) +
+                    ((1 - tx) * ty * v01) +
+                    (tx * ty * v11)
+                );
+            }
+
+            function sampleRegularComplexField(field, grid, xMm, yMm) {
+                const xPos = (xMm + grid.half_width_x_mm) / grid.dx_mm;
+                const yPos = (yMm + grid.half_width_y_mm) / grid.dy_mm;
+                if (xPos < 0 || yPos < 0 || xPos > (grid.nx - 1) || yPos > (grid.ny - 1)) {
+                    return { re: 0, im: 0 };
+                }
+                const x0 = Math.floor(xPos);
+                const y0 = Math.floor(yPos);
+                const x1 = Math.min(x0 + 1, grid.nx - 1);
+                const y1 = Math.min(y0 + 1, grid.ny - 1);
+                const tx = xPos - x0;
+                const ty = yPos - y0;
+
+                function blend(source) {
+                    const v00 = source[(x0 * grid.ny) + y0];
+                    const v10 = source[(x1 * grid.ny) + y0];
+                    const v01 = source[(x0 * grid.ny) + y1];
+                    const v11 = source[(x1 * grid.ny) + y1];
+                    return (
+                        ((1 - tx) * (1 - ty) * v00) +
+                        (tx * (1 - ty) * v10) +
+                        ((1 - tx) * ty * v01) +
+                        (tx * ty * v11)
+                    );
+                }
+
+                return {
+                    re: blend(field.re),
+                    im: blend(field.im)
+                };
+            }
+
+            class AdaptiveWaveOpticsSolver {
+                constructor(wavelengthMm, settings) {
+                    this.wavelength_mm = wavelengthMm;
+                    this.settings = settings;
+                    this.wave_number_mm = (2 * Math.PI) / wavelengthMm;
+                    this.axisCache = sharedAxisCache;
+                    this.kernelCache = sharedKernelCache;
+                    this.mirrorPhaseCache = sharedMirrorPhaseCache;
+                }
+
+                axisCoordinates(points, halfWidthMm) {
+                    const key = `${points}:${halfWidthMm.toFixed(9)}`;
+                    const cachedAxis = cacheGet(this.axisCache, key);
+                    if (cachedAxis) {
+                        return cachedAxis;
+                    }
+                    const coordinates = new Float64Array(points);
+                    for (let index = 0; index < points; index += 1) {
+                        coordinates[index] = -halfWidthMm + ((2 * halfWidthMm * index) / (points - 1));
+                    }
+                    const spacing = points > 1 ? (coordinates[1] - coordinates[0]) : 0;
+                    const cached = { coordinates, spacing };
+                    return cacheSet(this.axisCache, key, cached, AXIS_CACHE_LIMIT);
+                }
+
+                grid(plan) {
+                    const xAxis = this.axisCoordinates(plan.nx, plan.half_width_x_mm);
+                    const yAxis = this.axisCoordinates(plan.ny, plan.half_width_y_mm);
+                    return {
+                        x_mm: xAxis.coordinates,
+                        y_mm: yAxis.coordinates,
+                        dx_mm: xAxis.spacing,
+                        dy_mm: yAxis.spacing,
+                        half_width_x_mm: plan.half_width_x_mm,
+                        half_width_y_mm: plan.half_width_y_mm,
+                        nx: plan.nx,
+                        ny: plan.ny
+                    };
+                }
+
+                collinsKernel(inPoints, inHalfWidthMm, outPoints, outHalfWidthMm, distanceMm) {
+                    const key = `${distanceMm.toFixed(9)}:${inPoints}:${inHalfWidthMm.toFixed(9)}:${outPoints}:${outHalfWidthMm.toFixed(9)}`;
+                    const cachedKernel = cacheGet(this.kernelCache, key);
+                    if (cachedKernel) {
+                        return cachedKernel;
+                    }
+
+                    const inputAxis = this.axisCoordinates(inPoints, inHalfWidthMm);
+                    const outputAxis = this.axisCoordinates(outPoints, outHalfWidthMm);
+                    const inputCoords = inputAxis.coordinates;
+                    const outputCoords = outputAxis.coordinates;
+                    const kernelRe = new Float64Array(outPoints * inPoints);
+                    const kernelIm = new Float64Array(outPoints * inPoints);
+                    const prefactor = 1 / Math.sqrt(2 * this.wavelength_mm * distanceMm);
+                    const prefRe = prefactor;
+                    const prefIm = -prefactor;
+
+                    for (let outIndex = 0; outIndex < outPoints; outIndex += 1) {
+                        const xOut = outputCoords[outIndex];
+                        const xOutSquared = xOut * xOut;
+                        const rowOffset = outIndex * inPoints;
+                        for (let inIndex = 0; inIndex < inPoints; inIndex += 1) {
+                            const xIn = inputCoords[inIndex];
+                            const phase = (this.wave_number_mm / (2 * distanceMm)) * (xOutSquared + (xIn * xIn) - (2 * xOut * xIn));
+                            const phaseCos = Math.cos(phase) * inputAxis.spacing;
+                            const phaseSin = Math.sin(phase) * inputAxis.spacing;
+                            const targetIndex = rowOffset + inIndex;
+                            kernelRe[targetIndex] = (prefRe * phaseCos) - (prefIm * phaseSin);
+                            kernelIm[targetIndex] = (prefRe * phaseSin) + (prefIm * phaseCos);
+                        }
+                    }
+
+                    const kernel = { re: kernelRe, im: kernelIm, inPoints, outPoints };
+                    return cacheSet(this.kernelCache, key, kernel, KERNEL_CACHE_LIMIT);
+                }
+
+                mirrorPhase(grid, mirrorRadiusMm) {
+                    const key = `${mirrorRadiusMm.toFixed(9)}:${grid.nx}:${grid.half_width_x_mm.toFixed(9)}:${grid.ny}:${grid.half_width_y_mm.toFixed(9)}`;
+                    const cachedPhase = cacheGet(this.mirrorPhaseCache, key);
+                    if (cachedPhase) {
+                        return cachedPhase;
+                    }
+
+                    const phaseRe = new Float64Array(grid.nx * grid.ny);
+                    const phaseIm = new Float64Array(grid.nx * grid.ny);
+                    for (let xIndex = 0; xIndex < grid.nx; xIndex += 1) {
+                        const xMm = grid.x_mm[xIndex];
+                        const xSquared = xMm * xMm;
+                        const rowOffset = xIndex * grid.ny;
+                        for (let yIndex = 0; yIndex < grid.ny; yIndex += 1) {
+                            const yMm = grid.y_mm[yIndex];
+                            const phase = (-this.wave_number_mm * (xSquared + (yMm * yMm))) / mirrorRadiusMm;
+                            const index = rowOffset + yIndex;
+                            phaseRe[index] = Math.cos(phase);
+                            phaseIm[index] = Math.sin(phase);
+                        }
+                    }
+
+                    const cached = { re: phaseRe, im: phaseIm };
+                    return cacheSet(this.mirrorPhaseCache, key, cached, MIRROR_PHASE_CACHE_LIMIT);
+                }
+
+                propagate(field, inGrid, outPlan, distanceMm) {
+                    const outGrid = this.grid(outPlan);
+                    const kernelX = this.collinsKernel(field.nx, inGrid.half_width_x_mm, outPlan.nx, outPlan.half_width_x_mm, distanceMm);
+                    const kernelY = this.collinsKernel(field.ny, inGrid.half_width_y_mm, outPlan.ny, outPlan.half_width_y_mm, distanceMm);
+                    const intermediate = leftMultiplyKernelField(kernelX, field);
+                    const propagated = rightMultiplyFieldKernelTranspose(intermediate, kernelY);
+                    return { field: propagated, grid: outGrid };
+                }
+
+                buildLaunchField(plan, profileType, superGaussianOrder, radiusXMm, radiusYMm, curvatureXMm, curvatureYMm) {
+                    const grid = this.grid(plan);
+                    const field = {
+                        re: new Float64Array(plan.nx * plan.ny),
+                        im: new Float64Array(plan.nx * plan.ny),
+                        nx: plan.nx,
+                        ny: plan.ny
+                    };
+                    const safeRadiusX = Math.max(radiusXMm, 1e-9);
+                    const safeRadiusY = Math.max(radiusYMm, 1e-9);
+                    const roundRadiusMm = Math.sqrt(safeRadiusX * safeRadiusY);
+
+                    for (let xIndex = 0; xIndex < plan.nx; xIndex += 1) {
+                        const xMm = grid.x_mm[xIndex];
+                        for (let yIndex = 0; yIndex < plan.ny; yIndex += 1) {
+                            const yMm = grid.y_mm[yIndex];
+                            let amplitude;
+                            if (profileType === 'super_gaussian') {
+                                amplitude = Math.exp(-Math.pow(Math.abs(xMm) / safeRadiusX, 2 * superGaussianOrder))
+                                    * Math.exp(-Math.pow(Math.abs(yMm) / safeRadiusY, 2 * superGaussianOrder));
+                            } else if (profileType === 'round_super_gaussian') {
+                                const radialCoordinate = Math.sqrt((xMm * xMm) + (yMm * yMm));
+                                amplitude = Math.exp(-Math.pow(radialCoordinate / roundRadiusMm, 2 * superGaussianOrder));
+                            } else {
+                                amplitude = Math.exp(-((xMm * xMm) / (safeRadiusX * safeRadiusX)) - ((yMm * yMm) / (safeRadiusY * safeRadiusY)));
+                            }
+
+                            let phase = 0;
+                            if (Number.isFinite(curvatureXMm)) {
+                                phase += (-0.5 * this.wave_number_mm * xMm * xMm) / curvatureXMm;
+                            }
+                            if (Number.isFinite(curvatureYMm)) {
+                                phase += (-0.5 * this.wave_number_mm * yMm * yMm) / curvatureYMm;
+                            }
+
+                            const index = (xIndex * plan.ny) + yIndex;
+                            field.re[index] = amplitude * Math.cos(phase);
+                            field.im[index] = amplitude * Math.sin(phase);
+                        }
+                    }
+
+                    return { field: normalizeField(field, grid), grid };
+                }
+
+                applyMirror(field, grid, mirrorRadiusMm, holeMasks) {
+                    const transformed = {
+                        re: new Float64Array(field.re.length),
+                        im: new Float64Array(field.im.length),
+                        nx: field.nx,
+                        ny: field.ny
+                    };
+                    const mirrorPhase = this.mirrorPhase(grid, mirrorRadiusMm);
+                    const phaseRe = mirrorPhase.re;
+                    const phaseIm = mirrorPhase.im;
+                    const fieldRe = field.re;
+                    const fieldIm = field.im;
+
+                    if (!holeMasks || holeMasks.length === 0) {
+                        for (let index = 0; index < fieldRe.length; index += 1) {
+                            transformed.re[index] = (fieldRe[index] * phaseRe[index]) - (fieldIm[index] * phaseIm[index]);
+                            transformed.im[index] = (fieldRe[index] * phaseIm[index]) + (fieldIm[index] * phaseRe[index]);
+                        }
+                        return transformed;
+                    }
+
+                    const preparedHoleMasks = holeMasks.map((mask) => [mask[0], mask[1], mask[2] * mask[2]]);
+
+                    for (let xIndex = 0; xIndex < grid.nx; xIndex += 1) {
+                        const xMm = grid.x_mm[xIndex];
+                        const rowOffset = xIndex * grid.ny;
+                        for (let yIndex = 0; yIndex < grid.ny; yIndex += 1) {
+                            const yMm = grid.y_mm[yIndex];
+                            let blocked = false;
+                            for (const holeMask of preparedHoleMasks) {
+                                const dxMm = xMm - holeMask[0];
+                                const dyMm = yMm - holeMask[1];
+                                if ((dxMm * dxMm) + (dyMm * dyMm) < holeMask[2]) {
+                                    blocked = true;
+                                    break;
+                                }
+                            }
+
+                            const index = rowOffset + yIndex;
+                            if (blocked) {
+                                transformed.re[index] = 0;
+                                transformed.im[index] = 0;
+                                continue;
+                            }
+
+                            transformed.re[index] = (fieldRe[index] * phaseRe[index]) - (fieldIm[index] * phaseIm[index]);
+                            transformed.im[index] = (fieldRe[index] * phaseIm[index]) + (fieldIm[index] * phaseRe[index]);
+                        }
+                    }
+
+                    return transformed;
+                }
+
+                displayIntensityMap(intensity, grid, halfWidthXMm, halfWidthYMm, displayPoints) {
+                    const output = [];
+                    let maxValue = 0;
+                    for (let yIndex = 0; yIndex < displayPoints; yIndex += 1) {
+                        const row = [];
+                        const yMm = -halfWidthYMm + ((2 * halfWidthYMm * yIndex) / (displayPoints - 1));
+                        for (let xIndex = 0; xIndex < displayPoints; xIndex += 1) {
+                            const xMm = -halfWidthXMm + ((2 * halfWidthXMm * xIndex) / (displayPoints - 1));
+                            const value = sampleRegularScalarGrid(intensity, grid, xMm, yMm);
+                            row.push(value);
+                            if (value > maxValue) {
+                                maxValue = value;
+                            }
+                        }
+                        output.push(row);
+                    }
+                    if (maxValue > EPSILON) {
+                        for (const row of output) {
+                            for (let index = 0; index < row.length; index += 1) {
+                                row[index] /= maxValue;
+                            }
+                        }
+                    }
+                    return output;
+                }
+
+                edgeFraction(values, nx, ny) {
+                    const borderX = Math.max(1, Math.round(nx * this.settings.guard_band_fraction));
+                    const borderY = Math.max(1, Math.round(ny * this.settings.guard_band_fraction));
+                    if ((borderX * 2) >= nx || (borderY * 2) >= ny) {
+                        return 1;
+                    }
+
+                    let totalPower = 0;
+                    let corePower = 0;
+                    for (let xIndex = 0; xIndex < nx; xIndex += 1) {
+                        for (let yIndex = 0; yIndex < ny; yIndex += 1) {
+                            const value = values[(xIndex * ny) + yIndex];
+                            totalPower += value;
+                            if (xIndex >= borderX && xIndex < (nx - borderX) && yIndex >= borderY && yIndex < (ny - borderY)) {
+                                corePower += value;
+                            }
+                        }
+                    }
+
+                    if (totalPower <= EPSILON) {
+                        return 0;
+                    }
+                    return Math.max((totalPower - corePower) / totalPower, 0);
+                }
+
+                spectralEdgeFraction(field, grid) {
+                    // Diagnostic-only FFT on a resampled power-of-two copy. The exact Nyquist checks are enforced
+                    // during adaptive grid planning on the native grids; this spectrum is only used for guard-band warnings.
+                    const diagNx = Math.min(greatestPowerOfTwoLE(Math.min(grid.nx, 128)), 128);
+                    const diagNy = Math.min(greatestPowerOfTwoLE(Math.min(grid.ny, 128)), 128);
+                    const sampleRe = new Float64Array(diagNx * diagNy);
+                    const sampleIm = new Float64Array(diagNx * diagNy);
+                    const diagGrid = {
+                        half_width_x_mm: grid.half_width_x_mm,
+                        half_width_y_mm: grid.half_width_y_mm,
+                        dx_mm: (2 * grid.half_width_x_mm) / Math.max(diagNx - 1, 1),
+                        dy_mm: (2 * grid.half_width_y_mm) / Math.max(diagNy - 1, 1),
+                        nx: diagNx,
+                        ny: diagNy
+                    };
+
+                    for (let xIndex = 0; xIndex < diagNx; xIndex += 1) {
+                        const xMm = -diagGrid.half_width_x_mm + ((2 * diagGrid.half_width_x_mm * xIndex) / Math.max(diagNx - 1, 1));
+                        for (let yIndex = 0; yIndex < diagNy; yIndex += 1) {
+                            const yMm = -diagGrid.half_width_y_mm + ((2 * diagGrid.half_width_y_mm * yIndex) / Math.max(diagNy - 1, 1));
+                            const sampled = sampleRegularComplexField(field, grid, xMm, yMm);
+                            const index = (xIndex * diagNy) + yIndex;
+                            sampleRe[index] = sampled.re;
+                            sampleIm[index] = sampled.im;
+                        }
+                    }
+
+                    const spectrum = fft2ShiftedMagnitudeSquared(sampleRe, sampleIm, diagNx, diagNy);
+                    return this.edgeFraction(spectrum, diagNx, diagNy);
+                }
+
+                summarizeField(field, grid, position, u1, u2, planeKind, mirrorNumber, segmentIndex, bounceIndex, label) {
+                    const intensity = new Float64Array(field.re.length);
+                    let power = 0;
+                    let xSecondMoment = 0;
+                    let ySecondMoment = 0;
+                    let maxIntensity = 0;
+
+                    for (let xIndex = 0; xIndex < grid.nx; xIndex += 1) {
+                        const xMm = grid.x_mm[xIndex];
+                        for (let yIndex = 0; yIndex < grid.ny; yIndex += 1) {
+                            const yMm = grid.y_mm[yIndex];
+                            const index = (xIndex * grid.ny) + yIndex;
+                            const value = (field.re[index] * field.re[index]) + (field.im[index] * field.im[index]);
+                            intensity[index] = value;
+                            power += value;
+                            xSecondMoment += (xMm * xMm) * value;
+                            ySecondMoment += (yMm * yMm) * value;
+                            if (value > maxIntensity) {
+                                maxIntensity = value;
+                            }
+                        }
+                    }
+
+                    power *= grid.dx_mm * grid.dy_mm;
+                    if (power <= EPSILON) {
+                        throw new Error('The propagated field collapsed to zero power on the adaptive grid.');
+                    }
+
+                    xSecondMoment = (xSecondMoment * grid.dx_mm * grid.dy_mm) / power;
+                    ySecondMoment = (ySecondMoment * grid.dx_mm * grid.dy_mm) / power;
+                    const equivalentRadiusXMm = 2 * Math.sqrt(Math.max(xSecondMoment, 0));
+                    const equivalentRadiusYMm = 2 * Math.sqrt(Math.max(ySecondMoment, 0));
+                    const peakDensityPerMm2 = maxIntensity / power;
+
+                    const displayHalfWidthXMm = Math.min(
+                        grid.half_width_x_mm,
+                        Math.max(equivalentRadiusXMm * this.settings.display_safety_factor, equivalentRadiusXMm * 1.5, 0.1)
+                    );
+                    const displayHalfWidthYMm = Math.min(
+                        grid.half_width_y_mm,
+                        Math.max(equivalentRadiusYMm * this.settings.display_safety_factor, equivalentRadiusYMm * 1.5, 0.1)
+                    );
+
+                    return {
+                        plane_kind: planeKind,
+                        mirror_number: mirrorNumber,
+                        segment_index: segmentIndex,
+                        bounce_index: bounceIndex,
+                        label,
+                        position,
+                        u1,
+                        u2,
+                        display_half_width_x_mm: displayHalfWidthXMm,
+                        display_half_width_y_mm: displayHalfWidthYMm,
+                        display_box_size_mm: 2 * Math.max(displayHalfWidthXMm, displayHalfWidthYMm),
+                        intensity_map: this.displayIntensityMap(intensity, grid, displayHalfWidthXMm, displayHalfWidthYMm, this.settings.display_grid_points),
+                        equivalent_radius_x_mm: equivalentRadiusXMm,
+                        equivalent_radius_y_mm: equivalentRadiusYMm,
+                        peak_density_per_mm2: peakDensityPerMm2,
+                        power_fraction: power,
+                        edge_power_fraction: this.edgeFraction(intensity, grid.nx, grid.ny),
+                        spectral_edge_fraction: this.spectralEdgeFraction(field, grid)
+                    };
+                }
+            }
+
+            function mirrorHitForSegment(rayTrace, segmentIndex) {
+                if (segmentIndex % 2 === 0) {
+                    return rayTrace.mirror_hits[2][Math.floor(segmentIndex / 2)];
+                }
+                return rayTrace.mirror_hits[1][Math.floor(segmentIndex / 2)];
+            }
+
+            function segmentStartBasis(rayTrace, segmentIndex) {
+                if (segmentIndex === 0) {
+                    return { u1: rayTrace.input_basis.u1, u2: rayTrace.input_basis.u2 };
+                }
+                const previousHit = mirrorHitForSegment(rayTrace, segmentIndex - 1);
+                return {
+                    u1: reflect(previousHit.u1, previousHit.normal),
+                    u2: reflect(previousHit.u2, previousHit.normal)
+                };
+            }
+
+            function segmentStartPoint(rayTrace, segmentIndex) {
+                if (segmentIndex === 0) {
+                    return rayTrace.input_point;
+                }
+                return mirrorHitForSegment(rayTrace, segmentIndex - 1).P;
+            }
+
+            function surfacePoint(mirrorCenter, mirrorRadiusMm, xMm, yMm) {
+                const dxMm = xMm - mirrorCenter[0];
+                const dyMm = yMm - mirrorCenter[1];
+                const discriminant = (mirrorRadiusMm * mirrorRadiusMm) - (dxMm * dxMm) - (dyMm * dyMm);
+                if (discriminant < 0) {
+                    return null;
+                }
+                const sign = mirrorRadiusMm >= 0 ? 1 : -1;
+                return [xMm, yMm, mirrorCenter[2] - (sign * Math.sqrt(discriminant))];
+            }
+
+            function holeLocalCoordinates(holeXYMm, hitRecord, mirrorCenter, mirrorRadiusMm) {
+                const holePoint = surfacePoint(mirrorCenter, mirrorRadiusMm, holeXYMm[0], holeXYMm[1]);
+                if (!holePoint) {
+                    return null;
+                }
+                const delta = vSub(holePoint, hitRecord.P);
+                return [vDot(delta, hitRecord.u1), vDot(delta, hitRecord.u2)];
+            }
+
+            function frameSamplingWarnings(frame, label) {
+                const warnings = [];
+                if (frame.edge_power_fraction > EDGE_WARNING_THRESHOLD) {
+                    warnings.push(`${label}: ${(frame.edge_power_fraction * 100).toFixed(2)}% of the power reached the outer guard band, so the adaptive real-space window is likely too small for this segment.`);
+                }
+                if (frame.spectral_edge_fraction > SPECTRAL_WARNING_THRESHOLD) {
+                    warnings.push(`${label}: ${(frame.spectral_edge_fraction * 100).toFixed(2)}% of the spectrum reached the Nyquist guard band, so the sampling pitch is likely too coarse for this segment.`);
+                }
+                return warnings;
+            }
+
+            function planDict(plan) {
+                return {
+                    half_width_x_mm: plan.half_width_x_mm,
+                    half_width_y_mm: plan.half_width_y_mm,
+                    dx_mm: plan.dx_mm,
+                    dy_mm: plan.dy_mm,
+                    nx: plan.nx,
+                    ny: plan.ny,
+                    predicted_radius_x_mm: plan.predicted_radius_x_mm,
+                    predicted_radius_y_mm: plan.predicted_radius_y_mm
+                };
+            }
+
+            function segmentStates(baseResult, segmentCount) {
+                const resolvedInputs = baseResult.resolved_inputs;
+                const mode = baseResult.mode;
+                const wavelengthMm = resolvedInputs.wavelength_mm;
+                const mirrorDistanceMm = resolvedInputs.mirror_distance_mm;
+                const mirror1RadiusMm = resolvedInputs.mirror1_radius_mm;
+                const mirror2RadiusMm = resolvedInputs.mirror2_radius_mm;
+
+                let qX = qFromWaist(resolvedInputs.input_waist_x_mm, resolvedInputs.input_waist_z_mm, wavelengthMm, mode.M2x);
+                let qY = qFromWaist(resolvedInputs.input_waist_y_mm, resolvedInputs.input_waist_z_mm, wavelengthMm, mode.M2y);
+                const states = [];
+
+                for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
+                    const startMirror = segmentIndex % 2 === 0 ? 1 : 2;
+                    const endMirror = startMirror === 1 ? 2 : 1;
+                    const endMirrorRadiusMm = endMirror === 2 ? mirror2RadiusMm : mirror1RadiusMm;
+                    const focus = findFocusDistanceMm(qX, qY, mirrorDistanceMm, wavelengthMm, mode.M2x, mode.M2y);
+                    const qFocusX = propagateQValue(qX, focus.focusDistanceMm);
+                    const qFocusY = propagateQValue(qY, focus.focusDistanceMm);
+                    const qEndX = propagateQValue(qX, mirrorDistanceMm);
+                    const qEndY = propagateQValue(qY, mirrorDistanceMm);
+                    const qReflectedX = mirrorQValue(qEndX, endMirrorRadiusMm);
+                    const qReflectedY = mirrorQValue(qEndY, endMirrorRadiusMm);
+
+                    states.push({
+                        segment_index: segmentIndex,
+                        start_mirror: startMirror,
+                        end_mirror: endMirror,
+                        focus_distance_mm: focus.focusDistanceMm,
+                        focus_boundary_warning: focus.warning,
+                        start_radius_x_mm: beamRadiusMm(qX, wavelengthMm, mode.M2x),
+                        start_radius_y_mm: beamRadiusMm(qY, wavelengthMm, mode.M2y),
+                        focus_radius_x_mm: beamRadiusMm(qFocusX, wavelengthMm, mode.M2x),
+                        focus_radius_y_mm: beamRadiusMm(qFocusY, wavelengthMm, mode.M2y),
+                        end_radius_x_mm: beamRadiusMm(qEndX, wavelengthMm, mode.M2x),
+                        end_radius_y_mm: beamRadiusMm(qEndY, wavelengthMm, mode.M2y),
+                        start_curvature_x_mm: curvatureRadiusMm(qX),
+                        start_curvature_y_mm: curvatureRadiusMm(qY),
+                        focus_curvature_x_mm: curvatureRadiusMm(qFocusX),
+                        focus_curvature_y_mm: curvatureRadiusMm(qFocusY),
+                        end_curvature_x_mm: curvatureRadiusMm(qEndX),
+                        end_curvature_y_mm: curvatureRadiusMm(qEndY),
+                        reflected_curvature_x_mm: curvatureRadiusMm(qReflectedX),
+                        reflected_curvature_y_mm: curvatureRadiusMm(qReflectedY)
+                    });
+
+                    qX = qReflectedX;
+                    qY = qReflectedY;
+                }
+
+                return states;
+            }
+
+            function planPlanes(states, baseResult, settings) {
+                const mirrorDistanceMm = baseResult.resolved_inputs.mirror_distance_mm;
+                const wavelengthMm = baseResult.resolved_inputs.wavelength_mm;
+                const mirrorHalfWidths = [];
+                const focusHalfWidths = [];
+
+                for (let planeIndex = 0; planeIndex < (states.length + 1); planeIndex += 1) {
+                    const radiusXMm = planeIndex === states.length ? states[states.length - 1].end_radius_x_mm : states[planeIndex].start_radius_x_mm;
+                    const radiusYMm = planeIndex === states.length ? states[states.length - 1].end_radius_y_mm : states[planeIndex].start_radius_y_mm;
+                    mirrorHalfWidths.push([
+                        planeHalfWidthMm(radiusXMm, settings),
+                        planeHalfWidthMm(radiusYMm, settings)
+                    ]);
+                }
+
+                for (const state of states) {
+                    focusHalfWidths.push([
+                        planeHalfWidthMm(state.focus_radius_x_mm, settings),
+                        planeHalfWidthMm(state.focus_radius_y_mm, settings)
+                    ]);
+                }
+
+                const mirrorPlans = [];
+                for (let planeIndex = 0; planeIndex < mirrorHalfWidths.length; planeIndex += 1) {
+                    const halfWidthXMm = mirrorHalfWidths[planeIndex][0];
+                    const halfWidthYMm = mirrorHalfWidths[planeIndex][1];
+                    let radiusXMm;
+                    let radiusYMm;
+                    let outgoingCurvatureXMm;
+                    let outgoingCurvatureYMm;
+                    let incomingCurvatureXMm;
+                    let incomingCurvatureYMm;
+
+                    if (planeIndex === states.length) {
+                        radiusXMm = states[states.length - 1].end_radius_x_mm;
+                        radiusYMm = states[states.length - 1].end_radius_y_mm;
+                        outgoingCurvatureXMm = Infinity;
+                        outgoingCurvatureYMm = Infinity;
+                        incomingCurvatureXMm = states[states.length - 1].end_curvature_x_mm;
+                        incomingCurvatureYMm = states[states.length - 1].end_curvature_y_mm;
+                    } else {
+                        radiusXMm = states[planeIndex].start_radius_x_mm;
+                        radiusYMm = states[planeIndex].start_radius_y_mm;
+                        outgoingCurvatureXMm = states[planeIndex].start_curvature_x_mm;
+                        outgoingCurvatureYMm = states[planeIndex].start_curvature_y_mm;
+                        incomingCurvatureXMm = planeIndex === 0 ? Infinity : states[planeIndex - 1].end_curvature_x_mm;
+                        incomingCurvatureYMm = planeIndex === 0 ? Infinity : states[planeIndex - 1].end_curvature_y_mm;
+                    }
+
+                    // The adaptive grid must satisfy both real-space resolution and phase / kernel Nyquist limits.
+                    let dxLimitXMm = radiusXMm / settings.samples_per_radius;
+                    let dxLimitYMm = radiusYMm / settings.samples_per_radius;
+                    dxLimitXMm = Math.min(
+                        dxLimitXMm,
+                        dxFromCurvature(outgoingCurvatureXMm, halfWidthXMm, wavelengthMm, settings.curvature_nyquist_margin),
+                        dxFromCurvature(incomingCurvatureXMm, halfWidthXMm, wavelengthMm, settings.curvature_nyquist_margin)
+                    );
+                    dxLimitYMm = Math.min(
+                        dxLimitYMm,
+                        dxFromCurvature(outgoingCurvatureYMm, halfWidthYMm, wavelengthMm, settings.curvature_nyquist_margin),
+                        dxFromCurvature(incomingCurvatureYMm, halfWidthYMm, wavelengthMm, settings.curvature_nyquist_margin)
+                    );
+
+                    if (planeIndex > 0) {
+                        const previousState = states[planeIndex - 1];
+                        const previousFocus = focusHalfWidths[planeIndex - 1];
+                        dxLimitXMm = Math.min(
+                            dxLimitXMm,
+                            dxFromKernel(mirrorDistanceMm - previousState.focus_distance_mm, previousFocus[0], wavelengthMm, settings.kernel_nyquist_margin)
+                        );
+                        dxLimitYMm = Math.min(
+                            dxLimitYMm,
+                            dxFromKernel(mirrorDistanceMm - previousState.focus_distance_mm, previousFocus[1], wavelengthMm, settings.kernel_nyquist_margin)
+                        );
+                    }
+
+                    if (planeIndex < states.length) {
+                        const nextState = states[planeIndex];
+                        const nextFocus = focusHalfWidths[planeIndex];
+                        dxLimitXMm = Math.min(
+                            dxLimitXMm,
+                            dxFromKernel(nextState.focus_distance_mm, nextFocus[0], wavelengthMm, settings.kernel_nyquist_margin)
+                        );
+                        dxLimitYMm = Math.min(
+                            dxLimitYMm,
+                            dxFromKernel(nextState.focus_distance_mm, nextFocus[1], wavelengthMm, settings.kernel_nyquist_margin)
+                        );
+                    }
+
+                    const nx = efficientGridSize(gridRequirementPoints(halfWidthXMm, dxLimitXMm), settings.max_grid_points);
+                    const ny = efficientGridSize(gridRequirementPoints(halfWidthYMm, dxLimitYMm), settings.max_grid_points);
+                    mirrorPlans.push({
+                        half_width_x_mm: halfWidthXMm,
+                        half_width_y_mm: halfWidthYMm,
+                        nx,
+                        ny,
+                        dx_mm: (2 * halfWidthXMm) / (nx - 1),
+                        dy_mm: (2 * halfWidthYMm) / (ny - 1),
+                        predicted_radius_x_mm: radiusXMm,
+                        predicted_radius_y_mm: radiusYMm
+                    });
+                }
+
+                const focusPlans = [];
+                for (let stateIndex = 0; stateIndex < states.length; stateIndex += 1) {
+                    const state = states[stateIndex];
+                    const halfWidthXMm = focusHalfWidths[stateIndex][0];
+                    const halfWidthYMm = focusHalfWidths[stateIndex][1];
+                    const startHalfWidthXMm = mirrorHalfWidths[stateIndex][0];
+                    const startHalfWidthYMm = mirrorHalfWidths[stateIndex][1];
+                    const endHalfWidthXMm = mirrorHalfWidths[stateIndex + 1][0];
+                    const endHalfWidthYMm = mirrorHalfWidths[stateIndex + 1][1];
+
+                    let dxLimitXMm = state.focus_radius_x_mm / settings.samples_per_radius;
+                    let dxLimitYMm = state.focus_radius_y_mm / settings.samples_per_radius;
+                    dxLimitXMm = Math.min(
+                        dxLimitXMm,
+                        dxFromCurvature(state.focus_curvature_x_mm, halfWidthXMm, wavelengthMm, settings.curvature_nyquist_margin),
+                        dxFromKernel(state.focus_distance_mm, startHalfWidthXMm, wavelengthMm, settings.kernel_nyquist_margin),
+                        dxFromKernel(mirrorDistanceMm - state.focus_distance_mm, endHalfWidthXMm, wavelengthMm, settings.kernel_nyquist_margin)
+                    );
+                    dxLimitYMm = Math.min(
+                        dxLimitYMm,
+                        dxFromCurvature(state.focus_curvature_y_mm, halfWidthYMm, wavelengthMm, settings.curvature_nyquist_margin),
+                        dxFromKernel(state.focus_distance_mm, startHalfWidthYMm, wavelengthMm, settings.kernel_nyquist_margin),
+                        dxFromKernel(mirrorDistanceMm - state.focus_distance_mm, endHalfWidthYMm, wavelengthMm, settings.kernel_nyquist_margin)
+                    );
+
+                    const nx = efficientGridSize(gridRequirementPoints(halfWidthXMm, dxLimitXMm), settings.max_grid_points);
+                    const ny = efficientGridSize(gridRequirementPoints(halfWidthYMm, dxLimitYMm), settings.max_grid_points);
+                    focusPlans.push({
+                        half_width_x_mm: halfWidthXMm,
+                        half_width_y_mm: halfWidthYMm,
+                        nx,
+                        ny,
+                        dx_mm: (2 * halfWidthXMm) / (nx - 1),
+                        dy_mm: (2 * halfWidthYMm) / (ny - 1),
+                        predicted_radius_x_mm: state.focus_radius_x_mm,
+                        predicted_radius_y_mm: state.focus_radius_y_mm
+                    });
+                }
+
+                for (let index = 0; index < states.length; index += 1) {
+                    const bytesRequired = estimateSegmentMemoryBytes(mirrorPlans[index], focusPlans[index], mirrorPlans[index + 1]);
+                    if (bytesRequired > (settings.max_memory_mb * 1024 * 1024)) {
+                        throw new Error(
+                            `Segment ${index + 1} would require roughly ${(bytesRequired / (1024 * 1024)).toFixed(1)} MiB, exceeding the configured wave-optics budget of ${settings.max_memory_mb.toFixed(1)} MiB. Increase the memory budget or loosen the grid settings.`
+                        );
+                    }
+                }
+
+                return { mirrorPlans, focusPlans };
+            }
+
+            function computeWaveOpticsResult(baseResult, settings, progressCallback) {
+                if (!baseResult.stable || !baseResult.ray_trace || !baseResult.beam_propagation) {
+                    return null;
+                }
+
+                const resolvedInputs = baseResult.resolved_inputs;
+                const rayTrace = baseResult.ray_trace;
+                const segmentCount = rayTrace.points.length - 1;
+                if (segmentCount < 1) {
+                    return null;
+                }
+
+                const progressStart = performance.now();
+                const states = segmentStates(baseResult, segmentCount);
+                const totalSteps = 2 + (states.length * 4) + Math.max(states.length - 1, 0);
+                let progressSteps = 0;
+
+                function sendProgress(completedSteps, currentStep, currentSegment = null, segmentCountValue = null) {
+                    const progressFraction = Math.min(Math.max(completedSteps / totalSteps, 0), 1);
+                    const elapsedSeconds = Math.max((performance.now() - progressStart) / 1000, 0);
+                    let estimatedRemainingSeconds = null;
+                    if (completedSteps > 0 && completedSteps < totalSteps && elapsedSeconds > 0) {
+                        estimatedRemainingSeconds = elapsedSeconds * ((totalSteps - completedSteps) / completedSteps);
+                    }
+                    emitProgress(progressCallback, {
+                        completed_steps: completedSteps,
+                        total_steps: totalSteps,
+                        progress_fraction: progressFraction,
+                        progress_percent: progressFraction * 100,
+                        current_step: currentStep,
+                        current_segment: currentSegment,
+                        segment_count: segmentCountValue,
+                        elapsed_seconds: elapsedSeconds,
+                        estimated_remaining_seconds: estimatedRemainingSeconds
+                    });
+                }
+
+                sendProgress(0, 'Planning adaptive wave-optics grids');
+                const planned = planPlanes(states, baseResult, settings);
+                progressSteps = 1;
+                sendProgress(progressSteps, 'Building launch field');
+
+                const solver = new AdaptiveWaveOpticsSolver(resolvedInputs.wavelength_mm, settings);
+                const launchBasis = segmentStartBasis(rayTrace, 0);
+                const launchPoint = segmentStartPoint(rayTrace, 0);
+                const launch = solver.buildLaunchField(
+                    planned.mirrorPlans[0],
+                    settings.profile_type,
+                    settings.super_gaussian_order,
+                    states[0].start_radius_x_mm,
+                    states[0].start_radius_y_mm,
+                    states[0].start_curvature_x_mm,
+                    states[0].start_curvature_y_mm
+                );
+                const launchProfile = solver.summarizeField(
+                    launch.field,
+                    launch.grid,
+                    launchPoint,
+                    launchBasis.u1,
+                    launchBasis.u2,
+                    'launch',
+                    1,
+                    0,
+                    0,
+                    'In'
+                );
+
+                let field = solver.applyMirror(launch.field, launch.grid, resolvedInputs.mirror1_radius_mm, []);
+                let currentGrid = launch.grid;
+                progressSteps += 1;
+                sendProgress(progressSteps, `Segment 1/${states.length}: mirror to focus propagation`, 1, states.length);
+
+                const mirrorCenters = rayTrace.cell_centers;
+                const mirrorRadii = {
+                    1: resolvedInputs.mirror1_radius_mm,
+                    2: resolvedInputs.mirror2_radius_mm
+                };
+                const mirror1Profiles = [];
+                const mirror2Profiles = [];
+                const focusProfiles = [];
+                const segmentDiagnostics = [];
+                const overallWarnings = [];
+
+                for (let segmentIndex = 0; segmentIndex < states.length; segmentIndex += 1) {
+                    const state = states[segmentIndex];
+                    const segmentNumber = segmentIndex + 1;
+
+                    const focusPropagation = solver.propagate(field, currentGrid, planned.focusPlans[segmentIndex], state.focus_distance_mm);
+                    progressSteps += 1;
+                    sendProgress(progressSteps, `Segment ${segmentNumber}/${states.length}: sampling focus plane`, segmentNumber, states.length);
+
+                    const segmentStart = segmentStartPoint(rayTrace, segmentIndex);
+                    const segmentEnd = rayTrace.points[segmentIndex + 1];
+                    const startBasis = segmentStartBasis(rayTrace, segmentIndex);
+                    const focusFraction = state.focus_distance_mm / resolvedInputs.mirror_distance_mm;
+                    const focusPoint = [
+                        segmentStart[0] + (focusFraction * (segmentEnd[0] - segmentStart[0])),
+                        segmentStart[1] + (focusFraction * (segmentEnd[1] - segmentStart[1])),
+                        segmentStart[2] + (focusFraction * (segmentEnd[2] - segmentStart[2]))
+                    ];
+                    const focusProfile = solver.summarizeField(
+                        focusPropagation.field,
+                        focusPropagation.grid,
+                        focusPoint,
+                        startBasis.u1,
+                        startBasis.u2,
+                        'focus',
+                        null,
+                        segmentIndex,
+                        null,
+                        String(segmentNumber)
+                    );
+                    focusProfiles.push(focusProfile);
+
+                    progressSteps += 1;
+                    sendProgress(progressSteps, `Segment ${segmentNumber}/${states.length}: focus to mirror propagation`, segmentNumber, states.length);
+
+                    const mirrorPropagation = solver.propagate(
+                        focusPropagation.field,
+                        focusPropagation.grid,
+                        planned.mirrorPlans[segmentIndex + 1],
+                        resolvedInputs.mirror_distance_mm - state.focus_distance_mm
+                    );
+                    progressSteps += 1;
+                    sendProgress(progressSteps, `Segment ${segmentNumber}/${states.length}: sampling next mirror`, segmentNumber, states.length);
+
+                    const endHit = mirrorHitForSegment(rayTrace, segmentIndex);
+                    const bounceIndex = segmentIndex + 1;
+                    const mirrorProfile = solver.summarizeField(
+                        mirrorPropagation.field,
+                        mirrorPropagation.grid,
+                        endHit.P,
+                        endHit.u1,
+                        endHit.u2,
+                        'mirror',
+                        state.end_mirror,
+                        segmentIndex,
+                        bounceIndex,
+                        String(bounceIndex)
+                    );
+                    if (state.end_mirror === 1) {
+                        mirror1Profiles.push(mirrorProfile);
+                    } else {
+                        mirror2Profiles.push(mirrorProfile);
+                    }
+
+                    const segmentWarnings = [];
+                    if (state.focus_boundary_warning) {
+                        segmentWarnings.push(`Segment ${segmentNumber}: ${state.focus_boundary_warning}`);
+                    }
+                    segmentWarnings.push(...frameSamplingWarnings(focusProfile, `Focus plane ${segmentNumber}`));
+                    segmentWarnings.push(...frameSamplingWarnings(mirrorProfile, `Mirror bounce ${bounceIndex}`));
+                    overallWarnings.push(...segmentWarnings);
+
+                    segmentDiagnostics.push({
+                        segment_index: segmentIndex,
+                        start_mirror: state.start_mirror,
+                        end_mirror: state.end_mirror,
+                        focus_distance_mm: state.focus_distance_mm,
+                        start_grid: planDict(planned.mirrorPlans[segmentIndex]),
+                        focus_grid: planDict(planned.focusPlans[segmentIndex]),
+                        end_grid: planDict(planned.mirrorPlans[segmentIndex + 1]),
+                        start_radius_x_mm: state.start_radius_x_mm,
+                        start_radius_y_mm: state.start_radius_y_mm,
+                        focus_radius_x_mm: state.focus_radius_x_mm,
+                        focus_radius_y_mm: state.focus_radius_y_mm,
+                        end_radius_x_mm: state.end_radius_x_mm,
+                        end_radius_y_mm: state.end_radius_y_mm,
+                        warnings: segmentWarnings
+                    });
+
+                    if (segmentIndex === (states.length - 1)) {
+                        progressSteps += 1;
+                        sendProgress(progressSteps, 'Wave-optics propagation completed', states.length, states.length);
+                        continue;
+                    }
+
+                    const holeMasks = [];
+                    if (state.end_mirror === 1) {
+                        const inputHoleLocal = holeLocalCoordinates(
+                            [resolvedInputs.input_hole_x_mm, resolvedInputs.input_hole_y_mm],
+                            endHit,
+                            mirrorCenters.mirror1,
+                            mirrorRadii[1]
+                        );
+                        if (inputHoleLocal) {
+                            holeMasks.push([inputHoleLocal[0], inputHoleLocal[1], resolvedInputs.hole_radius_mm]);
+                        }
+                    }
+                    if (resolvedInputs.output_mirror === state.end_mirror) {
+                        const outputHoleLocal = holeLocalCoordinates(
+                            [resolvedInputs.output_hole_x_mm, resolvedInputs.output_hole_y_mm],
+                            endHit,
+                            state.end_mirror === 1 ? mirrorCenters.mirror1 : mirrorCenters.mirror2,
+                            mirrorRadii[state.end_mirror]
+                        );
+                        if (outputHoleLocal) {
+                            holeMasks.push([outputHoleLocal[0], outputHoleLocal[1], resolvedInputs.hole_radius_mm]);
+                        }
+                    }
+
+                    field = solver.applyMirror(mirrorPropagation.field, mirrorPropagation.grid, mirrorRadii[state.end_mirror], holeMasks);
+                    currentGrid = mirrorPropagation.grid;
+                    progressSteps += 1;
+                    sendProgress(progressSteps, `Segment ${segmentNumber + 1}/${states.length}: mirror to focus propagation`, segmentNumber + 1, states.length);
+                }
+
+                return {
+                    method: 'Adaptive-grid 2D Collins/Fresnel diffraction integral',
+                    profile_type: settings.profile_type,
+                    super_gaussian_order: settings.profile_type === 'gaussian' ? null : settings.super_gaussian_order,
+                    settings,
+                    warnings: Array.from(new Set(overallWarnings)),
+                    launch_profile: launchProfile,
+                    mirror1_profiles: mirror1Profiles,
+                    mirror2_profiles: mirror2Profiles,
+                    focus_profiles: focusProfiles,
+                    segments: segmentDiagnostics
+                };
+            }
+
+            self.onmessage = (event) => {
+                if (!event.data || event.data.type !== 'run') {
+                    return;
+                }
+                const requestId = event.data.request_id;
+
+                try {
+                    const result = computeWaveOpticsResult(event.data.baseResult, event.data.settings, (progress) => {
+                        self.postMessage({ type: 'progress', request_id: requestId, progress });
+                    });
+                    self.postMessage({ type: 'result', request_id: requestId, result });
+                } catch (error) {
+                    self.postMessage({
+                        type: 'error',
+                        request_id: requestId,
+                        error: {
+                            message: error && error.message ? error.message : 'Wave-optics worker failed.'
+                        }
+                    });
+                }
+            };
+        }
+
+        function getWaveOpticsWorkerUrl() {
+            if (!waveOpticsWorkerUrl) {
+                const workerSource = `(${waveOpticsWorkerMain.toString()})();`;
+                waveOpticsWorkerUrl = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
+            }
+            return waveOpticsWorkerUrl;
+        }
+
+        function clearWaveOpticsWorkerJob(requestId) {
+            const job = waveOpticsWorkerJobs.get(requestId);
+            if (!job) {
+                return null;
+            }
+            waveOpticsWorkerJobs.delete(requestId);
+            if (job.signal && job.abortHandler) {
+                job.signal.removeEventListener('abort', job.abortHandler);
+            }
+            return job;
+        }
+
+        function resetWaveOpticsWorker(reason) {
+            if (waveOpticsWorker) {
+                waveOpticsWorker.onmessage = null;
+                waveOpticsWorker.onerror = null;
+                waveOpticsWorker.terminate();
+                waveOpticsWorker = null;
+            }
+
+            const pendingJobs = Array.from(waveOpticsWorkerJobs.keys());
+            for (const requestId of pendingJobs) {
+                const job = clearWaveOpticsWorkerJob(requestId);
+                if (!job) {
+                    continue;
+                }
+                job.reject(reason);
+            }
+        }
+
+        function disposeWaveOpticsWorker() {
+            resetWaveOpticsWorker(new Error('Wave-optics worker was shut down.'));
+            if (waveOpticsWorkerUrl) {
+                URL.revokeObjectURL(waveOpticsWorkerUrl);
+                waveOpticsWorkerUrl = null;
+            }
+        }
+
+        function ensureWaveOpticsWorker() {
+            if (waveOpticsWorker) {
+                return waveOpticsWorker;
+            }
+
+            const worker = new Worker(getWaveOpticsWorkerUrl());
+            worker.onmessage = (event) => {
+                const payload = event.data;
+                if (!payload || typeof payload.request_id !== 'number') {
+                    return;
+                }
+                const job = waveOpticsWorkerJobs.get(payload.request_id);
+                if (!job) {
+                    return;
+                }
+
+                if (payload.type === 'progress') {
+                    if (job.onProgress) {
+                        job.onProgress(payload.progress);
+                    }
+                    return;
+                }
+
+                clearWaveOpticsWorkerJob(payload.request_id);
+                if (payload.type === 'result') {
+                    job.resolve(payload.result);
+                    return;
+                }
+
+                job.reject(new Error(payload.error && payload.error.message ? payload.error.message : 'Wave-optics worker failed.'));
+            };
+
+            worker.onerror = (error) => {
+                resetWaveOpticsWorker(new Error(error && error.message ? error.message : 'Wave-optics worker failed.'));
+            };
+
+            waveOpticsWorker = worker;
+            return worker;
+        }
+
+        function computeWaveOpticsOnce(baseResult, settings, options = {}) {
+            return new Promise((resolve, reject) => {
+                if (options.signal) {
+                    if (options.signal.aborted) {
+                        reject(new DOMException('The operation was aborted.', 'AbortError'));
+                        return;
+                    }
+                }
+
+                const requestId = (waveOpticsWorkerRequestId += 1);
+                const worker = ensureWaveOpticsWorker();
+                const onAbort = () => {
+                    const job = clearWaveOpticsWorkerJob(requestId);
+                    if (!job) {
+                        return;
+                    }
+                    job.reject(new DOMException('The operation was aborted.', 'AbortError'));
+                    resetWaveOpticsWorker(new Error('Wave-optics worker restarted after an aborted run.'));
+                };
+
+                waveOpticsWorkerJobs.set(requestId, {
+                    resolve,
+                    reject,
+                    onProgress: options.onProgress || null,
+                    signal: options.signal || null,
+                    abortHandler: onAbort
+                });
+
+                if (options.signal) {
+                    options.signal.addEventListener('abort', onAbort, { once: true });
+                }
+
+                worker.postMessage({
+                    type: 'run',
+                    request_id: requestId,
+                    baseResult,
+                    settings
+                });
+            });
+        }
+
+        async function runWaveOptics() {
+            if (!currentSimulationResult || !currentSimulationResult.stable || !currentSimulationResult.ray_trace) {
+                waveOpticsState = storeWaveOpticsError(waveOpticsState, 'Wave-optics propagation is only available for stable cavities with a valid ray trace.');
+                refreshWaveOpticsStatus();
+                renderCurrentPlots();
+                return;
+            }
+
+            if (activeWaveController) {
+                activeWaveController.abort();
+            }
+
+            const controller = new AbortController();
+            activeWaveController = controller;
+            const signature = currentWaveOpticsSignature();
+            waveOpticsState = markWaveOpticsPending(waveOpticsState, {
+                completed_steps: 0,
+                total_steps: 1,
+                progress_fraction: 0,
+                estimated_remaining_seconds: null,
+                current_step: 'Starting wave-optics worker'
+            });
+            refreshWaveOpticsStatus();
+
+            try {
+                const result = await computeWaveOpticsOnce(currentSimulationResult, captureWaveOpticsSettings(), {
+                    signal: controller.signal,
+                    onProgress: (progress) => {
+                        waveOpticsState = updateWaveOpticsProgress(waveOpticsState, progress);
+                        refreshWaveOpticsStatus();
+                    }
+                });
+
+                if (activeWaveController !== controller) {
+                    return;
+                }
+
+                waveOpticsState = storeWaveOpticsResult(waveOpticsState, signature, { wave_optics: result });
+                refreshWaveOpticsStatus();
+                renderCurrentPlots();
+            } catch (error) {
+                if (error && error.name === 'AbortError') {
+                    return;
+                }
+                if (activeWaveController !== controller) {
+                    return;
+                }
+                waveOpticsState = storeWaveOpticsError(
+                    waveOpticsState,
+                    error && error.message ? error.message : 'Wave-optics request failed.'
+                );
+                refreshWaveOpticsStatus();
+                renderCurrentPlots();
+                console.error(error);
+            } finally {
+                if (activeWaveController === controller) {
+                    activeWaveController = null;
+                }
+                refreshWaveOpticsStatus();
+            }
+        }
+
         // --- Simulation Execution ---
         function runSimulation() {
-            let L = parseFloat(document.getElementById('num-L').value);
-            let N = parseInt(document.getElementById('num-n').value); 
-            let k = parseInt(document.getElementById('num-k').value); 
-            let r0 = parseFloat(document.getElementById('num-r0').value);
-            let lambda_mm = parseFloat(document.getElementById('num-lambda').value) * 1e-6;
-            let hole_radius = parseFloat(document.getElementById('num-hole_r').value);
-            
-            let peak_power = parseFloat(document.getElementById('num-peak_power').value);
-            let pulse_energy = parseFloat(document.getElementById('num-pulse_energy').value);
+            try {
+                let L = parseFloat(document.getElementById('num-L').value);
+                let N = parseInt(document.getElementById('num-n').value, 10);
+                let k = parseInt(document.getElementById('num-k').value, 10);
+                let r0 = parseFloat(document.getElementById('num-r0').value);
+                let lambdaNm = parseFloat(document.getElementById('num-lambda').value);
+                let lambda_mm = lambdaNm * 1e-6;
+                let hole_radius = parseFloat(document.getElementById('num-hole_r').value);
+                let peak_power = parseFloat(document.getElementById('num-peak_power').value);
+                let pulse_energy = parseFloat(document.getElementById('num-pulse_energy').value);
 
-            let cellType = document.getElementById('cell-type').value;
-            let isAutoR = document.getElementById('auto-R').checked;
-            let isAutoRVex = document.getElementById('auto-R-vex').checked;
-            
-            let R1, R2;
-            let theta_rt = 2 * Math.PI * k / N;
+                let cellType = document.getElementById('cell-type').value;
+                let isAutoR = document.getElementById('auto-R').checked;
+                let isAutoRVex = document.getElementById('auto-R-vex').checked;
+                let theta_rt = (2 * Math.PI * k) / N;
 
-            if (cellType === 'cav-cav') {
-                if (isAutoR) {
-                    let C_actual = 1 - Math.cos(theta_rt / 2);
-                    R1 = R2 = L / C_actual;
-                    if(isFinite(R1) && R1 > 0) {
-                        document.getElementById('num-R').value = R1.toFixed(2);
-                        document.getElementById('param-R').value = R1.toFixed(2);
-                    }
-                } else {
-                    R1 = R2 = parseFloat(document.getElementById('num-R').value);
+                let modeType = document.getElementById('mode-type').value;
+                let modeConfig = { type: modeType };
+                let M2x = 1.0;
+                let M2y = 1.0;
+                let modeTitle = 'Fundamental TEM00';
+
+                if (modeType === 'hg') {
+                    modeConfig.n = parseInt(document.getElementById('num-hgn').value, 10);
+                    modeConfig.m = parseInt(document.getElementById('num-hgm').value, 10);
+                    M2x = (2 * modeConfig.n) + 1;
+                    M2y = (2 * modeConfig.m) + 1;
+                    modeTitle = `HG<sub>${modeConfig.n},${modeConfig.m}</sub>`;
+                } else if (modeType === 'lg') {
+                    modeConfig.p = parseInt(document.getElementById('num-lgp').value, 10);
+                    modeConfig.l = parseInt(document.getElementById('num-lgl').value, 10);
+                    M2x = M2y = (2 * modeConfig.p) + Math.abs(modeConfig.l) + 1;
+                    modeTitle = `LG<sub>${modeConfig.p},${modeConfig.l}</sub>`;
+                } else if (modeType === 'custom') {
+                    M2x = M2y = parseFloat(document.getElementById('num-M2').value);
+                    modeTitle = `Custom M²=${M2x.toFixed(2)}`;
                 }
-            } else {
-                if (isAutoRVex) {
+
+                modeConfig.M2x = M2x;
+                modeConfig.M2y = M2y;
+                const normData = computeModeNorm(modeConfig);
+                modeConfig.norm = normData.norm;
+                modeConfig.peak_factor = normData.peak_factor;
+                modeConfig.title = modeTitle;
+                document.getElementById('display-eff-m2').textContent = `${M2x.toFixed(2)}, ${M2y.toFixed(2)}`;
+
+                let R1;
+                let R2;
+                if (cellType === 'cav-cav') {
+                    if (isAutoR) {
+                        const cActual = 1 - Math.cos(theta_rt / 2);
+                        R1 = R2 = L / cActual;
+                        if (isFinite(R1) && R1 > 0) {
+                            document.getElementById('num-R').value = R1.toFixed(2);
+                            document.getElementById('param-R').value = R1.toFixed(2);
+                        }
+                    } else {
+                        R1 = R2 = parseFloat(document.getElementById('num-R').value);
+                    }
+                } else if (isAutoRVex) {
                     R1 = L / Math.sin(theta_rt / 2);
                     R2 = -L / Math.sin(theta_rt / 2);
-                    if(isFinite(R1) && isFinite(R2)) {
+                    if (isFinite(R1) && isFinite(R2)) {
                         document.getElementById('num-R1').value = R1.toFixed(2);
                         document.getElementById('param-R1').value = R1.toFixed(2);
                         document.getElementById('num-R2').value = R2.toFixed(2);
@@ -1283,251 +3335,409 @@
                     R1 = parseFloat(document.getElementById('num-R1').value);
                     R2 = parseFloat(document.getElementById('num-R2').value);
                 }
+
+                const g1 = 1 - (L / R1);
+                const g2 = 1 - (L / R2);
+                const stab = g1 * g2;
+
+                document.getElementById('calc-stab').textContent = isFinite(stab) ? stab.toFixed(4) : '--';
+
+                if (!isFinite(stab) || stab <= 0 || stab >= 1) {
+                    document.getElementById('calc-w0').textContent = '--';
+                    document.getElementById('calc-wm').textContent = '--';
+                    const statusEl = document.getElementById('status-msg');
+                    statusEl.textContent = 'Stability Error (g₁g₂ bounds)';
+                    statusEl.className = 'font-semibold text-red-600 text-xs text-right break-words max-w-[120px]';
+                    currentSimulationResult = {
+                        stable: false,
+                        status_message: 'Stability Error (g₁g₂ bounds)',
+                        resolved_inputs: {
+                            mirror_distance_mm: L,
+                            total_passes: N,
+                            spot_pattern_radius_mm: r0
+                        },
+                        ray_trace: null,
+                        beam_propagation: null,
+                        mode: modeConfig
+                    };
+                    renderCurrentPlots();
+                    refreshWaveOpticsStatus();
+                    return;
+                }
+
+                let g_sum = g1 + g2 - (2 * g1 * g2);
+                if (g_sum === 0) g_sum = 1e-9;
+                const zR_cavity = Math.sqrt(Math.abs(((L * L * g1 * g2 * (1 - (g1 * g2))) / (g_sum * g_sum))));
+                const z0_cavity = (L * g2 * (1 - g1)) / g_sum;
+                const w0_ideal = Math.sqrt((lambda_mm * zR_cavity) / Math.PI);
+                const wm1_ideal = Math.sqrt(Math.abs(((lambda_mm * L) / Math.PI) * Math.sqrt(g2 / (g1 * (1 - (g1 * g2))))));
+                const wm2_ideal = Math.sqrt(Math.abs(((lambda_mm * L) / Math.PI) * Math.sqrt(g1 / (g2 * (1 - (g1 * g2))))));
+
+                document.getElementById('calc-w0').textContent = `x:${(w0_ideal * Math.sqrt(M2x)).toFixed(2)} y:${(w0_ideal * Math.sqrt(M2y)).toFixed(2)}`;
+                if (Math.abs(wm1_ideal - wm2_ideal) < 1e-3) {
+                    document.getElementById('calc-wm').textContent = `x:${(wm1_ideal * Math.sqrt(M2x)).toFixed(2)} y:${(wm1_ideal * Math.sqrt(M2y)).toFixed(2)}`;
+                } else {
+                    document.getElementById('calc-wm').textContent = `M1:${(wm1_ideal * Math.sqrt(M2x)).toFixed(2)} M2:${(wm2_ideal * Math.sqrt(M2x)).toFixed(2)}`;
+                }
+
+                if (document.getElementById('auto-mode-match').checked) {
+                    document.getElementById('num-winx').value = (w0_ideal * Math.sqrt(M2x)).toFixed(3);
+                    document.getElementById('param-winx').value = (w0_ideal * Math.sqrt(M2x)).toFixed(3);
+                    document.getElementById('num-winy').value = (w0_ideal * Math.sqrt(M2y)).toFixed(3);
+                    document.getElementById('param-winy').value = (w0_ideal * Math.sqrt(M2y)).toFixed(3);
+                    document.getElementById('num-zin').value = z0_cavity.toFixed(1);
+                    document.getElementById('param-zin').value = z0_cavity.toFixed(1);
+                }
+
+                const w_in_x = parseFloat(document.getElementById('num-winx').value);
+                const w_in_y = parseFloat(document.getElementById('num-winy').value);
+                const z_in = parseFloat(document.getElementById('num-zin').value);
+                const pol_ang = parseFloat(document.getElementById('num-polang').value) * Math.PI / 180;
+                const m1_tilt = [
+                    parseFloat(document.getElementById('num-m1tx').value) * 1e-3,
+                    parseFloat(document.getElementById('num-m1ty').value) * 1e-3
+                ];
+                const m2_tilt = [
+                    parseFloat(document.getElementById('num-m2tx').value) * 1e-3,
+                    parseFloat(document.getElementById('num-m2ty').value) * 1e-3
+                ];
+
+                let x_in;
+                let y_in;
+                let thx_in;
+                let thy_in;
+                if (document.getElementById('auto-injection').checked) {
+                    x_in = r0;
+                    y_in = 0;
+                    const m_arrive_00 = 1 - ((2 * L) / R2);
+                    const m_arrive_01 = 2 * L * g2;
+                    thx_in = ((r0 * (Math.cos(theta_rt) - m_arrive_00)) / m_arrive_01) * 1000;
+                    thy_in = ((r0 * Math.sin(theta_rt)) / m_arrive_01) * 1000;
+                    document.getElementById('num-x').value = x_in.toFixed(2);
+                    document.getElementById('param-x').value = x_in.toFixed(2);
+                    document.getElementById('num-y').value = y_in.toFixed(2);
+                    document.getElementById('param-y').value = y_in.toFixed(2);
+                    document.getElementById('num-thx').value = thx_in.toFixed(2);
+                    document.getElementById('param-thx').value = thx_in.toFixed(2);
+                    document.getElementById('num-thy').value = thy_in.toFixed(2);
+                    document.getElementById('param-thy').value = thy_in.toFixed(2);
+                } else {
+                    x_in = parseFloat(document.getElementById('num-x').value);
+                    y_in = parseFloat(document.getElementById('num-y').value);
+                    thx_in = parseFloat(document.getElementById('num-thx').value);
+                    thy_in = parseFloat(document.getElementById('num-thy').value);
+                }
+
+                const in_hole = [x_in, y_in];
+                let out_hole_x;
+                let out_hole_y;
+                let out_mirror;
+                if (document.getElementById('auto-out-hole').checked) {
+                    out_hole_x = x_in;
+                    out_hole_y = y_in;
+                    out_mirror = 1;
+                    document.getElementById('num-out_hole_x').value = out_hole_x.toFixed(2);
+                    document.getElementById('param-out_hole_x').value = out_hole_x.toFixed(2);
+                    document.getElementById('num-out_hole_y').value = out_hole_y.toFixed(2);
+                    document.getElementById('param-out_hole_y').value = out_hole_y.toFixed(2);
+                    document.getElementById('out-mirror').value = '1';
+                } else {
+                    out_hole_x = parseFloat(document.getElementById('num-out_hole_x').value);
+                    out_hole_y = parseFloat(document.getElementById('num-out_hole_y').value);
+                    out_mirror = parseInt(document.getElementById('out-mirror').value, 10);
+                }
+                const out_hole = [out_hole_x, out_hole_y];
+
+                const cell = new HerriottCell(L, R1, R2, in_hole, out_hole, out_mirror, hole_radius, m1_tilt, m2_tilt);
+                const disc_p0 = (cell.R1 * cell.R1) - Math.pow(x_in - cell.C1[0], 2) - Math.pow(y_in - cell.C1[1], 2);
+                const P0 = [
+                    x_in,
+                    y_in,
+                    disc_p0 >= 0 ? cell.C1[2] - (Math.sign(cell.R1) * Math.sqrt(disc_p0)) : 0
+                ];
+                const v0 = vNormalize([thx_in * 1e-3, thy_in * 1e-3, 1.0]);
+                const ref_x = [1, 0, 0];
+                const u1_ref = vNormalize(vSub(ref_x, vScale(v0, vDot(ref_x, v0))));
+                const u2_ref = vNormalize(vCross(v0, u1_ref));
+                const u1_0 = vAdd(vScale(u1_ref, Math.cos(pol_ang)), vScale(u2_ref, Math.sin(pol_ang)));
+                const u2_0 = vAdd(vScale(u1_ref, -Math.sin(pol_ang)), vScale(u2_ref, Math.cos(pol_ang)));
+
+                const max_trace_passes = Math.max(150, 4 * N);
+                const res = cell.trace_rays(P0, v0, u1_0, u2_0, max_trace_passes);
+                const abcd_passes = Math.max(N, res.total_bounces + 1);
+                const abcd_x = computeABCD_axis(L, R1, R2, lambda_mm, w_in_x, z_in, abcd_passes, M2x);
+                const abcd_y = computeABCD_axis(L, R1, R2, lambda_mm, w_in_y, z_in, abcd_passes, M2y);
+
+                currentSimulationResult = {
+                    stable: true,
+                    status_message: res.exit_status,
+                    resolved_inputs: {
+                        mirror_distance_mm: L,
+                        total_passes: N,
+                        revolutions: k,
+                        spot_pattern_radius_mm: r0,
+                        wavelength_nm: lambdaNm,
+                        wavelength_mm: lambda_mm,
+                        hole_radius_mm: hole_radius,
+                        peak_power_gw: peak_power,
+                        pulse_energy_mj: pulse_energy,
+                        mirror1_radius_mm: R1,
+                        mirror2_radius_mm: R2,
+                        input_waist_x_mm: w_in_x,
+                        input_waist_y_mm: w_in_y,
+                        input_waist_z_mm: z_in,
+                        input_x_mm: x_in,
+                        input_y_mm: y_in,
+                        input_theta_x_mrad: thx_in,
+                        input_theta_y_mrad: thy_in,
+                        input_hole_x_mm: x_in,
+                        input_hole_y_mm: y_in,
+                        output_hole_x_mm: out_hole_x,
+                        output_hole_y_mm: out_hole_y,
+                        output_mirror: out_mirror,
+                        polarization_angle_deg: parseFloat(document.getElementById('num-polang').value),
+                        mirror1_tilt_x_mrad: parseFloat(document.getElementById('num-m1tx').value),
+                        mirror1_tilt_y_mrad: parseFloat(document.getElementById('num-m1ty').value),
+                        mirror2_tilt_x_mrad: parseFloat(document.getElementById('num-m2tx').value),
+                        mirror2_tilt_y_mrad: parseFloat(document.getElementById('num-m2ty').value)
+                    },
+                    stability: {
+                        g1,
+                        g2,
+                        product: stab
+                    },
+                    mode: modeConfig,
+                    cavity: {
+                        rayleigh_range_mm: zR_cavity,
+                        waist_position_mm: z0_cavity,
+                        ideal_waist_mm: w0_ideal,
+                        cavity_waist_x_mm: w0_ideal * Math.sqrt(M2x),
+                        cavity_waist_y_mm: w0_ideal * Math.sqrt(M2y),
+                        mirror1_beam_mm: wm1_ideal,
+                        mirror2_beam_mm: wm2_ideal,
+                        mirror_beam_x_mm: Math.abs(wm1_ideal - wm2_ideal) < 1e-3 ? wm1_ideal * Math.sqrt(M2x) : null,
+                        mirror_beam_y_mm: Math.abs(wm1_ideal - wm2_ideal) < 1e-3 ? wm1_ideal * Math.sqrt(M2y) : null,
+                        mirror1_display_beam_mm: Math.abs(wm1_ideal - wm2_ideal) < 1e-3 ? null : wm1_ideal * Math.sqrt(M2x),
+                        mirror2_display_beam_mm: Math.abs(wm1_ideal - wm2_ideal) < 1e-3 ? null : wm2_ideal * Math.sqrt(M2x)
+                    },
+                    ray_trace: {
+                        points: res.points,
+                        mirror_hits: res.mirror_hits,
+                        center_hits: res.center_hits,
+                        exit_status: res.exit_status,
+                        total_bounces: res.total_bounces,
+                        input_basis: { u1: u1_0, u2: u2_0 },
+                        input_point: P0,
+                        cell_centers: { mirror1: cell.C1, mirror2: cell.C2 }
+                    },
+                    beam_propagation: { x: abcd_x, y: abcd_y }
+                };
+
+                renderCurrentPlots();
+
+                const statusEl = document.getElementById('status-msg');
+                statusEl.textContent = res.exit_status;
+                if (res.exit_status.includes('Out Hole')) {
+                    statusEl.className = 'font-semibold text-green-600 text-xs text-right break-words max-w-[120px]';
+                } else if (res.exit_status.includes('Escaped')) {
+                    statusEl.className = 'font-semibold text-red-600 text-xs text-right break-words max-w-[120px]';
+                } else {
+                    statusEl.className = 'font-semibold text-amber-600 text-xs text-right break-words max-w-[120px]';
+                }
+                refreshWaveOpticsStatus();
+            } catch (error) {
+                currentSimulationResult = null;
+                document.getElementById('calc-stab').textContent = '--';
+                document.getElementById('calc-w0').textContent = '--';
+                document.getElementById('calc-wm').textContent = '--';
+                document.getElementById('status-msg').textContent = error && error.message ? error.message : 'Simulation failed.';
+                document.getElementById('status-msg').className = 'font-semibold text-red-600 text-xs text-right break-words max-w-[120px]';
+                renderErrorPlots(error && error.message ? error.message : 'Simulation failed.');
+                refreshWaveOpticsStatus();
+                console.error(error);
             }
-
-            let g1 = 1 - L / R1;
-            let g2 = 1 - L / R2;
-            let stab = g1 * g2;
-
-            if (!isFinite(stab) || stab <= 0 || stab >= 1) {
-                document.getElementById('calc-stab').textContent = isFinite(stab) ? stab.toFixed(4) : "--";
-                document.getElementById('calc-w0').textContent = "--";
-                document.getElementById('calc-wm').textContent = "--";
-                let sMsg = document.getElementById('status-msg');
-                sMsg.textContent = "Stability Error (g₁g₂ bounds)";
-                sMsg.className = "font-semibold text-red-600 text-xs text-right";
-                Plotly.react('plotWaist', [], {title: {text: 'Gaussian Beam (Unstable)', font: {size: 13}}});
-                return;
-            }
-
-            document.getElementById('calc-stab').textContent = stab.toFixed(4);
-
-            let modeType = document.getElementById('mode-type').value;
-            let modeConfig = { type: modeType };
-            let M2x = 1.0, M2y = 1.0;
-            let modeTitle = 'Fundamental TEM00';
-
-            if (modeType === 'tem00') {
-            } else if (modeType === 'hg') {
-                modeConfig.n = parseInt(document.getElementById('num-hgn').value);
-                modeConfig.m = parseInt(document.getElementById('num-hgm').value);
-                M2x = 2 * modeConfig.n + 1;
-                M2y = 2 * modeConfig.m + 1;
-                modeTitle = `HG<sub>${modeConfig.n},${modeConfig.m}</sub>`;
-            } else if (modeType === 'lg') {
-                modeConfig.p = parseInt(document.getElementById('num-lgp').value);
-                modeConfig.l = parseInt(document.getElementById('num-lgl').value);
-                M2x = M2y = 2 * modeConfig.p + Math.abs(modeConfig.l) + 1;
-                modeTitle = `LG<sub>${modeConfig.p},${modeConfig.l}</sub>`;
-            } else if (modeType === 'custom') {
-                M2x = M2y = parseFloat(document.getElementById('num-M2').value);
-                modeTitle = `Custom M²=${M2x.toFixed(2)}`;
-            }
-
-            modeConfig.M2x = M2x;
-            modeConfig.M2y = M2y;
-            
-            let normData = computeModeNorm(modeConfig);
-            modeConfig.norm = normData.norm;
-            modeConfig.peak_factor = normData.peak_factor;
-
-            document.getElementById('display-eff-m2').textContent = `${M2x.toFixed(2)}, ${M2y.toFixed(2)}`;
-
-            let g_sum = g1 + g2 - 2 * g1 * g2;
-            if (g_sum === 0) g_sum = 1e-9;
-            let zR_cavity = Math.sqrt(Math.abs((L * L * g1 * g2 * (1 - g1 * g2)) / (g_sum * g_sum)));
-            let z0_cavity = L * g2 * (1 - g1) / g_sum;
-
-            let w0_ideal = Math.sqrt((lambda_mm * zR_cavity) / Math.PI);
-            let wm1_ideal = Math.sqrt(Math.abs((lambda_mm * L / Math.PI) * Math.sqrt(g2 / (g1 * (1 - g1 * g2)))));
-            let wm2_ideal = Math.sqrt(Math.abs((lambda_mm * L / Math.PI) * Math.sqrt(g1 / (g2 * (1 - g1 * g2)))));
-            
-            document.getElementById('calc-w0').textContent = `x:${(w0_ideal * Math.sqrt(M2x)).toFixed(2)} y:${(w0_ideal * Math.sqrt(M2y)).toFixed(2)}`;
-            
-            if (Math.abs(wm1_ideal - wm2_ideal) < 1e-3) {
-                document.getElementById('calc-wm').textContent = `x:${(wm1_ideal * Math.sqrt(M2x)).toFixed(2)} y:${(wm1_ideal * Math.sqrt(M2y)).toFixed(2)}`;
-            } else {
-                document.getElementById('calc-wm').textContent = `M1:${(wm1_ideal * Math.sqrt(M2x)).toFixed(2)} M2:${(wm2_ideal * Math.sqrt(M2x)).toFixed(2)}`;
-            }
-
-            let isAutoModeMatch = document.getElementById('auto-mode-match').checked;
-            if (isAutoModeMatch) {
-                document.getElementById('num-winx').value = (w0_ideal * Math.sqrt(M2x)).toFixed(3);
-                document.getElementById('param-winx').value = (w0_ideal * Math.sqrt(M2x)).toFixed(3);
-                document.getElementById('num-winy').value = (w0_ideal * Math.sqrt(M2y)).toFixed(3);
-                document.getElementById('param-winy').value = (w0_ideal * Math.sqrt(M2y)).toFixed(3);
-                document.getElementById('num-zin').value = z0_cavity.toFixed(1);
-                document.getElementById('param-zin').value = z0_cavity.toFixed(1);
-            }
-
-            let w_in_x = parseFloat(document.getElementById('num-winx').value);
-            let w_in_y = parseFloat(document.getElementById('num-winy').value);
-            let z_in = parseFloat(document.getElementById('num-zin').value);
-            let pol_ang = parseFloat(document.getElementById('num-polang').value) * Math.PI / 180;
-
-            let m1_tilt = [parseFloat(document.getElementById('num-m1tx').value) * 1e-3, parseFloat(document.getElementById('num-m1ty').value) * 1e-3];
-            let m2_tilt = [parseFloat(document.getElementById('num-m2tx').value) * 1e-3, parseFloat(document.getElementById('num-m2ty').value) * 1e-3];
-
-            let isAutoInjection = document.getElementById('auto-injection').checked;
-            let x_in, y_in, thx_in, thy_in;
-
-            if (isAutoInjection) {
-                x_in = r0;
-                y_in = 0.0;
-                
-                let M_arrive_00 = 1 - 2 * L / R2;
-                let M_arrive_01 = 2 * L * g2;
-                
-                thx_in = r0 * (Math.cos(theta_rt) - M_arrive_00) / M_arrive_01 * 1000;
-                thy_in = r0 * Math.sin(theta_rt) / M_arrive_01 * 1000;
-
-                document.getElementById('num-x').value = x_in.toFixed(2);
-                document.getElementById('param-x').value = x_in.toFixed(2);
-                document.getElementById('num-y').value = y_in.toFixed(2);
-                document.getElementById('param-y').value = y_in.toFixed(2);
-                document.getElementById('num-thx').value = thx_in.toFixed(2);
-                document.getElementById('param-thx').value = thx_in.toFixed(2);
-                document.getElementById('num-thy').value = thy_in.toFixed(2);
-                document.getElementById('param-thy').value = thy_in.toFixed(2);
-            } else {
-                x_in = parseFloat(document.getElementById('num-x').value);
-                y_in = parseFloat(document.getElementById('num-y').value);
-                thx_in = parseFloat(document.getElementById('num-thx').value);
-                thy_in = parseFloat(document.getElementById('num-thy').value);
-            }
-
-            // Input Hole strictly bound to injection coordinates
-            let in_hole = [x_in, y_in];
-
-            // Output Hole Processing
-            let isAutoOutHole = document.getElementById('auto-out-hole').checked;
-            let out_hole_x, out_hole_y, out_mirror;
-            
-            if (isAutoOutHole) {
-                out_hole_x = x_in;
-                out_hole_y = y_in;
-                out_mirror = 1;
-                
-                document.getElementById('num-out_hole_x').value = out_hole_x.toFixed(2);
-                document.getElementById('param-out_hole_x').value = out_hole_x.toFixed(2);
-                document.getElementById('num-out_hole_y').value = out_hole_y.toFixed(2);
-                document.getElementById('param-out_hole_y').value = out_hole_y.toFixed(2);
-                document.getElementById('out-mirror').value = "1";
-            } else {
-                out_hole_x = parseFloat(document.getElementById('num-out_hole_x').value);
-                out_hole_y = parseFloat(document.getElementById('num-out_hole_y').value);
-                out_mirror = parseInt(document.getElementById('out-mirror').value);
-            }
-            let out_hole = [out_hole_x, out_hole_y];
-
-            let cell = new HerriottCell(L, R1, R2, in_hole, out_hole, out_mirror, hole_radius, m1_tilt, m2_tilt);
-
-            let px_init = x_in;
-            let py_init = y_in;
-            let disc_p0 = cell.R1*cell.R1 - Math.pow(px_init - cell.C1[0], 2) - Math.pow(py_init - cell.C1[1], 2);
-            let z0_init = disc_p0 >= 0 ? cell.C1[2] - Math.sign(cell.R1)*Math.sqrt(disc_p0) : 0; 
-            let P0 = [px_init, py_init, z0_init];
-            
-            let v0 = vNormalize([thx_in * 1e-3, thy_in * 1e-3, 1.0]);
-
-            let ref_x = [1, 0, 0];
-            let u1_ref = vNormalize(vSub(ref_x, vScale(v0, vDot(ref_x, v0)))); 
-            let u2_ref = vNormalize(vCross(v0, u1_ref));
-            
-            let u1_0 = vAdd(vScale(u1_ref, Math.cos(pol_ang)), vScale(u2_ref, Math.sin(pol_ang)));
-            let u2_0 = vAdd(vScale(u1_ref, -Math.sin(pol_ang)), vScale(u2_ref, Math.cos(pol_ang)));
-
-            let max_trace_passes = Math.max(150, 4 * N);
-            let res = cell.trace_rays(P0, v0, u1_0, u2_0, max_trace_passes);
-            
-            let abcd_passes = Math.max(N, res.total_bounces + 1);
-            let abcd_x = computeABCD_axis(L, R1, R2, lambda_mm, w_in_x, z_in, abcd_passes, M2x);
-            let abcd_y = computeABCD_axis(L, R1, R2, lambda_mm, w_in_y, z_in, abcd_passes, M2y);
-            
-            renderWaistPlot({x: abcd_x, y: abcd_y}, N, L, modeTitle);
-            
-            let doImages = document.getElementById('show-beam-profiles').checked;
-            renderRayPlots(res.points, res.mirror_hits, res.center_hits, L, r0, in_hole, out_hole, out_mirror, hole_radius, res.exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy);
-            
-            let statusEl = document.getElementById('status-msg');
-            statusEl.textContent = res.exit_status;
-            if(res.exit_status.includes("Out Hole")) statusEl.className = "font-semibold text-green-600 text-xs text-right";
-            else if(res.exit_status.includes("Escaped")) statusEl.className = "font-semibold text-red-600 text-xs text-right";
-            else statusEl.className = "font-semibold text-amber-600 text-xs text-right";
         }
 
         // --- Render Functions ---
-        function renderWaistPlot(abcd, N, L, modeTitle) {
-            let max_idx = N * 20 + 1;
-            let z_plot = abcd.x.z_vals.slice(0, max_idx);
-            let wx_plot = abcd.x.w_vals.slice(0, max_idx);
-            let wy_plot = abcd.y.w_vals.slice(0, max_idx);
-            
-            let max_w = Math.max(...wx_plot, ...wy_plot);
-            
-            let traces = [];
-            traces.push({ x: z_plot.concat(z_plot.slice().reverse()), y: wx_plot.concat(wx_plot.map(w => -w).reverse()), fill: 'toself', fillcolor: 'rgba(217, 70, 239, 0.15)', line: {color: 'transparent'}, hoverinfo: 'none', name: 'Profile X' });
-            traces.push({ x: z_plot.concat(z_plot.slice().reverse()), y: wy_plot.concat(wy_plot.map(w => -w).reverse()), fill: 'toself', fillcolor: 'rgba(14, 165, 233, 0.15)', line: {color: 'transparent'}, hoverinfo: 'none', name: 'Profile Y' });
-            traces.push({x: z_plot, y: wx_plot, mode: 'lines', line: {color: '#d946ef', width: 2}, name: '+wx'});
-            traces.push({x: z_plot, y: wx_plot.map(w=>-w), mode: 'lines', line: {color: '#d946ef', width: 2}, showlegend: false});
-            traces.push({x: z_plot, y: wy_plot, mode: 'lines', line: {color: '#0ea5e9', width: 2, dash: 'dot'}, name: '+wy'});
-            traces.push({x: z_plot, y: wy_plot.map(w=>-w), mode: 'lines', line: {color: '#0ea5e9', width: 2, dash: 'dot'}, showlegend: false});
+        function sampleWaveIntensity(frame, localX, localY) {
+            const rows = frame.intensity_map.length;
+            const columns = frame.intensity_map[0] ? frame.intensity_map[0].length : 0;
+            if (rows === 0 || columns === 0) {
+                return 0;
+            }
 
-            let mirror_shapes = abcd.x.w_mirrors_w.slice(0, N+1).map((_, i) => ({ type: 'line', x0: i*L, x1: i*L, y0: -max_w*1.1, y1: max_w*1.1, line: {color: 'rgba(100, 116, 139, 0.4)', width: 1.5, dash: 'dash'} }));
+            const xFraction = (localX + frame.display_half_width_x_mm) / (2 * frame.display_half_width_x_mm);
+            const yFraction = (localY + frame.display_half_width_y_mm) / (2 * frame.display_half_width_y_mm);
+            if (xFraction < 0 || xFraction > 1 || yFraction < 0 || yFraction > 1) {
+                return 0;
+            }
 
-            let layout = {
-                margin: { l: 45, r: 25, b: 40, t: 30 },
-                xaxis: { title: 'Unfolded Path Distance z [mm]', range: [0, N*L], zeroline: false },
-                yaxis: { title: 'Beam Radius w [mm]', range: [-max_w*1.15, max_w*1.15] },
-                showlegend: true, 
-                legend: {orientation: 'h', y: 1.05, x: 1, xanchor: 'right', yanchor: 'bottom'},
-                shapes: mirror_shapes, hovermode: 'x unified'
-            };
-            Plotly.react('plotWaist', traces, layout, {responsive: true});
+            const xIndex = xFraction * (columns - 1);
+            const yIndex = yFraction * (rows - 1);
+            const x0 = Math.floor(xIndex);
+            const y0 = Math.floor(yIndex);
+            const x1 = Math.min(x0 + 1, columns - 1);
+            const y1 = Math.min(y0 + 1, rows - 1);
+            const tx = xIndex - x0;
+            const ty = yIndex - y0;
+
+            const v00 = frame.intensity_map[y0][x0];
+            const v10 = frame.intensity_map[y0][x1];
+            const v01 = frame.intensity_map[y1][x0];
+            const v11 = frame.intensity_map[y1][x1];
+
+            return ((1 - tx) * (1 - ty) * v00) + (tx * (1 - ty) * v10) + ((1 - tx) * ty * v01) + (tx * ty * v11);
         }
 
-        function renderRayPlots(points, hits, center_hits, L, r0, in_hole, out_hole, out_mirror, hole_radius, exit_status, abcd_x, abcd_y, modeConfig, doImages, u1_0, u2_0, cell, peak_power, pulse_energy) {
-            let x3 = points.map(p => p[2]); 
-            let y3 = points.map(p => p[0]);
-            let z3 = points.map(p => p[1]);
-            let c3 = points.map((_, i) => i);
+        function generateWaveProfileDataURL(frame, size_px=72) {
+            let canvas = document.createElement('canvas');
+            canvas.width = size_px;
+            canvas.height = size_px;
+            let ctx = canvas.getContext('2d');
+            let imgData = ctx.createImageData(size_px, size_px);
+            let data = imgData.data;
+            let boxSize = frame.display_box_size_mm;
 
-            let trace3D = { type: 'scatter3d', mode: 'lines', x: x3, y: y3, z: z3, line: { color: c3, colorscale: 'Viridis', width: 3 } };
-            let trace3D_start = { type: 'scatter3d', mode: 'markers', x: [x3[0]], y: [y3[0]], z: [z3[0]], marker: { color: 'green', size: 6 } };
-            let trace3D_end = { type: 'scatter3d', mode: 'markers', x: [x3[x3.length-1]], y: [y3[y3.length-1]], z: [z3[z3.length-1]], marker: { color: 'red', size: 6 } };
+            let index = 0;
+            for (let py = 0; py < size_px; py += 1) {
+                let deltaY = (0.5 - (py / (size_px - 1))) * boxSize;
+                for (let px = 0; px < size_px; px += 1) {
+                    let deltaX = ((px / (size_px - 1)) - 0.5) * boxSize;
+                    let localX = (deltaX * frame.u1[0]) + (deltaY * frame.u1[1]);
+                    let localY = (deltaX * frame.u2[0]) + (deltaY * frame.u2[1]);
+                    let intensity = clamp(sampleWaveIntensity(frame, localX, localY), 0, 1);
+                    let alpha = intensity < 0.01 ? 0 : 255;
+                    let [r, g, b] = turboColor(intensity);
+                    data[index] = r;
+                    data[index + 1] = g;
+                    data[index + 2] = b;
+                    data[index + 3] = alpha;
+                    index += 4;
+                }
+            }
 
-            let limit = r0 * 1.5;
-            let currentCamera = { eye: {x: 1.5, y: -1.5, z: 0.5} };
+            ctx.putImageData(imgData, 0, 0);
+            return { url: canvas.toDataURL(), box_size: boxSize };
+        }
+
+        function renderPlaceholderPlot(divId, title, message) {
+            Plotly.react(divId, [], {
+                title: { text: title, font: { size: 13, color: '#334155' } },
+                margin: { l: 20, r: 20, b: 20, t: 40 },
+                xaxis: { visible: false },
+                yaxis: { visible: false },
+                annotations: message ? [{
+                    text: message,
+                    xref: 'paper',
+                    yref: 'paper',
+                    x: 0.5,
+                    y: 0.5,
+                    showarrow: false,
+                    font: { size: 14, color: '#64748b' }
+                }] : []
+            }, { responsive: true });
+        }
+
+        function renderWaistPlot(beamPropagation, totalPasses, mirrorDistanceMm, modeTitle) {
+            let maxIndex = (totalPasses * 20) + 1;
+            let zPlot = beamPropagation.x.z_vals.slice(0, maxIndex);
+            let wxPlot = beamPropagation.x.w_vals.slice(0, maxIndex);
+            let wyPlot = beamPropagation.y.w_vals.slice(0, maxIndex);
+            let maxWaist = Math.max(...wxPlot, ...wyPlot);
+
+            let traces = [
+                { x: zPlot.concat(zPlot.slice().reverse()), y: wxPlot.concat(wxPlot.map((waist) => -waist).reverse()), fill: 'toself', fillcolor: 'rgba(217, 70, 239, 0.15)', line: { color: 'transparent' }, hoverinfo: 'none', name: 'Profile X' },
+                { x: zPlot.concat(zPlot.slice().reverse()), y: wyPlot.concat(wyPlot.map((waist) => -waist).reverse()), fill: 'toself', fillcolor: 'rgba(14, 165, 233, 0.15)', line: { color: 'transparent' }, hoverinfo: 'none', name: 'Profile Y' },
+                { x: zPlot, y: wxPlot, mode: 'lines', line: { color: '#d946ef', width: 2 }, name: '+wx' },
+                { x: zPlot, y: wxPlot.map((waist) => -waist), mode: 'lines', line: { color: '#d946ef', width: 2 }, showlegend: false },
+                { x: zPlot, y: wyPlot, mode: 'lines', line: { color: '#0ea5e9', width: 2, dash: 'dot' }, name: '+wy' },
+                { x: zPlot, y: wyPlot.map((waist) => -waist), mode: 'lines', line: { color: '#0ea5e9', width: 2, dash: 'dot' }, showlegend: false }
+            ];
+
+            let mirrorShapes = beamPropagation.x.w_mirrors_w.slice(0, totalPasses + 1).map((_, index) => ({
+                type: 'line',
+                x0: index * mirrorDistanceMm,
+                x1: index * mirrorDistanceMm,
+                y0: -maxWaist * 1.1,
+                y1: maxWaist * 1.1,
+                line: { color: 'rgba(100, 116, 139, 0.4)', width: 1.5, dash: 'dash' }
+            }));
+
+            Plotly.react('plotWaist', traces, {
+                title: { text: `Gaussian Beam (${modeTitle})`, font: { size: 13, color: '#334155' } },
+                margin: { l: 45, r: 25, b: 40, t: 30 },
+                xaxis: { title: 'Unfolded Path Distance z [mm]', range: [0, totalPasses * mirrorDistanceMm], zeroline: false },
+                yaxis: { title: 'Beam Radius w [mm]', range: [-maxWaist * 1.15, maxWaist * 1.15] },
+                showlegend: true,
+                legend: { orientation: 'h', y: 1.05, x: 1, xanchor: 'right', yanchor: 'bottom' },
+                shapes: mirrorShapes,
+                hovermode: 'x unified'
+            }, { responsive: true });
+        }
+
+        function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
+            let rayTrace = result.ray_trace;
+            let beamPropagation = result.beam_propagation;
+            let inputs = result.resolved_inputs;
+            let mode = result.mode;
+            let points = rayTrace.points;
+            let hits = rayTrace.mirror_hits;
+            let centerHits = rayTrace.center_hits;
+            let inputBasis = rayTrace.input_basis;
+            let inputPoint = rayTrace.input_point;
+
+            let x3 = points.map((point) => point[2]);
+            let y3 = points.map((point) => point[0]);
+            let z3 = points.map((point) => point[1]);
+            let colors = points.map((_, index) => index);
+
+            let trace3d = { type: 'scatter3d', mode: 'lines', x: x3, y: y3, z: z3, line: { color: colors, colorscale: 'Viridis', width: 3 } };
+            let trace3dStart = { type: 'scatter3d', mode: 'markers', x: [x3[0]], y: [y3[0]], z: [z3[0]], marker: { color: 'green', size: 6 } };
+            let trace3dEnd = { type: 'scatter3d', mode: 'markers', x: [x3[x3.length - 1]], y: [y3[y3.length - 1]], z: [z3[z3.length - 1]], marker: { color: 'red', size: 6 } };
+
+            let limit = inputs.spot_pattern_radius_mm * 1.5;
             let plot3dDiv = document.getElementById('plot3d');
-            if (plot3dDiv._fullLayout && plot3dDiv._fullLayout.scene && plot3dDiv._fullLayout.scene.camera) currentCamera = JSON.parse(JSON.stringify(plot3dDiv._fullLayout.scene.camera));
+            let currentCamera = plot3dDiv && plot3dDiv._fullLayout && plot3dDiv._fullLayout.scene && plot3dDiv._fullLayout.scene.camera
+                ? JSON.parse(JSON.stringify(plot3dDiv._fullLayout.scene.camera))
+                : { eye: { x: 1.5, y: -1.5, z: 0.5 } };
 
-            let layout3D = {
-                title: { text: '3D Cavity Ray Path', font: {size: 13, color: '#334155'} }, margin: { l: 0, r: 0, b: 0, t: 30 },
-                showlegend: false, uirevision: 'true',
-                scene: { xaxis: { title: 'Z Axis [mm]', range: [-10, L+10] }, yaxis: { title: 'X [mm]', range: [-limit, limit] }, zaxis: { title: 'Y [mm]', range: [-limit, limit] }, camera: currentCamera }
-            };
-            Plotly.react('plot3d', [trace3D, trace3D_start, trace3D_end], layout3D, {responsive: true});
+            Plotly.react('plot3d', [trace3d, trace3dStart, trace3dEnd], {
+                title: { text: '3D Cavity Ray Path', font: { size: 13, color: '#334155' } },
+                margin: { l: 0, r: 0, b: 0, t: 30 },
+                showlegend: false,
+                uirevision: 'true',
+                scene: {
+                    xaxis: { title: 'Z Axis [mm]', range: [-10, inputs.mirror_distance_mm + 10] },
+                    yaxis: { title: 'X [mm]', range: [-limit, limit] },
+                    zaxis: { title: 'Y [mm]', range: [-limit, limit] },
+                    camera: currentCamera
+                }
+            }, { responsive: true });
 
             const getRadialTextPosition = (x, y) => {
-                let angle = Math.atan2(y, x) * 180 / Math.PI; if (angle < 0) angle += 360;
-                if (angle >= 337.5 || angle < 22.5) return 'middle right'; if (angle >= 22.5 && angle < 67.5) return 'top right';
-                if (angle >= 67.5 && angle < 112.5) return 'top center'; if (angle >= 112.5 && angle < 157.5) return 'top left';
-                if (angle >= 157.5 && angle < 202.5) return 'middle left'; if (angle >= 202.5 && angle < 247.5) return 'bottom left';
-                if (angle >= 247.5 && angle < 292.5) return 'bottom center'; if (angle >= 292.5 && angle < 337.5) return 'bottom right';
-                return 'top center';
+                let angle = Math.atan2(y, x) * 180 / Math.PI;
+                if (angle < 0) angle += 360;
+                if (angle >= 337.5 || angle < 22.5) return 'middle right';
+                if (angle < 67.5) return 'top right';
+                if (angle < 112.5) return 'top center';
+                if (angle < 157.5) return 'top left';
+                if (angle < 202.5) return 'middle left';
+                if (angle < 247.5) return 'bottom left';
+                if (angle < 292.5) return 'bottom center';
+                return 'bottom right';
             };
 
             const getRayAngleToNormalDeg = (ray, normal) => {
                 if (!ray || !normal) return null;
                 let cosTheta = clamp(Math.abs(vDot(vNormalize(ray), vNormalize(normal))), 0, 1);
-                return Math.acos(cosTheta) * 180 / Math.PI;
+                return (Math.acos(cosTheta) * 180) / Math.PI;
             };
 
             const getSteeringAnglesMrad = (ray) => {
                 if (!ray || Math.abs(ray[2]) < 1e-12) return null;
                 return {
-                    thx: 1000 * ray[0] / ray[2],
-                    thy: 1000 * ray[1] / ray[2]
+                    thx: (1000 * ray[0]) / ray[2],
+                    thy: (1000 * ray[1]) / ray[2]
                 };
             };
 
@@ -1540,142 +3750,414 @@
             const getMirrorRayInfoHtml = (hit) => {
                 let incidenceAngle = getRayAngleToNormalDeg(hit.v_in, hit.normal);
                 if (incidenceAngle === null) return '';
-
                 let reflectedSteering = hit.v_out ? formatSteeringAngles(hit.v_out) : 'N/A (hole exit)';
                 return `<br>Incidence: ${incidenceAngle.toFixed(2)}°<br>Incoming (θx, θy): ${formatSteeringAngles(hit.v_in)}<br>Reflected (θx, θy): ${reflectedSteering}`;
             };
 
-            let layout2D_base = {
-                margin: { l: 40, r: 40, b: 40, t: 60 }, uirevision: 'true', showlegend: false,
+            let baseLayout = {
+                margin: { l: 40, r: 40, b: 40, t: 60 },
+                uirevision: 'true',
+                showlegend: false,
                 xaxis: { title: 'X [mm]', range: [-limit, limit], zeroline: false },
                 yaxis: { title: 'Y [mm]', range: [-limit, limit], zeroline: false, scaleanchor: 'x', scaleratio: 1 }
             };
 
-            const build2DPlot = (divId, title, hitsData, getWIndex, isCenter, mirrorNum) => {
-                let layout = JSON.parse(JSON.stringify(layout2D_base));
+            const build2dPlot = ({ divId, title, hitsData, getWIndex, isCenter, mirrorNumber, waveFrames = null, launchFrame = null }) => {
+                let layout = JSON.parse(JSON.stringify(baseLayout));
                 layout.shapes = [];
                 layout.images = [];
-                
-                let px = [], py = [], pt = [], pp = [], ph = [], pc = [];
-                let polX = [], polY = [];
-                let wx_arr = isCenter ? abcd_x.w_center_w : abcd_x.w_mirrors_w;
-                let wy_arr = isCenter ? abcd_y.w_center_w : abcd_y.w_mirrors_w;
 
-                let minI = Infinity, maxI = -Infinity;
-                let minF = Infinity, maxF = -Infinity;
+                let px = [];
+                let py = [];
+                let text = [];
+                let positions = [];
+                let hover = [];
+                let colorscale = [];
+                let polX = [];
+                let polY = [];
+                let wxArray = isCenter ? beamPropagation.x.w_center_w : beamPropagation.x.w_mirrors_w;
+                let wyArray = isCenter ? beamPropagation.y.w_center_w : beamPropagation.y.w_mirrors_w;
+                let minIntensity = Number.POSITIVE_INFINITY;
+                let maxIntensity = Number.NEGATIVE_INFINITY;
+                let minFluence = Number.POSITIVE_INFINITY;
+                let maxFluence = Number.NEGATIVE_INFINITY;
 
-                if (mirrorNum === 1) {
-                    layout.shapes.push({ type: 'circle', x0: in_hole[0] - hole_radius, y0: in_hole[1] - hole_radius, x1: in_hole[0] + hole_radius, y1: in_hole[1] + hole_radius, line: { color: '#16a34a', width: 2, dash: 'dot' }});
-                    if (out_mirror === 1) {
-                        layout.shapes.push({ type: 'circle', x0: out_hole[0] - hole_radius, y0: out_hole[1] - hole_radius, x1: out_hole[0] + hole_radius, y1: out_hole[1] + hole_radius, line: { color: '#ef4444', width: 2 }});
-                    }
-                } else if (mirrorNum === 2) {
-                    if (out_mirror === 2) {
-                        layout.shapes.push({ type: 'circle', x0: out_hole[0] - hole_radius, y0: out_hole[1] - hole_radius, x1: out_hole[0] + hole_radius, y1: out_hole[1] + hole_radius, line: { color: '#ef4444', width: 2 }});
-                    }
-                }
+                let inputHole = [inputs.input_hole_x_mm, inputs.input_hole_y_mm];
+                let outputHole = [inputs.output_hole_x_mm, inputs.output_hole_y_mm];
 
-                hitsData.forEach((hit, i) => {
-                    let w_idx = getWIndex(i);
-                    let wx = wx_arr[w_idx] || wx_arr[wx_arr.length-1];
-                    let wy = wy_arr[w_idx] || wy_arr[wy_arr.length-1];
-
-                    let area_factor = wx * wy;
-                    let I = 100 * (peak_power * modeConfig.peak_factor) / area_factor;
-                    let F = 100 * (pulse_energy * modeConfig.peak_factor) / area_factor;
-
-                    if (I < minI) minI = I;
-                    if (I > maxI) maxI = I;
-                    if (F < minF) minF = F;
-                    if (F > maxF) maxF = F;
-
-                    px.push(hit.P[0]); py.push(hit.P[1]);
-                    
-                    let text = isCenter ? String(i + 1) : String(getWIndex(i));
-                    
-                    if (!isCenter && mirrorNum === out_mirror && hit === hitsData[hitsData.length-1] && exit_status.includes("Out Hole")) {
-                        text = "<b>Out</b>";
-                    }
-
-                    pt.push(text);
-                    pp.push(getRadialTextPosition(hit.P[0], hit.P[1]));
-                    
-                    let hoverAng = Math.atan2(hit.u1[1], hit.u1[0]) * 180 / Math.PI;
-                    while (hoverAng <= -90) hoverAng += 180;
-                    while (hoverAng > 90) hoverAng -= 180;
-
-                    let rayAngleHtml = (!isCenter && mirrorNum !== 0) ? getMirrorRayInfoHtml(hit) : '';
-                    ph.push(`Hit: ${text}<br>X: ${hit.P[0].toFixed(2)}<br>Y: ${hit.P[1].toFixed(2)}<br>wx: ${wx.toFixed(3)}<br>wy: ${wy.toFixed(3)}<br>Pol: ${hoverAng.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${I.toFixed(2)} GW/cm²<br>Fluence: ${F.toFixed(2)} mJ/cm²`);
-                    pc.push(getWIndex(i));
-
-                    let w_max = Math.max(wx, wy);
-
-                    if (doImages) {
-                        let img = generateSpotDataURL(wx, wy, hit.u1, hit.u2, modeConfig, 60);
-                        layout.images.push({
-                            source: img.url, xref: 'x', yref: 'y',
-                            x: hit.P[0], y: hit.P[1],
-                            sizex: img.box_size, sizey: img.box_size,
-                            xanchor: 'center', yanchor: 'middle', layer: 'below'
+                if (mirrorNumber === 1) {
+                    layout.shapes.push({
+                        type: 'circle',
+                        x0: inputHole[0] - inputs.hole_radius_mm,
+                        y0: inputHole[1] - inputs.hole_radius_mm,
+                        x1: inputHole[0] + inputs.hole_radius_mm,
+                        y1: inputHole[1] + inputs.hole_radius_mm,
+                        line: { color: '#16a34a', width: 2, dash: 'dot' }
+                    });
+                    if (inputs.output_mirror === 1) {
+                        layout.shapes.push({
+                            type: 'circle',
+                            x0: outputHole[0] - inputs.hole_radius_mm,
+                            y0: outputHole[1] - inputs.hole_radius_mm,
+                            x1: outputHole[0] + inputs.hole_radius_mm,
+                            y1: outputHole[1] + inputs.hole_radius_mm,
+                            line: { color: '#ef4444', width: 2 }
                         });
-                        
-                        let vec_len = w_max * 1.5;
-                        polX.push(hit.P[0] - vec_len * hit.u1[0], hit.P[0] + vec_len * hit.u1[0], null);
-                        polY.push(hit.P[1] - vec_len * hit.u1[1], hit.P[1] + vec_len * hit.u1[1], null);
+                    }
+                } else if (mirrorNumber === 2 && inputs.output_mirror === 2) {
+                    layout.shapes.push({
+                        type: 'circle',
+                        x0: outputHole[0] - inputs.hole_radius_mm,
+                        y0: outputHole[1] - inputs.hole_radius_mm,
+                        x1: outputHole[0] + inputs.hole_radius_mm,
+                        y1: outputHole[1] + inputs.hole_radius_mm,
+                        line: { color: '#ef4444', width: 2 }
+                    });
+                }
+
+                let activeFrames = Array.isArray(waveFrames) ? waveFrames : [];
+                let usingWaveFrames = activeFrames.length > 0;
+                let plotCount = usingWaveFrames ? activeFrames.length : hitsData.length;
+
+                for (let index = 0; index < plotCount; index += 1) {
+                    let hit = hitsData[index] || null;
+                    let frame = usingWaveFrames ? activeFrames[index] : null;
+                    let waistX;
+                    let waistY;
+                    let pointX;
+                    let pointY;
+                    let basisU1;
+                    let basisU2;
+                    let label;
+                    let intensity;
+                    let fluence;
+
+                    if (frame) {
+                        waistX = frame.equivalent_radius_x_mm;
+                        waistY = frame.equivalent_radius_y_mm;
+                        pointX = frame.position[0];
+                        pointY = frame.position[1];
+                        basisU1 = frame.u1;
+                        basisU2 = frame.u2;
+                        label = frame.label;
+                        intensity = 100 * inputs.peak_power_gw * frame.peak_density_per_mm2;
+                        fluence = 100 * inputs.pulse_energy_mj * frame.peak_density_per_mm2;
                     } else {
-                        layout.shapes.push({ type: 'circle', x0: hit.P[0]-w_max, y0: hit.P[1]-w_max, x1: hit.P[0]+w_max, y1: hit.P[1]+w_max, line: { color: 'rgba(217, 70, 239, 0.6)', width: 1.5 }, fillcolor: 'rgba(217, 70, 239, 0.15)'});
+                        let waistIndex = getWIndex(index);
+                        waistX = wxArray[waistIndex] || wxArray[wxArray.length - 1];
+                        waistY = wyArray[waistIndex] || wyArray[wyArray.length - 1];
+                        pointX = hit.P[0];
+                        pointY = hit.P[1];
+                        basisU1 = hit.u1;
+                        basisU2 = hit.u2;
+                        label = isCenter ? String(index + 1) : String(waistIndex);
+                        let areaFactor = waistX * waistY;
+                        intensity = (100 * (inputs.peak_power_gw * mode.peak_factor)) / areaFactor;
+                        fluence = (100 * (inputs.pulse_energy_mj * mode.peak_factor)) / areaFactor;
                     }
-                });
 
-                if (hitsData.length === 0) { minI = maxI = minF = maxF = 0; }
-                if (!isFinite(minI)) minI = 0; if (!isFinite(maxI)) maxI = 0;
-                if (!isFinite(minF)) minF = 0; if (!isFinite(maxF)) maxF = 0;
+                    minIntensity = Math.min(minIntensity, intensity);
+                    maxIntensity = Math.max(maxIntensity, intensity);
+                    minFluence = Math.min(minFluence, fluence);
+                    maxFluence = Math.max(maxFluence, fluence);
 
-                let statsHtml = `<br><span style="font-size:11px; color:#64748b; font-weight:normal;">Fluence: ${minF.toFixed(2)} - ${maxF.toFixed(2)} mJ/cm² | Intensity: ${minI.toFixed(2)} - ${maxI.toFixed(2)} GW/cm²</span>`;
-                layout.title = { text: title + statsHtml, font: {size: 13, color: '#334155'}, y: 0.95 };
+                    if (!isCenter && mirrorNumber === inputs.output_mirror && index === plotCount - 1 && result.status_message.includes('Out Hole')) {
+                        label = '<b>Out</b>';
+                    }
 
-                if(isCenter && hitsData.length > 0) {
-                    let max_ext = Math.max(...px.map(Math.abs), ...py.map(Math.abs)) * 1.2 + 2;
-                    layout.xaxis.range = [-max_ext, max_ext];
-                    layout.yaxis.range = [-max_ext, max_ext];
-                }
+                    px.push(pointX);
+                    py.push(pointY);
+                    text.push(label);
+                    positions.push(getRadialTextPosition(pointX, pointY));
 
-                let traces = [];
-                traces.push({ x: px, y: py, mode: 'markers+text', type: 'scatter', text: pt, textposition: pp, hovertext: ph, hoverinfo: 'text', textfont: { size: 10, color: '#475569' }, marker: { color: pc, colorscale: 'Viridis', size: 8, line: {color: 'white', width: 1} } });
-                
-                if(mirrorNum === 1) {
-                    let w0x = wx_arr[0], w0y = wy_arr[0];
-                    let hoverAng0 = Math.atan2(u1_0[1], u1_0[0]) * 180 / Math.PI;
-                    while (hoverAng0 <= -90) hoverAng0 += 180;
-                    while (hoverAng0 > 90) hoverAng0 -= 180;
+                    let hoverAngle = (Math.atan2(basisU1[1], basisU1[0]) * 180) / Math.PI;
+                    while (hoverAngle <= -90) hoverAngle += 180;
+                    while (hoverAngle > 90) hoverAngle -= 180;
 
-                    let startPoint = points[0];
-                    let w_max = Math.max(w0x, w0y);
+                    let rayAngleHtml = !isCenter && mirrorNumber !== 0 && hit ? getMirrorRayInfoHtml(hit) : '';
+                    let waveWarningHtml = frame ? `<br>Edge Power: ${(100 * frame.edge_power_fraction).toFixed(2)}%<br>Spectral Edge: ${(100 * frame.spectral_edge_fraction).toFixed(2)}%` : '';
+                    hover.push(`Hit: ${label}<br>X: ${pointX.toFixed(2)}<br>Y: ${pointY.toFixed(2)}<br>wx: ${waistX.toFixed(3)}<br>wy: ${waistY.toFixed(3)}<br>Pol: ${hoverAngle.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${intensity.toFixed(2)} GW/cm²<br>Fluence: ${fluence.toFixed(2)} mJ/cm²${waveWarningHtml}`);
+                    colorscale.push(frame ? (frame.bounce_index !== null && frame.bounce_index !== undefined ? frame.bounce_index : frame.segment_index + 1) : getWIndex(index));
 
-                    traces.push({ x: [startPoint[0]], y: [startPoint[1]], mode: 'markers+text', type: 'scatter', text: ['<b>In</b>'], textposition: getRadialTextPosition(startPoint[0], startPoint[1]), hovertext: [`Start (0)<br>X: ${startPoint[0].toFixed(2)}<br>Y: ${startPoint[1].toFixed(2)}<br>Pol: ${hoverAng0.toFixed(1)}°`], hoverinfo: 'text', textfont: { size: 11, color: '#16a34a' }, marker: { color: '#16a34a', size: 8, symbol: 'star' } });
-                    
-                    if(doImages) {
-                        let img = generateSpotDataURL(w0x, w0y, u1_0, u2_0, modeConfig, 60);
-                        layout.images.push({ source: img.url, xref: 'x', yref: 'y', x: startPoint[0], y: startPoint[1], sizex: img.box_size, sizey: img.box_size, xanchor: 'center', yanchor: 'middle', layer: 'below' });
-                        let vlen = w_max * 1.5;
-                        polX.push(startPoint[0] - vlen * u1_0[0], startPoint[0] + vlen * u1_0[0], null); 
-                        polY.push(startPoint[1] - vlen * u1_0[1], startPoint[1] + vlen * u1_0[1], null);
+                    if (showBeamProfiles) {
+                        let image = frame ? generateWaveProfileDataURL(frame, 72) : generateSpotDataURL(waistX, waistY, basisU1, basisU2, mode, 60);
+                        layout.images.push({
+                            source: image.url,
+                            xref: 'x',
+                            yref: 'y',
+                            x: pointX,
+                            y: pointY,
+                            sizex: image.box_size,
+                            sizey: image.box_size,
+                            xanchor: 'center',
+                            yanchor: 'middle',
+                            layer: 'below'
+                        });
+
+                        let vectorLength = Math.max(waistX, waistY) * 1.5;
+                        polX.push(pointX - (vectorLength * basisU1[0]), pointX + (vectorLength * basisU1[0]), null);
+                        polY.push(pointY - (vectorLength * basisU1[1]), pointY + (vectorLength * basisU1[1]), null);
+                    } else if (frame) {
+                        layout.shapes.push({
+                            type: 'circle',
+                            x0: pointX - waistX,
+                            y0: pointY - waistY,
+                            x1: pointX + waistX,
+                            y1: pointY + waistY,
+                            line: { color: 'rgba(217, 70, 239, 0.6)', width: 1.5 },
+                            fillcolor: 'rgba(217, 70, 239, 0.15)'
+                        });
+                    } else {
+                        let maxWaist = Math.max(waistX, waistY);
+                        layout.shapes.push({
+                            type: 'circle',
+                            x0: pointX - maxWaist,
+                            y0: pointY - maxWaist,
+                            x1: pointX + maxWaist,
+                            y1: pointY + maxWaist,
+                            line: { color: 'rgba(217, 70, 239, 0.6)', width: 1.5 },
+                            fillcolor: 'rgba(217, 70, 239, 0.15)'
+                        });
                     }
                 }
 
-                if(doImages && polX.length > 0) {
-                    traces.push({ x: polX, y: polY, mode: 'lines', line: {color: '#1e293b', width: 2}, hoverinfo: 'none', name: 'Polarization' });
+                if (plotCount === 0) {
+                    minIntensity = 0;
+                    maxIntensity = 0;
+                    minFluence = 0;
+                    maxFluence = 0;
                 }
 
-                Plotly.react(divId, traces, layout, {responsive: true});
+                let statsHtml = `<br><span style="font-size:11px; color:#64748b; font-weight:normal;">Fluence: ${minFluence.toFixed(2)} - ${maxFluence.toFixed(2)} mJ/cm² | Intensity: ${minIntensity.toFixed(2)} - ${maxIntensity.toFixed(2)} GW/cm²</span>`;
+                layout.title = { text: title + statsHtml, font: { size: 13, color: '#334155' }, y: 0.95 };
+
+                if (plotCount > 0 && (isCenter || usingWaveFrames)) {
+                    let maxExtent = Math.max(...px.map(Math.abs), ...py.map(Math.abs)) * 1.2 + 2;
+                    layout.xaxis.range = [-maxExtent, maxExtent];
+                    layout.yaxis.range = [-maxExtent, maxExtent];
+                }
+
+                let traces = [{
+                    x: px,
+                    y: py,
+                    mode: 'markers+text',
+                    type: 'scatter',
+                    text,
+                    textposition: positions,
+                    hovertext: hover,
+                    hoverinfo: 'text',
+                    textfont: { size: 10, color: '#475569' },
+                    marker: { color: colorscale, colorscale: 'Viridis', size: 8, line: { color: 'white', width: 1 } }
+                }];
+
+                if (mirrorNumber === 1) {
+                    let startFrame = launchFrame;
+                    let startWaistX = startFrame ? startFrame.equivalent_radius_x_mm : wxArray[0];
+                    let startWaistY = startFrame ? startFrame.equivalent_radius_y_mm : wyArray[0];
+                    let startPoint = startFrame ? startFrame.position : inputPoint;
+                    let startBasis = startFrame ? startFrame.u1 : inputBasis.u1;
+                    let hoverAngle = (Math.atan2(startBasis[1], startBasis[0]) * 180) / Math.PI;
+                    while (hoverAngle <= -90) hoverAngle += 180;
+                    while (hoverAngle > 90) hoverAngle -= 180;
+
+                    traces.push({
+                        x: [startPoint[0]],
+                        y: [startPoint[1]],
+                        mode: 'markers+text',
+                        type: 'scatter',
+                        text: ['<b>In</b>'],
+                        textposition: getRadialTextPosition(startPoint[0], startPoint[1]),
+                        hovertext: [`Start (0)<br>X: ${startPoint[0].toFixed(2)}<br>Y: ${startPoint[1].toFixed(2)}<br>Pol: ${hoverAngle.toFixed(1)}°`],
+                        hoverinfo: 'text',
+                        textfont: { size: 11, color: '#16a34a' },
+                        marker: { color: '#16a34a', size: 8, symbol: 'star' }
+                    });
+
+                    if (showBeamProfiles) {
+                        let image = startFrame ? generateWaveProfileDataURL(startFrame, 72) : generateSpotDataURL(startWaistX, startWaistY, inputBasis.u1, inputBasis.u2, mode, 60);
+                        layout.images.push({
+                            source: image.url,
+                            xref: 'x',
+                            yref: 'y',
+                            x: startPoint[0],
+                            y: startPoint[1],
+                            sizex: image.box_size,
+                            sizey: image.box_size,
+                            xanchor: 'center',
+                            yanchor: 'middle',
+                            layer: 'below'
+                        });
+
+                        let vectorLength = Math.max(startWaistX, startWaistY) * 1.5;
+                        polX.push(startPoint[0] - (vectorLength * startBasis[0]), startPoint[0] + (vectorLength * startBasis[0]), null);
+                        polY.push(startPoint[1] - (vectorLength * startBasis[1]), startPoint[1] + (vectorLength * startBasis[1]), null);
+                    }
+                }
+
+                if (showBeamProfiles && polX.length > 0) {
+                    traces.push({
+                        x: polX,
+                        y: polY,
+                        mode: 'lines',
+                        line: { color: '#1e293b', width: 2 },
+                        hoverinfo: 'none',
+                        name: 'Polarization'
+                    });
+                }
+
+                Plotly.react(divId, traces, layout, { responsive: true });
             };
 
-            build2DPlot('plotM1', 'Mirror 1 Spots (z=0)', hits[1] || [], (i) => 2*i + 2, false, 1);
-            build2DPlot('plotCenter', 'Center Spots (z=L/2)', center_hits, (i) => i, true, 0);
-            build2DPlot('plotM2', 'Mirror 2 Spots (z=L)', hits[2] || [], (i) => 2*i + 1, false, 2);
+            build2dPlot({
+                divId: 'plotM1',
+                title: waveOptics ? 'Mirror 1 Spots (Wave Optics)' : 'Mirror 1 Spots (z=0)',
+                hitsData: hits[1] || [],
+                getWIndex: (index) => (2 * index) + 2,
+                isCenter: false,
+                mirrorNumber: 1,
+                waveFrames: waveOptics ? waveOptics.mirror1_profiles : null,
+                launchFrame: waveOptics ? waveOptics.launch_profile : null
+            });
+            build2dPlot({
+                divId: 'plotCenter',
+                title: waveOptics ? 'Adaptive Focus / Waist Planes' : 'Center Spots (z=L/2)',
+                hitsData: centerHits,
+                getWIndex: (index) => index,
+                isCenter: true,
+                mirrorNumber: 0,
+                waveFrames: waveOptics ? waveOptics.focus_profiles : null
+            });
+            build2dPlot({
+                divId: 'plotM2',
+                title: waveOptics ? 'Mirror 2 Spots (Wave Optics)' : 'Mirror 2 Spots (z=L)',
+                hitsData: hits[2] || [],
+                getWIndex: (index) => (2 * index) + 1,
+                isCenter: false,
+                mirrorNumber: 2,
+                waveFrames: waveOptics ? waveOptics.mirror2_profiles : null
+            });
+        }
+
+        function renderSimulationPlots(result, showBeamProfiles, waveOptics = null) {
+            renderWaistPlot(result.beam_propagation, result.resolved_inputs.total_passes, result.resolved_inputs.mirror_distance_mm, result.mode.title);
+            renderRayPlots(result, showBeamProfiles, waveOptics);
+        }
+
+        function renderUnstablePlots(statusMessage) {
+            renderPlaceholderPlot('plotWaist', 'Gaussian Beam (Unstable)', statusMessage);
+            renderPlaceholderPlot('plot3d', '3D Cavity Ray Path', 'No ray trace for unstable cavity.');
+            renderPlaceholderPlot('plotM1', 'Mirror 1 Spots (z=0)', 'No spot data.');
+            renderPlaceholderPlot('plotCenter', 'Center Spots (z=L/2)', 'No spot data.');
+            renderPlaceholderPlot('plotM2', 'Mirror 2 Spots (z=L)', 'No spot data.');
+        }
+
+        function renderErrorPlots(message) {
+            renderPlaceholderPlot('plotWaist', 'Gaussian Beam', message);
+            renderPlaceholderPlot('plot3d', '3D Cavity Ray Path', message);
+            renderPlaceholderPlot('plotM1', 'Mirror 1 Spots (z=0)', message);
+            renderPlaceholderPlot('plotCenter', 'Center Spots (z=L/2)', message);
+            renderPlaceholderPlot('plotM2', 'Mirror 2 Spots (z=L)', message);
+        }
+
+        function validateWaveOpticsResult(baseResult, waveOptics) {
+            if (!baseResult || !waveOptics) {
+                return {
+                    passed: false,
+                    checks: [{ name: 'result_available', pass: false, details: 'No wave-optics result is available.' }]
+                };
+            }
+
+            const checks = [];
+            const withinTolerance = (actual, expected, relTol = 0.05, absTol = 1e-4) => Math.abs(actual - expected) <= Math.max(absTol, relTol * Math.abs(expected));
+            if (waveOptics.profile_type === 'gaussian' && baseResult.beam_propagation) {
+                checks.push({
+                    name: 'gaussian_launch_matches_abcd_x',
+                    pass: withinTolerance(waveOptics.launch_profile.equivalent_radius_x_mm, baseResult.beam_propagation.x.w_mirrors_w[0]),
+                    details: `${waveOptics.launch_profile.equivalent_radius_x_mm.toFixed(4)} mm vs ${baseResult.beam_propagation.x.w_mirrors_w[0].toFixed(4)} mm`
+                });
+                checks.push({
+                    name: 'gaussian_launch_matches_abcd_y',
+                    pass: withinTolerance(waveOptics.launch_profile.equivalent_radius_y_mm, baseResult.beam_propagation.y.w_mirrors_w[0]),
+                    details: `${waveOptics.launch_profile.equivalent_radius_y_mm.toFixed(4)} mm vs ${baseResult.beam_propagation.y.w_mirrors_w[0].toFixed(4)} mm`
+                });
+            }
+
+            if (waveOptics.segments && waveOptics.segments.length > 0) {
+                const firstSegment = waveOptics.segments[0];
+                checks.push({
+                    name: 'adaptive_window_shrinks_at_focus',
+                    pass: firstSegment.focus_grid.half_width_x_mm < firstSegment.start_grid.half_width_x_mm
+                        && firstSegment.focus_grid.half_width_x_mm < firstSegment.end_grid.half_width_x_mm
+                        && firstSegment.focus_grid.half_width_y_mm < firstSegment.start_grid.half_width_y_mm
+                        && firstSegment.focus_grid.half_width_y_mm < firstSegment.end_grid.half_width_y_mm,
+                    details: `start=${firstSegment.start_grid.half_width_x_mm.toFixed(3)}/${firstSegment.start_grid.half_width_y_mm.toFixed(3)} mm focus=${firstSegment.focus_grid.half_width_x_mm.toFixed(3)}/${firstSegment.focus_grid.half_width_y_mm.toFixed(3)} mm end=${firstSegment.end_grid.half_width_x_mm.toFixed(3)}/${firstSegment.end_grid.half_width_y_mm.toFixed(3)} mm`
+                });
+                checks.push({
+                    name: 'focus_plane_inside_segment',
+                    pass: firstSegment.focus_distance_mm > 0 && firstSegment.focus_distance_mm < baseResult.resolved_inputs.mirror_distance_mm,
+                    details: `${firstSegment.focus_distance_mm.toFixed(3)} mm inside 0..${baseResult.resolved_inputs.mirror_distance_mm.toFixed(3)} mm`
+                });
+            }
+
+            if (waveOptics.profile_type === 'round_super_gaussian') {
+                checks.push({
+                    name: 'round_super_gaussian_is_radially_symmetric',
+                    pass: withinTolerance(waveOptics.launch_profile.equivalent_radius_x_mm, waveOptics.launch_profile.equivalent_radius_y_mm, 0.03, 1e-4),
+                    details: `${waveOptics.launch_profile.equivalent_radius_x_mm.toFixed(4)} mm vs ${waveOptics.launch_profile.equivalent_radius_y_mm.toFixed(4)} mm`
+                });
+            }
+
+            return {
+                passed: checks.length > 0 && checks.every((check) => check.pass),
+                checks
+            };
+        }
+
+        async function runWaveOpticsSelfCheck() {
+            if (!currentSimulationResult || !currentSimulationResult.stable) {
+                throw new Error('A stable analytic simulation is required before running the wave-optics self-check.');
+            }
+
+            const baseSettings = captureWaveOpticsSettings();
+            const boundedSettings = {
+                ...baseSettings,
+                max_grid_points: Math.min(baseSettings.max_grid_points, 160),
+                max_memory_mb: Math.min(baseSettings.max_memory_mb, 128)
+            };
+
+            const gaussian = await computeWaveOpticsOnce(currentSimulationResult, { ...boundedSettings, profile_type: 'gaussian' });
+            const superGaussian = await computeWaveOpticsOnce(currentSimulationResult, { ...boundedSettings, profile_type: 'super_gaussian', super_gaussian_order: 6.0 });
+            const roundSuperGaussian = await computeWaveOpticsOnce(currentSimulationResult, { ...boundedSettings, profile_type: 'round_super_gaussian', super_gaussian_order: 6.0 });
+
+            return {
+                gaussian_validation: validateWaveOpticsResult(currentSimulationResult, gaussian),
+                super_gaussian_distinct_launch_shape: superGaussian.launch_profile.peak_density_per_mm2 < gaussian.launch_profile.peak_density_per_mm2,
+                round_super_gaussian_is_symmetric: Math.abs(
+                    roundSuperGaussian.launch_profile.equivalent_radius_x_mm - roundSuperGaussian.launch_profile.equivalent_radius_y_mm
+                ) <= Math.max(1e-4, 0.03 * Math.abs(roundSuperGaussian.launch_profile.equivalent_radius_x_mm))
+            };
+        }
+
+        function installWaveOpticsDebugHooks() {
+            window.__herriottWaveOptics = {
+                getState: () => ({
+                    currentSimulationResult,
+                    waveOpticsState,
+                    activeWaveOptics: getActiveWaveOptics()
+                }),
+                validateLatest: () => validateWaveOpticsResult(
+                    currentSimulationResult,
+                    waveOpticsState.result ? waveOpticsState.result.wave_optics : null
+                ),
+                runSelfCheck: runWaveOpticsSelfCheck
+            };
         }
 
         // Initialize on load
+        window.addEventListener('beforeunload', () => {
+            disposeWaveOpticsWorker();
+        });
+
         window.onload = () => {
             paramConfig.forEach(p => { 
                 let el = document.getElementById('num-' + p.id);
@@ -1689,10 +4171,14 @@
             standardConfig['autoInjection'] = document.getElementById('auto-injection').checked;
             standardConfig['modeType'] = document.getElementById('mode-type').value;
             standardConfig['showBeamProfiles'] = document.getElementById('show-beam-profiles').checked;
+            standardConfig['waveOptics'] = captureWaveOpticsSettings();
 
             updateCellTypeUI();
             updateModeUI();
+            updateWaveOpticsUI();
             setupEventListeners();
+            installWaveOpticsDebugHooks();
+            refreshWaveOpticsStatus();
             runSimulation();
         };
 
