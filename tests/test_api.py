@@ -34,7 +34,7 @@ def test_wave_optics_endpoint_returns_profiles(client) -> None:
     config["wave_optics"] = {
         "profile_type": "round_super_gaussian",
         "super_gaussian_order": 6.0,
-        "max_grid_points": 160,
+        "max_grid_points": 256,
         "max_memory_mb": 128,
         "display_grid_points": 48,
     }
@@ -69,7 +69,7 @@ def test_wave_optics_endpoint_reports_sampling_limit_errors(client) -> None:
     body = response.json()
     assert body["error"]["code"] == "wave_optics_sampling_error"
     assert "configured limit of 96" in body["error"]["message"]
-    assert "at least 128" in body["error"]["message"]
+    assert "at least 256" in body["error"]["message"]
 
 
 def _wait_for_wave_optics_job(client, job_id: str, timeout_seconds: float = 5.0) -> dict:

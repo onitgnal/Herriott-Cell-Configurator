@@ -14,7 +14,7 @@ def build_wave_request(**wave_overrides) -> WaveOpticsSimulationRequest:
     config = load_fixture("default_tem00.json")
     config["wave_optics"] = {
         "profile_type": "gaussian",
-        "max_grid_points": 160,
+        "max_grid_points": 256,
         "max_memory_mb": 128,
         "display_grid_points": 48,
         **wave_overrides,

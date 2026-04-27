@@ -11,14 +11,14 @@ class SimulationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     cell_type: Literal["cav-cav", "cav-vex"] = "cav-cav"
-    mirror_distance_mm: float = Field(1132.0, gt=0)
-    total_passes: int = Field(14, ge=2)
-    revolutions: int = Field(5, ge=1)
+    mirror_distance_mm: float = Field(1000.0, gt=0)
+    total_passes: int = Field(15, ge=2)
+    revolutions: int = Field(14, ge=1)
     spot_pattern_radius_mm: float = Field(15.0, ge=0)
     wavelength_nm: float = Field(1030.0, gt=0)
     hole_radius_mm: float = Field(1.5, ge=0)
-    peak_power_gw: float = Field(1.0, ge=0)
-    pulse_energy_mj: float = Field(1.0, ge=0)
+    peak_power_gw: float = Field(10.0, ge=0)
+    pulse_energy_mj: float = Field(10.0, ge=0)
     auto_symmetric_radius: bool = True
     auto_opposite_radii: bool = True
     symmetric_radius_mm: float = Field(1999.6, gt=0)
