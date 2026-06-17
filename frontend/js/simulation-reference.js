@@ -254,11 +254,13 @@ export class HerriottCell {
     holeRadiusMm,
     mirror1Tilt,
     mirror2Tilt,
+    inputHoles = null,
   ) {
     this.L = mirrorDistanceMm;
     this.R1 = mirror1RadiusMm;
     this.R2 = mirror2RadiusMm;
     this.in_hole = inputHole;
+    this.input_holes = inputHoles ?? [inputHole];
     this.out_hole = outputHole;
     this.out_mirror = outputMirror;
     this.hole_radius = holeRadiusMm;
@@ -330,8 +332,10 @@ export class HerriottCell {
     let targetMirror = 2;
     let exitStatus = "Trapped (Max Passes)";
     let bounce = 0;
+    let lastBounce = 0;
 
     for (bounce = 0; bounce < maxPasses; bounce += 1) {
+      lastBounce = bounce;
       const { P_int: intersection, normal } = this.intersectMirror(point, direction, targetMirror);
 
       const tCenter = (this.L / 2 - point[2]) / direction[2];
@@ -378,14 +382,19 @@ export class HerriottCell {
         }
 
         if (!escaped && bounce > 0) {
-          const inputDistance = Math.sqrt(
-            (intersection[0] - this.in_hole[0]) ** 2 + (intersection[1] - this.in_hole[1]) ** 2,
-          );
+          for (let inputHoleIndex = 0; inputHoleIndex < this.input_holes.length; inputHoleIndex += 1) {
+            const inputHole = this.input_holes[inputHoleIndex];
+            const inputDistance = Math.sqrt(
+              (intersection[0] - inputHole[0]) ** 2 + (intersection[1] - inputHole[1]) ** 2,
+            );
 
-          if (inputDistance <= this.hole_radius) {
-            exitStatus = `Escaped pass ${bounce + 1} (In Hole)`;
-            hitRecord.v_out = null;
-            escaped = true;
+            if (inputDistance <= this.hole_radius) {
+              const holeLabel = this.input_holes.length === 1 ? "In Hole" : `In Hole ${inputHoleIndex + 1}`;
+              exitStatus = `Escaped pass ${bounce + 1} (${holeLabel})`;
+              hitRecord.v_out = null;
+              escaped = true;
+              break;
+            }
           }
         }
       } else {
@@ -422,7 +431,7 @@ export class HerriottCell {
       mirror_hits: mirrorHits,
       center_hits: centerHits,
       exit_status: exitStatus,
-      total_bounces: bounce,
+      total_bounces: lastBounce,
     };
   }
 }
@@ -464,6 +473,65 @@ export function resolveModeConfig(config) {
   };
 }
 
+function resolveAutoInjection(mirrorDistanceMm, mirror2RadiusMm, g2, thetaRt, spotPatternRadiusMm) {
+  const inputXMm = spotPatternRadiusMm;
+  const inputYMm = 0;
+  const mArrive00 = 1 - (2 * mirrorDistanceMm) / mirror2RadiusMm;
+  const mArrive01 = 2 * mirrorDistanceMm * g2;
+
+  return {
+    input_x_mm: inputXMm,
+    input_y_mm: inputYMm,
+    input_theta_x_mrad:
+      ((spotPatternRadiusMm * (Math.cos(thetaRt) - mArrive00)) / mArrive01) * 1000,
+    input_theta_y_mrad: ((spotPatternRadiusMm * Math.sin(thetaRt)) / mArrive01) * 1000,
+  };
+}
+
+function traceBeam(
+  cell,
+  inputXMm,
+  inputYMm,
+  inputThetaXMrad,
+  inputThetaYMrad,
+  polarizationAngleDeg,
+  maxTracePasses,
+) {
+  const discriminant =
+    cell.R1 * cell.R1 - (inputXMm - cell.C1[0]) ** 2 - (inputYMm - cell.C1[1]) ** 2;
+  const initialZ =
+    discriminant >= 0 ? cell.C1[2] - Math.sign(cell.R1) * Math.sqrt(discriminant) : 0;
+  const initialPoint = [inputXMm, inputYMm, initialZ];
+
+  const initialDirection = vNormalize([inputThetaXMrad * 1e-3, inputThetaYMrad * 1e-3, 1]);
+  const referenceX = [1, 0, 0];
+  const referenceU1 = vNormalize(vSub(referenceX, vScale(initialDirection, vDot(referenceX, initialDirection))));
+  const referenceU2 = vNormalize(vCross(initialDirection, referenceU1));
+  const polarizationAngleRad = (polarizationAngleDeg * Math.PI) / 180;
+  const basisU1 = vAdd(
+    vScale(referenceU1, Math.cos(polarizationAngleRad)),
+    vScale(referenceU2, Math.sin(polarizationAngleRad)),
+  );
+  const basisU2 = vAdd(
+    vScale(referenceU1, -Math.sin(polarizationAngleRad)),
+    vScale(referenceU2, Math.cos(polarizationAngleRad)),
+  );
+
+  const rayTrace = cell.traceRays(initialPoint, initialDirection, basisU1, basisU2, maxTracePasses);
+  return {
+    ...rayTrace,
+    input_basis: {
+      u1: basisU1,
+      u2: basisU2,
+    },
+    input_point: initialPoint,
+    cell_centers: {
+      mirror1: cell.C1,
+      mirror2: cell.C2,
+    },
+  };
+}
+
 export function simulateConfiguration(config) {
   const mirrorDistanceMm = config.mirror_distance_mm;
   const totalPasses = config.total_passes;
@@ -474,6 +542,12 @@ export function simulateConfiguration(config) {
   const peakPowerGw = config.peak_power_gw;
   const pulseEnergyMj = config.pulse_energy_mj;
   const thetaRt = (2 * Math.PI * revolutions) / totalPasses;
+  const secondBeamEnabled = Boolean(config.second_beam_enabled);
+  const secondInputXMm = config.second_input_x_mm ?? -15.0;
+  const secondInputYMm = config.second_input_y_mm ?? 0.0;
+  const secondInputThetaXMrad = config.second_input_theta_x_mrad ?? 7.5;
+  const secondInputThetaYMrad = config.second_input_theta_y_mrad ?? -11.9;
+  const secondPolarizationAngleDeg = config.second_polarization_angle_deg ?? 0.0;
 
   let mirror1RadiusMm;
   let mirror2RadiusMm;
@@ -524,6 +598,14 @@ export function simulateConfiguration(config) {
       input_theta_y_mrad: finiteOrNull(config.input_theta_y_mrad),
       input_hole_x_mm: finiteOrNull(config.input_x_mm),
       input_hole_y_mm: finiteOrNull(config.input_y_mm),
+      second_beam_enabled: secondBeamEnabled,
+      second_input_x_mm: secondBeamEnabled ? finiteOrNull(secondInputXMm) : null,
+      second_input_y_mm: secondBeamEnabled ? finiteOrNull(secondInputYMm) : null,
+      second_input_theta_x_mrad: secondBeamEnabled ? finiteOrNull(secondInputThetaXMrad) : null,
+      second_input_theta_y_mrad: secondBeamEnabled ? finiteOrNull(secondInputThetaYMrad) : null,
+      second_input_hole_x_mm: secondBeamEnabled ? finiteOrNull(secondInputXMm) : null,
+      second_input_hole_y_mm: secondBeamEnabled ? finiteOrNull(secondInputYMm) : null,
+      second_polarization_angle_deg: secondBeamEnabled ? secondPolarizationAngleDeg : null,
       output_hole_x_mm: finiteOrNull(config.output_hole_x_mm),
       output_hole_y_mm: finiteOrNull(config.output_hole_y_mm),
       output_mirror: config.output_mirror,
@@ -541,6 +623,7 @@ export function simulateConfiguration(config) {
     mode,
     cavity: null,
     ray_trace: null,
+    secondary_ray_trace: null,
     beam_propagation: null,
   };
 
@@ -589,15 +672,17 @@ export function simulateConfiguration(config) {
   let inputThetaYMrad;
 
   if (config.auto_injection) {
-    inputXMm = spotPatternRadiusMm;
-    inputYMm = 0;
-
-    const mArrive00 = 1 - (2 * mirrorDistanceMm) / mirror2RadiusMm;
-    const mArrive01 = 2 * mirrorDistanceMm * g2;
-
-    inputThetaXMrad =
-      ((spotPatternRadiusMm * (Math.cos(thetaRt) - mArrive00)) / mArrive01) * 1000;
-    inputThetaYMrad = ((spotPatternRadiusMm * Math.sin(thetaRt)) / mArrive01) * 1000;
+    const autoInjection = resolveAutoInjection(
+      mirrorDistanceMm,
+      mirror2RadiusMm,
+      g2,
+      thetaRt,
+      spotPatternRadiusMm,
+    );
+    inputXMm = autoInjection.input_x_mm;
+    inputYMm = autoInjection.input_y_mm;
+    inputThetaXMrad = autoInjection.input_theta_x_mrad;
+    inputThetaYMrad = autoInjection.input_theta_y_mrad;
   } else {
     inputXMm = config.input_x_mm;
     inputYMm = config.input_y_mm;
@@ -648,12 +733,24 @@ export function simulateConfiguration(config) {
     input_theta_y_mrad: inputThetaYMrad,
     input_hole_x_mm: inputXMm,
     input_hole_y_mm: inputYMm,
+    second_beam_enabled: secondBeamEnabled,
+    second_input_x_mm: secondBeamEnabled ? secondInputXMm : null,
+    second_input_y_mm: secondBeamEnabled ? secondInputYMm : null,
+    second_input_theta_x_mrad: secondBeamEnabled ? secondInputThetaXMrad : null,
+    second_input_theta_y_mrad: secondBeamEnabled ? secondInputThetaYMrad : null,
+    second_input_hole_x_mm: secondBeamEnabled ? secondInputXMm : null,
+    second_input_hole_y_mm: secondBeamEnabled ? secondInputYMm : null,
+    second_polarization_angle_deg: secondBeamEnabled ? secondPolarizationAngleDeg : null,
     output_hole_x_mm: outputHoleXMm,
     output_hole_y_mm: outputHoleYMm,
     output_mirror: outputMirror,
   };
 
   const inputHole = [inputXMm, inputYMm];
+  const inputHoles = [inputHole];
+  if (secondBeamEnabled) {
+    inputHoles.push([secondInputXMm, secondInputYMm]);
+  }
   const outputHole = [outputHoleXMm, outputHoleYMm];
   const mirror1Tilt = [config.mirror1_tilt_x_mrad * 1e-3, config.mirror1_tilt_y_mrad * 1e-3];
   const mirror2Tilt = [config.mirror2_tilt_x_mrad * 1e-3, config.mirror2_tilt_y_mrad * 1e-3];
@@ -668,33 +765,34 @@ export function simulateConfiguration(config) {
     holeRadiusMm,
     mirror1Tilt,
     mirror2Tilt,
-  );
-
-  const pointX = inputXMm;
-  const pointY = inputYMm;
-  const discriminant =
-    cell.R1 * cell.R1 - (pointX - cell.C1[0]) ** 2 - (pointY - cell.C1[1]) ** 2;
-  const initialZ =
-    discriminant >= 0 ? cell.C1[2] - Math.sign(cell.R1) * Math.sqrt(discriminant) : 0;
-  const initialPoint = [pointX, pointY, initialZ];
-
-  const initialDirection = vNormalize([inputThetaXMrad * 1e-3, inputThetaYMrad * 1e-3, 1]);
-  const referenceX = [1, 0, 0];
-  const referenceU1 = vNormalize(vSub(referenceX, vScale(initialDirection, vDot(referenceX, initialDirection))));
-  const referenceU2 = vNormalize(vCross(initialDirection, referenceU1));
-  const polarizationAngleRad = (config.polarization_angle_deg * Math.PI) / 180;
-  const basisU1 = vAdd(
-    vScale(referenceU1, Math.cos(polarizationAngleRad)),
-    vScale(referenceU2, Math.sin(polarizationAngleRad)),
-  );
-  const basisU2 = vAdd(
-    vScale(referenceU1, -Math.sin(polarizationAngleRad)),
-    vScale(referenceU2, Math.cos(polarizationAngleRad)),
+    inputHoles,
   );
 
   const maxTracePasses = Math.max(150, 4 * totalPasses);
-  const rayTrace = cell.traceRays(initialPoint, initialDirection, basisU1, basisU2, maxTracePasses);
-  const abcdPasses = Math.max(totalPasses, rayTrace.total_bounces + 1);
+  const rayTrace = traceBeam(
+    cell,
+    inputXMm,
+    inputYMm,
+    inputThetaXMrad,
+    inputThetaYMrad,
+    config.polarization_angle_deg,
+    maxTracePasses,
+  );
+  const secondaryRayTrace = secondBeamEnabled
+    ? traceBeam(
+        cell,
+        secondInputXMm,
+        secondInputYMm,
+        secondInputThetaXMrad,
+        secondInputThetaYMrad,
+        secondPolarizationAngleDeg,
+        maxTracePasses,
+      )
+    : null;
+  const maxBounces = secondaryRayTrace
+    ? Math.max(rayTrace.total_bounces, secondaryRayTrace.total_bounces)
+    : rayTrace.total_bounces;
+  const abcdPasses = Math.max(totalPasses, maxBounces + 1);
   const abcdX = computeABCDAxis(
     mirrorDistanceMm,
     mirror1RadiusMm,
@@ -717,18 +815,8 @@ export function simulateConfiguration(config) {
   );
 
   response.status_message = rayTrace.exit_status;
-  response.ray_trace = {
-    ...rayTrace,
-    input_basis: {
-      u1: basisU1,
-      u2: basisU2,
-    },
-    input_point: initialPoint,
-    cell_centers: {
-      mirror1: cell.C1,
-      mirror2: cell.C2,
-    },
-  };
+  response.ray_trace = rayTrace;
+  response.secondary_ray_trace = secondaryRayTrace;
   response.beam_propagation = {
     x: abcdX,
     y: abcdY,

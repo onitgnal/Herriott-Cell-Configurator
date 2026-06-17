@@ -23,11 +23,13 @@ class HerriottCell:
         hole_radius_mm: float,
         mirror1_tilt: tuple[float, float],
         mirror2_tilt: tuple[float, float],
+        input_holes: list[tuple[float, float]] | None = None,
     ) -> None:
         self.L = mirror_distance_mm
         self.R1 = mirror1_radius_mm
         self.R2 = mirror2_radius_mm
         self.in_hole = input_hole
+        self.input_holes = input_holes if input_holes is not None else [input_hole]
         self.out_hole = output_hole
         self.out_mirror = output_mirror
         self.hole_radius = hole_radius_mm
@@ -150,13 +152,16 @@ class HerriottCell:
                         escaped = True
 
                 if not escaped and bounce > 0:
-                    input_distance = sqrt(
-                        (intersection[0] - self.in_hole[0]) ** 2 + (intersection[1] - self.in_hole[1]) ** 2,
-                    )
-                    if input_distance <= self.hole_radius:
-                        exit_status = f"Escaped pass {bounce + 1} (In Hole)"
-                        hit_record["v_out"] = None
-                        escaped = True
+                    for input_hole_index, input_hole in enumerate(self.input_holes, start=1):
+                        input_distance = sqrt(
+                            (intersection[0] - input_hole[0]) ** 2 + (intersection[1] - input_hole[1]) ** 2,
+                        )
+                        if input_distance <= self.hole_radius:
+                            hole_label = "In Hole" if len(self.input_holes) == 1 else f"In Hole {input_hole_index}"
+                            exit_status = f"Escaped pass {bounce + 1} ({hole_label})"
+                            hit_record["v_out"] = None
+                            escaped = True
+                            break
             else:
                 mirror2_hits.append(hit_record)
                 if self.out_mirror == 2:

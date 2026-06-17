@@ -495,7 +495,7 @@ function bindUiEvents() {
     handleFastInputChange();
   });
 
-  ["auto-R", "auto-R-vex", "auto-out-hole", "auto-mode-match", "auto-injection"].forEach((id) => {
+  ["auto-R", "auto-R-vex", "auto-out-hole", "auto-mode-match", "auto-injection", "second-beam-enabled"].forEach((id) => {
     document.getElementById(id).addEventListener("change", () => {
       updateToggleGroups();
       handleFastInputChange();

@@ -217,43 +217,102 @@ function renderWaistPlot(beamPropagation, totalPasses, mirrorDistanceMm, modeTit
 
 function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
   const { ray_trace: rayTrace, beam_propagation: beamPropagation, resolved_inputs: inputs, mode } = result;
+  const secondaryRayTrace = result.secondary_ray_trace ?? null;
   const points = rayTrace.points;
   const hits = rayTrace.mirror_hits;
   const centerHits = rayTrace.center_hits;
   const inputBasis = rayTrace.input_basis;
   const inputPoint = rayTrace.input_point;
 
-  const x3 = points.map((point) => point[2]);
-  const y3 = points.map((point) => point[0]);
-  const z3 = points.map((point) => point[1]);
+  const get3dCoordinates = (tracePoints) => ({
+    x: tracePoints.map((point) => point[2]),
+    y: tracePoints.map((point) => point[0]),
+    z: tracePoints.map((point) => point[1]),
+  });
+  const primary3d = get3dCoordinates(points);
   const colors = points.map((_, index) => index);
+  const showBeamLegend = Boolean(secondaryRayTrace);
 
   const trace3d = {
     type: "scatter3d",
     mode: "lines",
-    x: x3,
-    y: y3,
-    z: z3,
+    x: primary3d.x,
+    y: primary3d.y,
+    z: primary3d.z,
     line: { color: colors, colorscale: "Viridis", width: 3 },
+    name: "Beam 1",
+    showlegend: showBeamLegend,
   };
   const trace3dStart = {
     type: "scatter3d",
     mode: "markers",
-    x: [x3[0]],
-    y: [y3[0]],
-    z: [z3[0]],
+    x: [primary3d.x[0]],
+    y: [primary3d.y[0]],
+    z: [primary3d.z[0]],
     marker: { color: "green", size: 6 },
+    name: "Beam 1 start",
+    showlegend: false,
   };
   const trace3dEnd = {
     type: "scatter3d",
     mode: "markers",
-    x: [x3[x3.length - 1]],
-    y: [y3[y3.length - 1]],
-    z: [z3[z3.length - 1]],
+    x: [primary3d.x[primary3d.x.length - 1]],
+    y: [primary3d.y[primary3d.y.length - 1]],
+    z: [primary3d.z[primary3d.z.length - 1]],
     marker: { color: "red", size: 6 },
+    name: "Beam 1 end",
+    showlegend: false,
   };
 
-  const limit = inputs.spot_pattern_radius_mm * 1.5;
+  const plot3dTraces = [trace3d, trace3dStart, trace3dEnd];
+  if (secondaryRayTrace) {
+    const secondary3d = get3dCoordinates(secondaryRayTrace.points);
+    plot3dTraces.push(
+      {
+        type: "scatter3d",
+        mode: "lines",
+        x: secondary3d.x,
+        y: secondary3d.y,
+        z: secondary3d.z,
+        line: { color: "#f97316", width: 4 },
+        name: "Beam 2",
+        showlegend: true,
+      },
+      {
+        type: "scatter3d",
+        mode: "markers",
+        x: [secondary3d.x[0]],
+        y: [secondary3d.y[0]],
+        z: [secondary3d.z[0]],
+        marker: { color: "#f97316", size: 6, symbol: "diamond" },
+        name: "Beam 2 start",
+        showlegend: false,
+      },
+      {
+        type: "scatter3d",
+        mode: "markers",
+        x: [secondary3d.x[secondary3d.x.length - 1]],
+        y: [secondary3d.y[secondary3d.y.length - 1]],
+        z: [secondary3d.z[secondary3d.z.length - 1]],
+        marker: { color: "#9a3412", size: 6, symbol: "diamond" },
+        name: "Beam 2 end",
+        showlegend: false,
+      },
+    );
+  }
+
+  const allRayPoints = secondaryRayTrace ? points.concat(secondaryRayTrace.points) : points;
+  const limit = Math.max(
+    inputs.spot_pattern_radius_mm * 1.5,
+    ...allRayPoints.map((point) => Math.abs(point[0])),
+    ...allRayPoints.map((point) => Math.abs(point[1])),
+    Math.abs(inputs.input_hole_x_mm ?? 0),
+    Math.abs(inputs.input_hole_y_mm ?? 0),
+    Math.abs(inputs.output_hole_x_mm ?? 0),
+    Math.abs(inputs.output_hole_y_mm ?? 0),
+    Math.abs(inputs.second_input_hole_x_mm ?? 0),
+    Math.abs(inputs.second_input_hole_y_mm ?? 0),
+  ) + 2;
   const plot3dDiv = document.getElementById("plot3d");
   const currentCamera = plot3dDiv?._fullLayout?.scene?.camera
     ? JSON.parse(JSON.stringify(plot3dDiv._fullLayout.scene.camera))
@@ -261,11 +320,12 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
 
   Plotly.react(
     "plot3d",
-    [trace3d, trace3dStart, trace3dEnd],
+    plot3dTraces,
     {
       title: { text: "3D Cavity Ray Path", font: { size: 13, color: "#334155" } },
       margin: { l: 0, r: 0, b: 0, t: 30 },
-      showlegend: false,
+      showlegend: showBeamLegend,
+      legend: { x: 0.02, y: 0.98 },
       uirevision: "true",
       scene: {
         xaxis: { title: "Z Axis [mm]", range: [-10, inputs.mirror_distance_mm + 10] },
@@ -357,6 +417,13 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     const colorscale = [];
     const polX = [];
     const polY = [];
+    const secondaryPx = [];
+    const secondaryPy = [];
+    const secondaryText = [];
+    const secondaryPositions = [];
+    const secondaryHover = [];
+    const secondaryPolX = [];
+    const secondaryPolY = [];
 
     const wxArray = isCenter ? beamPropagation.x.w_center_w : beamPropagation.x.w_mirrors_w;
     const wyArray = isCenter ? beamPropagation.y.w_center_w : beamPropagation.y.w_mirrors_w;
@@ -364,8 +431,10 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     let maxIntensity = Number.NEGATIVE_INFINITY;
     let minFluence = Number.POSITIVE_INFINITY;
     let maxFluence = Number.NEGATIVE_INFINITY;
+    let plottedCount = 0;
 
     const inputHole = [inputs.input_hole_x_mm, inputs.input_hole_y_mm];
+    const secondInputHole = [inputs.second_input_hole_x_mm, inputs.second_input_hole_y_mm];
     const outputHole = [inputs.output_hole_x_mm, inputs.output_hole_y_mm];
 
     if (mirrorNumber === 1) {
@@ -377,6 +446,17 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         y1: inputHole[1] + inputs.hole_radius_mm,
         line: { color: "#16a34a", width: 2, dash: "dot" },
       });
+
+      if (secondaryRayTrace && secondInputHole[0] != null && secondInputHole[1] != null) {
+        layout.shapes.push({
+          type: "circle",
+          x0: secondInputHole[0] - inputs.hole_radius_mm,
+          y0: secondInputHole[1] - inputs.hole_radius_mm,
+          x1: secondInputHole[0] + inputs.hole_radius_mm,
+          y1: secondInputHole[1] + inputs.hole_radius_mm,
+          line: { color: "#f97316", width: 2, dash: "dot" },
+        });
+      }
 
       if (inputs.output_mirror === 1) {
         layout.shapes.push({
@@ -402,6 +482,19 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     const activeFrames = Array.isArray(waveFrames) ? waveFrames : [];
     const usingWaveFrames = activeFrames.length > 0;
     const plotCount = usingWaveFrames ? activeFrames.length : hitsData.length;
+    const secondaryHitsData = secondaryRayTrace
+      ? mirrorNumber === 0
+        ? secondaryRayTrace.center_hits
+        : secondaryRayTrace.mirror_hits[String(mirrorNumber)] || []
+      : [];
+
+    const recordBeamStats = (intensity, fluence) => {
+      minIntensity = Math.min(minIntensity, intensity);
+      maxIntensity = Math.max(maxIntensity, intensity);
+      minFluence = Math.min(minFluence, fluence);
+      maxFluence = Math.max(maxFluence, fluence);
+      plottedCount += 1;
+    };
 
     for (let index = 0; index < plotCount; index += 1) {
       const hit = hitsData[index] ?? null;
@@ -441,10 +534,7 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         fluence = (100 * (inputs.pulse_energy_mj * mode.peak_factor)) / areaFactor;
       }
 
-      minIntensity = Math.min(minIntensity, intensity);
-      maxIntensity = Math.max(maxIntensity, intensity);
-      minFluence = Math.min(minFluence, fluence);
-      maxFluence = Math.max(maxFluence, fluence);
+      recordBeamStats(intensity, fluence);
 
       if (
         !isCenter &&
@@ -521,7 +611,81 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
       }
     }
 
-    if (plotCount === 0) {
+    for (let index = 0; index < secondaryHitsData.length; index += 1) {
+      const hit = secondaryHitsData[index];
+      const waistIndex = getWIndex(index);
+      const waistX = wxArray[waistIndex] ?? wxArray[wxArray.length - 1];
+      const waistY = wyArray[waistIndex] ?? wyArray[wyArray.length - 1];
+      const pointX = hit.P[0];
+      const pointY = hit.P[1];
+      let label = isCenter ? `B2-${index + 1}` : `B2-${waistIndex}`;
+      const areaFactor = waistX * waistY;
+      const intensity = (100 * (inputs.peak_power_gw * mode.peak_factor)) / areaFactor;
+      const fluence = (100 * (inputs.pulse_energy_mj * mode.peak_factor)) / areaFactor;
+
+      recordBeamStats(intensity, fluence);
+
+      if (
+        !isCenter &&
+        mirrorNumber === inputs.output_mirror &&
+        index === secondaryHitsData.length - 1 &&
+        secondaryRayTrace.exit_status.includes("Out Hole")
+      ) {
+        label = "<b>B2 Out</b>";
+      }
+
+      secondaryPx.push(pointX);
+      secondaryPy.push(pointY);
+      secondaryText.push(label);
+      secondaryPositions.push(getRadialTextPosition(pointX, pointY));
+
+      let hoverAngle = (Math.atan2(hit.u1[1], hit.u1[0]) * 180) / Math.PI;
+      while (hoverAngle <= -90) {
+        hoverAngle += 180;
+      }
+      while (hoverAngle > 90) {
+        hoverAngle -= 180;
+      }
+
+      const rayAngleHtml = !isCenter && mirrorNumber !== 0 ? getMirrorRayInfoHtml(hit) : "";
+      secondaryHover.push(
+        `Beam 2 Hit: ${label}<br>X: ${pointX.toFixed(2)}<br>Y: ${pointY.toFixed(2)}<br>wx: ${waistX.toFixed(3)}<br>wy: ${waistY.toFixed(3)}<br>Pol: ${hoverAngle.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${intensity.toFixed(2)} GW/cm²<br>Fluence: ${fluence.toFixed(2)} mJ/cm²`,
+      );
+
+      if (showBeamProfiles) {
+        const image = generateSpotDataUrl(waistX, waistY, hit.u1, hit.u2, mode, 60);
+        layout.images.push({
+          source: image.url,
+          xref: "x",
+          yref: "y",
+          x: pointX,
+          y: pointY,
+          sizex: image.box_size,
+          sizey: image.box_size,
+          xanchor: "center",
+          yanchor: "middle",
+          layer: "below",
+          opacity: 0.72,
+        });
+
+        const vectorLength = Math.max(waistX, waistY) * 1.5;
+        secondaryPolX.push(pointX - vectorLength * hit.u1[0], pointX + vectorLength * hit.u1[0], null);
+        secondaryPolY.push(pointY - vectorLength * hit.u1[1], pointY + vectorLength * hit.u1[1], null);
+      } else {
+        const maxWaist = Math.max(waistX, waistY);
+        layout.shapes.push({
+          type: "circle",
+          x0: pointX - maxWaist,
+          y0: pointY - maxWaist,
+          x1: pointX + maxWaist,
+          y1: pointY + maxWaist,
+          line: { color: "rgba(249, 115, 22, 0.75)", width: 1.5 },
+          fillcolor: "rgba(249, 115, 22, 0.12)",
+        });
+      }
+    }
+
+    if (plottedCount === 0) {
       minIntensity = 0;
       maxIntensity = 0;
       minFluence = 0;
@@ -531,8 +695,10 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     const statsHtml = `<br><span style="font-size:11px; color:#64748b; font-weight:normal;">Fluence: ${minFluence.toFixed(2)} - ${maxFluence.toFixed(2)} mJ/cm² | Intensity: ${minIntensity.toFixed(2)} - ${maxIntensity.toFixed(2)} GW/cm²</span>`;
     layout.title = { text: title + statsHtml, font: { size: 13, color: "#334155" }, y: 0.95 };
 
-    if (plotCount > 0 && (isCenter || usingWaveFrames)) {
-      const maxExtent = Math.max(...px.map(Math.abs), ...py.map(Math.abs)) * 1.2 + 2;
+    const allPlotX = px.concat(secondaryPx);
+    const allPlotY = py.concat(secondaryPy);
+    if (allPlotX.length > 0 && (isCenter || usingWaveFrames)) {
+      const maxExtent = Math.max(...allPlotX.map(Math.abs), ...allPlotY.map(Math.abs)) * 1.2 + 2;
       layout.xaxis.range = [-maxExtent, maxExtent];
       layout.yaxis.range = [-maxExtent, maxExtent];
     }
@@ -551,6 +717,22 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         marker: { color: colorscale, colorscale: "Viridis", size: 8, line: { color: "white", width: 1 } },
       },
     ];
+
+    if (secondaryPx.length > 0) {
+      traces.push({
+        x: secondaryPx,
+        y: secondaryPy,
+        mode: "markers+text",
+        type: "scatter",
+        text: secondaryText,
+        textposition: secondaryPositions,
+        hovertext: secondaryHover,
+        hoverinfo: "text",
+        textfont: { size: 10, color: "#9a3412" },
+        marker: { color: "#f97316", size: 8, symbol: "diamond", line: { color: "white", width: 1 } },
+        name: "Beam 2",
+      });
+    }
 
     if (mirrorNumber === 1) {
       const startFrame = launchFrame;
@@ -601,6 +783,71 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         polX.push(startPoint[0] - vectorLength * startBasis[0], startPoint[0] + vectorLength * startBasis[0], null);
         polY.push(startPoint[1] - vectorLength * startBasis[1], startPoint[1] + vectorLength * startBasis[1], null);
       }
+
+      if (secondaryRayTrace) {
+        const secondaryStartPoint = secondaryRayTrace.input_point;
+        const secondaryStartBasis = secondaryRayTrace.input_basis.u1;
+        const secondaryStartWaistX = wxArray[0];
+        const secondaryStartWaistY = wyArray[0];
+
+        let secondaryHoverAngle = (Math.atan2(secondaryStartBasis[1], secondaryStartBasis[0]) * 180) / Math.PI;
+        while (secondaryHoverAngle <= -90) {
+          secondaryHoverAngle += 180;
+        }
+        while (secondaryHoverAngle > 90) {
+          secondaryHoverAngle -= 180;
+        }
+
+        traces.push({
+          x: [secondaryStartPoint[0]],
+          y: [secondaryStartPoint[1]],
+          mode: "markers+text",
+          type: "scatter",
+          text: ["<b>B2 In</b>"],
+          textposition: getRadialTextPosition(secondaryStartPoint[0], secondaryStartPoint[1]),
+          hovertext: [`Beam 2 Start (0)<br>X: ${secondaryStartPoint[0].toFixed(2)}<br>Y: ${secondaryStartPoint[1].toFixed(2)}<br>Pol: ${secondaryHoverAngle.toFixed(1)}°`],
+          hoverinfo: "text",
+          textfont: { size: 11, color: "#f97316" },
+          marker: { color: "#f97316", size: 8, symbol: "diamond" },
+          name: "Beam 2 input",
+        });
+
+        if (showBeamProfiles) {
+          const secondaryImage = generateSpotDataUrl(
+            secondaryStartWaistX,
+            secondaryStartWaistY,
+            secondaryRayTrace.input_basis.u1,
+            secondaryRayTrace.input_basis.u2,
+            mode,
+            60,
+          );
+          layout.images.push({
+            source: secondaryImage.url,
+            xref: "x",
+            yref: "y",
+            x: secondaryStartPoint[0],
+            y: secondaryStartPoint[1],
+            sizex: secondaryImage.box_size,
+            sizey: secondaryImage.box_size,
+            xanchor: "center",
+            yanchor: "middle",
+            layer: "below",
+            opacity: 0.72,
+          });
+
+          const vectorLength = Math.max(secondaryStartWaistX, secondaryStartWaistY) * 1.5;
+          secondaryPolX.push(
+            secondaryStartPoint[0] - vectorLength * secondaryStartBasis[0],
+            secondaryStartPoint[0] + vectorLength * secondaryStartBasis[0],
+            null,
+          );
+          secondaryPolY.push(
+            secondaryStartPoint[1] - vectorLength * secondaryStartBasis[1],
+            secondaryStartPoint[1] + vectorLength * secondaryStartBasis[1],
+            null,
+          );
+        }
+      }
     }
 
     if (showBeamProfiles && polX.length > 0) {
@@ -611,6 +858,17 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         line: { color: "#1e293b", width: 2 },
         hoverinfo: "none",
         name: "Polarization",
+      });
+    }
+
+    if (showBeamProfiles && secondaryPolX.length > 0) {
+      traces.push({
+        x: secondaryPolX,
+        y: secondaryPolY,
+        mode: "lines",
+        line: { color: "#9a3412", width: 2 },
+        hoverinfo: "none",
+        name: "Beam 2 Polarization",
       });
     }
 

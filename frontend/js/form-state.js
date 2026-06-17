@@ -25,6 +25,11 @@ const NUMERIC_FIELDS = [
   { key: "input_y_mm", domId: "y", type: "float", legacyKey: "y" },
   { key: "input_theta_x_mrad", domId: "thx", type: "float", legacyKey: "thx" },
   { key: "input_theta_y_mrad", domId: "thy", type: "float", legacyKey: "thy" },
+  { key: "second_input_x_mm", domId: "second-x", type: "float", legacyKey: "second_x" },
+  { key: "second_input_y_mm", domId: "second-y", type: "float", legacyKey: "second_y" },
+  { key: "second_input_theta_x_mrad", domId: "second-thx", type: "float", legacyKey: "second_thx" },
+  { key: "second_input_theta_y_mrad", domId: "second-thy", type: "float", legacyKey: "second_thy" },
+  { key: "second_polarization_angle_deg", domId: "second-polang", type: "float", legacyKey: "second_polang" },
   { key: "mirror1_tilt_x_mrad", domId: "m1tx", type: "float", legacyKey: "m1tx" },
   { key: "mirror1_tilt_y_mrad", domId: "m1ty", type: "float", legacyKey: "m1ty" },
   { key: "mirror2_tilt_x_mrad", domId: "m2tx", type: "float", legacyKey: "m2tx" },
@@ -39,6 +44,7 @@ const LEGACY_TOGGLE_FIELDS = [
   { key: "output_mirror", elementId: "out-mirror", legacyKey: "outMirror", type: "select-int" },
   { key: "auto_mode_match", elementId: "auto-mode-match", legacyKey: "autoModeMatch", type: "checkbox" },
   { key: "auto_injection", elementId: "auto-injection", legacyKey: "autoInjection", type: "checkbox" },
+  { key: "second_beam_enabled", elementId: "second-beam-enabled", legacyKey: "secondBeamEnabled", type: "checkbox" },
   { key: "mode_type", elementId: "mode-type", legacyKey: "modeType", type: "select" },
   { key: "show_beam_profiles", elementId: "show-beam-profiles", legacyKey: "showBeamProfiles", type: "checkbox" },
 ];
@@ -58,6 +64,10 @@ const AUTO_GROUPS = [
   { checkboxId: "auto-out-hole", groupId: "group-out-hole" },
   { checkboxId: "auto-mode-match", groupId: "group-beam" },
   { checkboxId: "auto-injection", groupId: "group-injection" },
+];
+
+const ENABLE_GROUPS = [
+  { checkboxId: "second-beam-enabled", groupId: "group-second-beam" },
 ];
 
 let standardConfig = {};
@@ -91,6 +101,14 @@ function setControlDisabledGroup(checkboxId, groupId) {
   const checkbox = document.getElementById(checkboxId);
   const group = document.getElementById(groupId);
   const disabled = checkbox.checked;
+  group.classList.toggle("opacity-50", disabled);
+  group.classList.toggle("pointer-events-none", disabled);
+}
+
+function setControlEnabledGroup(checkboxId, groupId) {
+  const checkbox = document.getElementById(checkboxId);
+  const group = document.getElementById(groupId);
+  const disabled = !checkbox.checked;
   group.classList.toggle("opacity-50", disabled);
   group.classList.toggle("pointer-events-none", disabled);
 }
@@ -188,6 +206,7 @@ export function updateCellTypeUI() {
 
 export function updateToggleGroups() {
   AUTO_GROUPS.forEach(({ checkboxId, groupId }) => setControlDisabledGroup(checkboxId, groupId));
+  ENABLE_GROUPS.forEach(({ checkboxId, groupId }) => setControlEnabledGroup(checkboxId, groupId));
 }
 
 export function captureConfig() {

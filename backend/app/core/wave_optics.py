@@ -1316,14 +1316,21 @@ def compute_wave_optics_result(
 
         hole_masks: list[tuple[float, float, float]] = []
         if state.end_mirror == 1:
-            input_hole_local = _hole_local_coordinates(
-                (resolved_inputs["input_hole_x_mm"], resolved_inputs["input_hole_y_mm"]),
-                end_hit,
-                mirror_centers[1],
-                mirror_radii[1],
-            )
-            if input_hole_local is not None:
-                hole_masks.append((input_hole_local[0], input_hole_local[1], resolved_inputs["hole_radius_mm"]))
+            input_holes = [(resolved_inputs["input_hole_x_mm"], resolved_inputs["input_hole_y_mm"])]
+            if resolved_inputs.get("second_beam_enabled"):
+                input_holes.append((resolved_inputs["second_input_hole_x_mm"], resolved_inputs["second_input_hole_y_mm"]))
+
+            for input_hole in input_holes:
+                if input_hole[0] is None or input_hole[1] is None:
+                    continue
+                input_hole_local = _hole_local_coordinates(
+                    input_hole,
+                    end_hit,
+                    mirror_centers[1],
+                    mirror_radii[1],
+                )
+                if input_hole_local is not None:
+                    hole_masks.append((input_hole_local[0], input_hole_local[1], resolved_inputs["hole_radius_mm"]))
         if resolved_inputs["output_mirror"] == state.end_mirror:
             output_hole_local = _hole_local_coordinates(
                 (resolved_inputs["output_hole_x_mm"], resolved_inputs["output_hole_y_mm"]),

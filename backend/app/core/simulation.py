@@ -12,6 +12,52 @@ def finite_or_none(value: float) -> float | None:
     return value if isfinite(value) else None
 
 
+def resolve_auto_injection(
+    mirror_distance_mm: float,
+    mirror2_radius_mm: float,
+    g2: float,
+    theta_rt: float,
+    spot_pattern_radius_mm: float,
+) -> tuple[float, float, float, float]:
+    input_x_mm = spot_pattern_radius_mm
+    input_y_mm = 0.0
+    m_arrive_00 = 1 - (2 * mirror_distance_mm) / mirror2_radius_mm
+    m_arrive_01 = 2 * mirror_distance_mm * g2
+    input_theta_x_mrad = ((spot_pattern_radius_mm * (cos(theta_rt) - m_arrive_00)) / m_arrive_01) * 1000
+    input_theta_y_mrad = ((spot_pattern_radius_mm * sin(theta_rt)) / m_arrive_01) * 1000
+    return input_x_mm, input_y_mm, input_theta_x_mrad, input_theta_y_mrad
+
+
+def trace_beam(
+    cell: HerriottCell,
+    input_x_mm: float,
+    input_y_mm: float,
+    input_theta_x_mrad: float,
+    input_theta_y_mrad: float,
+    polarization_angle_deg: float,
+    max_trace_passes: int,
+) -> dict[str, object]:
+    discriminant = cell.R1 * cell.R1 - (input_x_mm - cell.C1[0]) ** 2 - (input_y_mm - cell.C1[1]) ** 2
+    initial_z = cell.C1[2] - (1.0 if cell.R1 >= 0 else -1.0) * sqrt(discriminant) if discriminant >= 0 else 0.0
+    initial_point = (input_x_mm, input_y_mm, initial_z)
+
+    initial_direction = v_normalize((input_theta_x_mrad * 1e-3, input_theta_y_mrad * 1e-3, 1.0))
+    reference_x = (1.0, 0.0, 0.0)
+    reference_u1 = v_normalize(v_sub(reference_x, v_scale(initial_direction, v_dot(reference_x, initial_direction))))
+    reference_u2 = v_normalize(v_cross(initial_direction, reference_u1))
+    polarization_angle_rad = (polarization_angle_deg * pi) / 180
+    basis_u1 = v_add(v_scale(reference_u1, cos(polarization_angle_rad)), v_scale(reference_u2, sin(polarization_angle_rad)))
+    basis_u2 = v_add(v_scale(reference_u1, -sin(polarization_angle_rad)), v_scale(reference_u2, cos(polarization_angle_rad)))
+
+    ray_trace = cell.trace_rays(initial_point, initial_direction, basis_u1, basis_u2, max_trace_passes)
+    return {
+        **ray_trace,
+        "input_basis": {"u1": basis_u1, "u2": basis_u2},
+        "input_point": initial_point,
+        "cell_centers": {"mirror1": cell.C1, "mirror2": cell.C2},
+    }
+
+
 def simulate_configuration(request: object) -> dict[str, object]:
     mirror_distance_mm = request.mirror_distance_mm
     total_passes = request.total_passes
@@ -75,6 +121,14 @@ def simulate_configuration(request: object) -> dict[str, object]:
             "input_theta_y_mrad": finite_or_none(request.input_theta_y_mrad),
             "input_hole_x_mm": finite_or_none(request.input_x_mm),
             "input_hole_y_mm": finite_or_none(request.input_y_mm),
+            "second_beam_enabled": request.second_beam_enabled,
+            "second_input_x_mm": finite_or_none(request.second_input_x_mm) if request.second_beam_enabled else None,
+            "second_input_y_mm": finite_or_none(request.second_input_y_mm) if request.second_beam_enabled else None,
+            "second_input_theta_x_mrad": finite_or_none(request.second_input_theta_x_mrad) if request.second_beam_enabled else None,
+            "second_input_theta_y_mrad": finite_or_none(request.second_input_theta_y_mrad) if request.second_beam_enabled else None,
+            "second_input_hole_x_mm": finite_or_none(request.second_input_x_mm) if request.second_beam_enabled else None,
+            "second_input_hole_y_mm": finite_or_none(request.second_input_y_mm) if request.second_beam_enabled else None,
+            "second_polarization_angle_deg": request.second_polarization_angle_deg if request.second_beam_enabled else None,
             "output_hole_x_mm": finite_or_none(request.output_hole_x_mm),
             "output_hole_y_mm": finite_or_none(request.output_hole_y_mm),
             "output_mirror": request.output_mirror,
@@ -92,6 +146,7 @@ def simulate_configuration(request: object) -> dict[str, object]:
         "mode": mode.as_dict(),
         "cavity": None,
         "ray_trace": None,
+        "secondary_ray_trace": None,
         "beam_propagation": None,
     }
 
@@ -124,17 +179,23 @@ def simulate_configuration(request: object) -> dict[str, object]:
         input_waist_z_mm = cavity_waist_position_mm
 
     if request.auto_injection:
-        input_x_mm = spot_pattern_radius_mm
-        input_y_mm = 0.0
-        m_arrive_00 = 1 - (2 * mirror_distance_mm) / mirror2_radius_mm
-        m_arrive_01 = 2 * mirror_distance_mm * g2
-        input_theta_x_mrad = ((spot_pattern_radius_mm * (cos(theta_rt) - m_arrive_00)) / m_arrive_01) * 1000
-        input_theta_y_mrad = ((spot_pattern_radius_mm * sin(theta_rt)) / m_arrive_01) * 1000
+        input_x_mm, input_y_mm, input_theta_x_mrad, input_theta_y_mrad = resolve_auto_injection(
+            mirror_distance_mm,
+            mirror2_radius_mm,
+            g2,
+            theta_rt,
+            spot_pattern_radius_mm,
+        )
     else:
         input_x_mm = request.input_x_mm
         input_y_mm = request.input_y_mm
         input_theta_x_mrad = request.input_theta_x_mrad
         input_theta_y_mrad = request.input_theta_y_mrad
+
+    second_input_x_mm = request.second_input_x_mm
+    second_input_y_mm = request.second_input_y_mm
+    second_input_theta_x_mrad = request.second_input_theta_x_mrad
+    second_input_theta_y_mrad = request.second_input_theta_y_mrad
 
     if request.auto_output_hole:
         output_hole_x_mm = input_x_mm
@@ -170,12 +231,23 @@ def simulate_configuration(request: object) -> dict[str, object]:
         "input_theta_y_mrad": input_theta_y_mrad,
         "input_hole_x_mm": input_x_mm,
         "input_hole_y_mm": input_y_mm,
+        "second_beam_enabled": request.second_beam_enabled,
+        "second_input_x_mm": second_input_x_mm if request.second_beam_enabled else None,
+        "second_input_y_mm": second_input_y_mm if request.second_beam_enabled else None,
+        "second_input_theta_x_mrad": second_input_theta_x_mrad if request.second_beam_enabled else None,
+        "second_input_theta_y_mrad": second_input_theta_y_mrad if request.second_beam_enabled else None,
+        "second_input_hole_x_mm": second_input_x_mm if request.second_beam_enabled else None,
+        "second_input_hole_y_mm": second_input_y_mm if request.second_beam_enabled else None,
+        "second_polarization_angle_deg": request.second_polarization_angle_deg if request.second_beam_enabled else None,
         "output_hole_x_mm": output_hole_x_mm,
         "output_hole_y_mm": output_hole_y_mm,
         "output_mirror": output_mirror,
     }
 
     input_hole = (input_x_mm, input_y_mm)
+    input_holes = [input_hole]
+    if request.second_beam_enabled:
+        input_holes.append((second_input_x_mm, second_input_y_mm))
     output_hole = (output_hole_x_mm, output_hole_y_mm)
     mirror1_tilt = (request.mirror1_tilt_x_mrad * 1e-3, request.mirror1_tilt_y_mrad * 1e-3)
     mirror2_tilt = (request.mirror2_tilt_x_mrad * 1e-3, request.mirror2_tilt_y_mrad * 1e-3)
@@ -190,25 +262,35 @@ def simulate_configuration(request: object) -> dict[str, object]:
         hole_radius_mm,
         mirror1_tilt,
         mirror2_tilt,
+        input_holes=input_holes,
     )
 
-    initial_x = input_x_mm
-    initial_y = input_y_mm
-    discriminant = cell.R1 * cell.R1 - (initial_x - cell.C1[0]) ** 2 - (initial_y - cell.C1[1]) ** 2
-    initial_z = cell.C1[2] - (1.0 if cell.R1 >= 0 else -1.0) * sqrt(discriminant) if discriminant >= 0 else 0.0
-    initial_point = (initial_x, initial_y, initial_z)
-
-    initial_direction = v_normalize((input_theta_x_mrad * 1e-3, input_theta_y_mrad * 1e-3, 1.0))
-    reference_x = (1.0, 0.0, 0.0)
-    reference_u1 = v_normalize(v_sub(reference_x, v_scale(initial_direction, v_dot(reference_x, initial_direction))))
-    reference_u2 = v_normalize(v_cross(initial_direction, reference_u1))
-    polarization_angle_rad = (request.polarization_angle_deg * pi) / 180
-    basis_u1 = v_add(v_scale(reference_u1, cos(polarization_angle_rad)), v_scale(reference_u2, sin(polarization_angle_rad)))
-    basis_u2 = v_add(v_scale(reference_u1, -sin(polarization_angle_rad)), v_scale(reference_u2, cos(polarization_angle_rad)))
-
     max_trace_passes = max(150, 4 * total_passes)
-    ray_trace = cell.trace_rays(initial_point, initial_direction, basis_u1, basis_u2, max_trace_passes)
-    abcd_passes = max(total_passes, ray_trace["total_bounces"] + 1)
+    ray_trace = trace_beam(
+        cell,
+        input_x_mm,
+        input_y_mm,
+        input_theta_x_mrad,
+        input_theta_y_mrad,
+        request.polarization_angle_deg,
+        max_trace_passes,
+    )
+    secondary_ray_trace = None
+    if request.second_beam_enabled:
+        secondary_ray_trace = trace_beam(
+            cell,
+            second_input_x_mm,
+            second_input_y_mm,
+            second_input_theta_x_mrad,
+            second_input_theta_y_mrad,
+            request.second_polarization_angle_deg,
+            max_trace_passes,
+        )
+
+    max_bounces = ray_trace["total_bounces"]
+    if secondary_ray_trace is not None:
+        max_bounces = max(max_bounces, secondary_ray_trace["total_bounces"])
+    abcd_passes = max(total_passes, max_bounces + 1)
     abcd_x = compute_abcd_axis(
         mirror_distance_mm,
         mirror1_radius_mm,
@@ -231,12 +313,8 @@ def simulate_configuration(request: object) -> dict[str, object]:
     )
 
     response["status_message"] = ray_trace["exit_status"]
-    response["ray_trace"] = {
-        **ray_trace,
-        "input_basis": {"u1": basis_u1, "u2": basis_u2},
-        "input_point": initial_point,
-        "cell_centers": {"mirror1": cell.C1, "mirror2": cell.C2},
-    }
+    response["ray_trace"] = ray_trace
+    response["secondary_ray_trace"] = secondary_ray_trace
     response["beam_propagation"] = {"x": abcd_x, "y": abcd_y}
 
     return response

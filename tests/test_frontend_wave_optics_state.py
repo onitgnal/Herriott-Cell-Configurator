@@ -78,3 +78,15 @@ def test_wave_optics_progress_bar_markup_exists() -> None:
     assert "@keyframes wave-optics-button-progress" in styles
     assert ".wave-optics-progress-track" in styles
     assert "@keyframes wave-optics-progress-slide" in styles
+
+
+def test_second_beam_controls_exist() -> None:
+    index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="second-beam-enabled"' in index_html
+    assert 'id="group-second-beam"' in index_html
+    assert 'id="num-second-x"' in index_html
+    assert 'id="num-second-y"' in index_html
+    assert 'id="num-second-thx"' in index_html
+    assert 'id="num-second-thy"' in index_html
+    assert 'id="num-second-polang"' in index_html

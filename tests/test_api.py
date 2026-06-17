@@ -29,6 +29,18 @@ def test_simulation_endpoint_rejects_invalid_payload(client) -> None:
     assert body["details"]
 
 
+def test_simulation_endpoint_returns_secondary_trace_when_enabled(client) -> None:
+    config = load_fixture("dual_beam_manual.json")
+    response = client.post("/api/simulate", json=config)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["resolved_inputs"]["second_beam_enabled"] is True
+    assert body["secondary_ray_trace"]["input_point"][0] == config["second_input_x_mm"]
+    assert body["secondary_ray_trace"]["input_point"][1] == config["second_input_y_mm"]
+    assert len(body["secondary_ray_trace"]["points"]) > 1
+
+
 def test_wave_optics_endpoint_returns_profiles(client) -> None:
     config = load_fixture("default_tem00.json")
     config["wave_optics"] = {

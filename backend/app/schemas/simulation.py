@@ -44,6 +44,12 @@ class SimulationRequest(BaseModel):
     input_y_mm: float = 0.0
     input_theta_x_mrad: float = -7.5
     input_theta_y_mrad: float = 11.9
+    second_beam_enabled: bool = False
+    second_input_x_mm: float = -15.0
+    second_input_y_mm: float = 0.0
+    second_input_theta_x_mrad: float = 7.5
+    second_input_theta_y_mrad: float = -11.9
+    second_polarization_angle_deg: float = 0.0
     mirror1_tilt_x_mrad: float = 0.0
     mirror1_tilt_y_mrad: float = 0.0
     mirror2_tilt_x_mrad: float = 0.0
@@ -91,6 +97,14 @@ class ResolvedInputs(BaseModel):
     input_theta_y_mrad: float | None
     input_hole_x_mm: float | None
     input_hole_y_mm: float | None
+    second_beam_enabled: bool
+    second_input_x_mm: float | None
+    second_input_y_mm: float | None
+    second_input_theta_x_mrad: float | None
+    second_input_theta_y_mrad: float | None
+    second_input_hole_x_mm: float | None
+    second_input_hole_y_mm: float | None
+    second_polarization_angle_deg: float | None
     output_hole_x_mm: float | None
     output_hole_y_mm: float | None
     output_mirror: int
@@ -257,6 +271,7 @@ class SimulationResponse(BaseModel):
     mode: ModeResult
     cavity: CavityResult | None
     ray_trace: RayTraceResult | None
+    secondary_ray_trace: RayTraceResult | None = None
     beam_propagation: BeamPropagation | None
     wave_optics: WaveOpticsResult | None = None
 
