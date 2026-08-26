@@ -1,21 +1,23 @@
 from __future__ import annotations
 
+from math import cos, gcd, pi, sin
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Vector3 = tuple[float, float, float]
 
 
 class SimulationRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     cell_type: Literal["cav-cav", "cav-vex"] = "cav-cav"
     mirror_distance_mm: float = Field(1000.0, gt=0)
-    total_passes: int = Field(15, ge=2)
-    revolutions: int = Field(14, ge=1)
+    total_passes: int = Field(15, ge=2, le=500)
+    revolutions: int = Field(14, ge=1, le=500)
     spot_pattern_radius_mm: float = Field(15.0, ge=0)
     wavelength_nm: float = Field(1030.0, gt=0)
+    refractive_index: float = Field(1.0, gt=0, le=10.0)
     hole_radius_mm: float = Field(1.5, ge=0)
     peak_power_gw: float = Field(10.0, ge=0)
     pulse_energy_mj: float = Field(10.0, ge=0)
@@ -29,10 +31,10 @@ class SimulationRequest(BaseModel):
     output_hole_x_mm: float = 15.0
     output_hole_y_mm: float = 0.0
     mode_type: Literal["tem00", "hg", "lg", "custom"] = "tem00"
-    hermite_n: int = Field(0, ge=0)
-    hermite_m: int = Field(1, ge=0)
-    laguerre_p: int = Field(0, ge=0)
-    laguerre_l: int = 1
+    hermite_n: int = Field(0, ge=0, le=20)
+    hermite_m: int = Field(1, ge=0, le=20)
+    laguerre_p: int = Field(0, ge=0, le=20)
+    laguerre_l: int = Field(1, ge=-20, le=20)
     custom_m2: float = Field(1.0, ge=1.0)
     auto_mode_match: bool = True
     input_waist_x_mm: float = Field(1.0, gt=0)
@@ -55,9 +57,38 @@ class SimulationRequest(BaseModel):
     mirror2_tilt_x_mrad: float = 0.0
     mirror2_tilt_y_mrad: float = 0.0
 
+    @model_validator(mode="after")
+    def validate_optical_geometry(self) -> "SimulationRequest":
+        half_round_trip_phase = pi * self.revolutions / self.total_passes
+
+        if self.cell_type == "cav-cav" and self.auto_symmetric_radius:
+            if abs(1 - cos(half_round_trip_phase)) <= 1e-12:
+                raise ValueError(
+                    "The selected round-trip/revolution combination makes the automatic symmetric radius singular.",
+                )
+
+        if self.cell_type == "cav-vex" and self.auto_opposite_radii:
+            if abs(sin(half_round_trip_phase)) <= 1e-12:
+                raise ValueError(
+                    "The selected round-trip/revolution combination makes the automatic opposite radii singular.",
+                )
+
+        if self.cell_type == "cav-vex" and not self.auto_opposite_radii:
+            if abs(self.mirror1_radius_mm) <= 1e-12 or abs(self.mirror2_radius_mm) <= 1e-12:
+                raise ValueError("Manual mirror radii must be non-zero.")
+
+        if self.auto_injection and self.spot_pattern_radius_mm > 0:
+            if gcd(self.total_passes, self.revolutions) != 1:
+                raise ValueError(
+                    "Automatic injection requires Round Trips (N) and Revolutions (k) to be coprime so the pattern "
+                    "visits N distinct spots before returning to the entrance hole.",
+                )
+
+        return self
+
 
 class WaveOpticsSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian"] = "gaussian"
     super_gaussian_order: float = Field(4.0, ge=1.0, le=20.0)
@@ -83,6 +114,8 @@ class ResolvedInputs(BaseModel):
     spot_pattern_radius_mm: float
     wavelength_nm: float
     wavelength_mm: float
+    refractive_index: float
+    wavelength_medium_mm: float
     hole_radius_mm: float
     peak_power_gw: float
     pulse_energy_mj: float
@@ -142,6 +175,10 @@ class CavityResult(BaseModel):
     cavity_waist_y_mm: float
     mirror1_beam_mm: float
     mirror2_beam_mm: float
+    mirror1_beam_x_mm: float
+    mirror1_beam_y_mm: float
+    mirror2_beam_x_mm: float
+    mirror2_beam_y_mm: float
     mirror_beam_x_mm: float | None
     mirror_beam_y_mm: float | None
     mirror1_display_beam_mm: float | None

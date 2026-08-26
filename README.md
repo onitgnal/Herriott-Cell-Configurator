@@ -16,7 +16,8 @@ progress, and shows an ETA while the solver loop is running.
 ## What The App Does
 
 - Designs concave-concave and concave-convex multipass cells
-- Auto-computes mirror radii from mirror spacing, pass count, and revolution count
+- Auto-computes mirror radii from mirror spacing, round-trip count, and revolution count
+- Supports a uniform intracell refractive index for gas- or material-filled cells
 - Auto-computes a nominal injection ray for rotating dense spot patterns
 - Traces the injected ray in 3D using exact sphere intersections and vector reflection
 - Computes cavity stability, cavity waist, and mirror beam sizes
@@ -45,7 +46,7 @@ Open `http://127.0.0.1:8000/`.
 docker compose up
 ```
 
-Open `http://localhost:3003/`.
+Open `http://localhost:3001/`.
 
 ## Repository Layout
 
@@ -158,7 +159,7 @@ Supported launch profiles:
 Current limitations:
 
 - The 2D solver is scalar and paraxial, not a full vector or non-paraxial field solver.
-- Higher-order HG and LG modes remain part of the analytic overlay path rather than the explicit 2D launch-profile path.
+- Explicit wave-optics propagation is available for TEM00. Higher-order HG, LG, and custom `M^2` modes remain on the analytic overlay path because a single coherent Gaussian field cannot represent an arbitrary `M^2`, and the current explicit solver does not launch HG/LG complex fields.
 - The internal adaptive focus plane is chosen from the shared minimum-area ABCD estimate when the x and y minima do not occur at the same longitudinal position. If that minimum lies on a mirror, the segment is treated as a no-focus direct propagation.
 
 ## API Endpoints
@@ -207,7 +208,8 @@ This repository does not currently model:
 ## Units And Conventions
 
 - Distances, beam radii, and mirror radii are in `mm`.
-- Wavelength is entered in `nm` and converted internally to `mm`.
+- Vacuum wavelength is entered in `nm`; diffraction and cavity beam sizes use the in-medium wavelength `lambda_medium = lambda_vacuum / n`.
+- The intracell refractive index is a uniform, real, dimensionless value. The geometric ray path is unchanged in a homogeneous medium.
 - Ray and tilt angles are entered in `mrad` and converted internally to `rad`.
 - Peak power is in `GW`.
 - Pulse energy is in `mJ`.
@@ -225,6 +227,12 @@ Plotting convention:
 - Mirror 1 is near `z = 0`.
 - Mirror 2 is near `z = L`.
 - The 3D Plotly figure maps internal coordinates as `plot x = z`, `plot y = x`, `plot z = y`.
+
+Pattern-count convention:
+
+- `N` is the requested number of round trips and spots per mirror, not the number of individual mirror-to-mirror legs.
+- One round trip contains two legs, so a complete `N`-spot pattern contains `2N` legs.
+- Automatic injection requires `N` and the revolution count `k` to be coprime so all `N` spots are distinct before the ray returns to the entrance hole.
 
 ## Development
 

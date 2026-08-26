@@ -43,7 +43,9 @@ def compute_abcd_axis(
     total_z = 0.0
 
     for current_pass in range(max_passes):
-        for step in range(steps_per_pass + 1):
+        mirror_waists.append(get_waist(q, wavelength_mm, m2))
+        first_step = 0 if current_pass == 0 else 1
+        for step in range(first_step, steps_per_pass + 1):
             distance = (step / steps_per_pass) * mirror_distance_mm
             propagated = {"r": q["r"] + distance, "i": q["i"]}
             waist = get_waist(propagated, wavelength_mm, m2)
@@ -51,8 +53,6 @@ def compute_abcd_axis(
             z_vals.append(total_z + distance)
             w_vals.append(waist)
 
-            if step == 0:
-                mirror_waists.append(waist)
             if step == steps_per_pass // 2:
                 center_waists.append(waist)
 

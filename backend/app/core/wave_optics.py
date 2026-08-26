@@ -397,9 +397,9 @@ class AdaptiveWaveOpticsSolver:
 
         phase = np.ones_like(amplitude, dtype=np.complex128)
         if curvature_x_mm != inf:
-            phase *= np.exp(-0.5j * self.wave_number_mm * (x_grid * x_grid) / curvature_x_mm)
+            phase *= np.exp(0.5j * self.wave_number_mm * (x_grid * x_grid) / curvature_x_mm)
         if curvature_y_mm != inf:
-            phase *= np.exp(-0.5j * self.wave_number_mm * (y_grid * y_grid) / curvature_y_mm)
+            phase *= np.exp(0.5j * self.wave_number_mm * (y_grid * y_grid) / curvature_y_mm)
 
         field = amplitude.astype(np.complex128) * phase
         return _normalize_field(field, grid), grid
@@ -1029,8 +1029,10 @@ def compute_wave_optics_result(
     resolved_inputs = base_result["resolved_inputs"]
     ray_trace = base_result["ray_trace"]
     mode = base_result["mode"]
+    if mode["type"] != "tem00":
+        return None
     settings: WaveOpticsSettings = request.wave_optics
-    wavelength_mm = resolved_inputs["wavelength_mm"]
+    wavelength_mm = resolved_inputs["wavelength_medium_mm"]
     mirror_distance_mm = resolved_inputs["mirror_distance_mm"]
     mirror1_radius_mm = resolved_inputs["mirror1_radius_mm"]
     mirror2_radius_mm = resolved_inputs["mirror2_radius_mm"]
@@ -1093,7 +1095,6 @@ def compute_wave_optics_result(
         0,
         "In",
     )
-    field = solver.apply_mirror(field, current_grid, mirror1_radius_mm, [])
     progress_steps += 1
     _emit_progress(
         progress_callback,

@@ -63,7 +63,8 @@ def simulate_configuration(request: object) -> dict[str, object]:
     total_passes = request.total_passes
     revolutions = request.revolutions
     spot_pattern_radius_mm = request.spot_pattern_radius_mm
-    wavelength_mm = request.wavelength_nm * 1e-6
+    wavelength_vacuum_mm = request.wavelength_nm * 1e-6
+    wavelength_medium_mm = wavelength_vacuum_mm / request.refractive_index
     hole_radius_mm = request.hole_radius_mm
     peak_power_gw = request.peak_power_gw
     pulse_energy_mj = request.pulse_energy_mj
@@ -106,7 +107,9 @@ def simulate_configuration(request: object) -> dict[str, object]:
             "revolutions": revolutions,
             "spot_pattern_radius_mm": spot_pattern_radius_mm,
             "wavelength_nm": request.wavelength_nm,
-            "wavelength_mm": wavelength_mm,
+            "wavelength_mm": wavelength_vacuum_mm,
+            "refractive_index": request.refractive_index,
+            "wavelength_medium_mm": wavelength_medium_mm,
             "hole_radius_mm": hole_radius_mm,
             "peak_power_gw": peak_power_gw,
             "pulse_energy_mj": pulse_energy_mj,
@@ -161,12 +164,12 @@ def simulate_configuration(request: object) -> dict[str, object]:
         abs(((mirror_distance_mm * mirror_distance_mm) * g1 * g2 * (1 - g1 * g2)) / (g_sum * g_sum)),
     )
     cavity_waist_position_mm = (mirror_distance_mm * g2 * (1 - g1)) / g_sum
-    ideal_waist_mm = sqrt((wavelength_mm * cavity_rayleigh_range_mm) / pi)
+    ideal_waist_mm = sqrt((wavelength_medium_mm * cavity_rayleigh_range_mm) / pi)
     mirror1_beam_mm = sqrt(
-        abs(((wavelength_mm * mirror_distance_mm) / pi) * sqrt(g2 / (g1 * (1 - g1 * g2)))),
+        abs(((wavelength_medium_mm * mirror_distance_mm) / pi) * sqrt(g2 / (g1 * (1 - g1 * g2)))),
     )
     mirror2_beam_mm = sqrt(
-        abs(((wavelength_mm * mirror_distance_mm) / pi) * sqrt(g1 / (g2 * (1 - g1 * g2)))),
+        abs(((wavelength_medium_mm * mirror_distance_mm) / pi) * sqrt(g1 / (g2 * (1 - g1 * g2)))),
     )
 
     input_waist_x_mm = request.input_waist_x_mm
@@ -214,6 +217,10 @@ def simulate_configuration(request: object) -> dict[str, object]:
         "cavity_waist_y_mm": ideal_waist_mm * sqrt(mode.M2y),
         "mirror1_beam_mm": mirror1_beam_mm,
         "mirror2_beam_mm": mirror2_beam_mm,
+        "mirror1_beam_x_mm": mirror1_beam_mm * sqrt(mode.M2x),
+        "mirror1_beam_y_mm": mirror1_beam_mm * sqrt(mode.M2y),
+        "mirror2_beam_x_mm": mirror2_beam_mm * sqrt(mode.M2x),
+        "mirror2_beam_y_mm": mirror2_beam_mm * sqrt(mode.M2y),
         "mirror_beam_x_mm": mirror1_beam_mm * sqrt(mode.M2x) if abs(mirror1_beam_mm - mirror2_beam_mm) < 1e-3 else None,
         "mirror_beam_y_mm": mirror1_beam_mm * sqrt(mode.M2y) if abs(mirror1_beam_mm - mirror2_beam_mm) < 1e-3 else None,
         "mirror1_display_beam_mm": None if abs(mirror1_beam_mm - mirror2_beam_mm) < 1e-3 else mirror1_beam_mm * sqrt(mode.M2x),
@@ -290,12 +297,12 @@ def simulate_configuration(request: object) -> dict[str, object]:
     max_bounces = ray_trace["total_bounces"]
     if secondary_ray_trace is not None:
         max_bounces = max(max_bounces, secondary_ray_trace["total_bounces"])
-    abcd_passes = max(total_passes, max_bounces + 1)
+    abcd_passes = max(2 * total_passes, max_bounces)
     abcd_x = compute_abcd_axis(
         mirror_distance_mm,
         mirror1_radius_mm,
         mirror2_radius_mm,
-        wavelength_mm,
+        wavelength_medium_mm,
         input_waist_x_mm,
         input_waist_z_mm,
         abcd_passes,
@@ -305,7 +312,7 @@ def simulate_configuration(request: object) -> dict[str, object]:
         mirror_distance_mm,
         mirror1_radius_mm,
         mirror2_radius_mm,
-        wavelength_mm,
+        wavelength_medium_mm,
         input_waist_y_mm,
         input_waist_z_mm,
         abcd_passes,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from math import exp, pi
+from math import ceil, exp, factorial, pi, sqrt
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,41 +77,47 @@ def compute_mode_norm(
     laguerre_p: int,
     laguerre_l: int,
 ) -> tuple[float, float]:
-    max_intensity = 0.0
-    sum_intensity = 0.0
-    ds = 0.1
-    sx = -4.0
+    def sampled_maximum(function, upper_bound: float, target_spacing: float) -> float:
+        sample_count = max(1, int(ceil(upper_bound / target_spacing)))
+        maximum = 0.0
+        for index in range(sample_count + 1):
+            coordinate = (index * upper_bound) / sample_count
+            maximum = max(maximum, function(coordinate))
+        return maximum
 
-    while sx <= 4.0:
-        sy = -4.0
-        while sy <= 4.0:
-            exp_term = exp(-0.5 * (sx * sx + sy * sy))
+    if mode_type == "hg":
+        def hg_axis_peak(order: int) -> float:
+            upper_bound = sqrt(2 * order + 1) + 3.0
+            return sampled_maximum(
+                lambda coordinate: (hermite(order, coordinate) ** 2) * exp(-(coordinate * coordinate)),
+                upper_bound,
+                1e-3,
+            )
 
-            if mode_type == "hg":
-                hx = hermite(hermite_n, sx)
-                hy = hermite(hermite_m, sy)
-                field = hx * hy * exp_term
-                intensity = field * field
-            elif mode_type == "lg":
-                r2 = sx * sx + sy * sy
-                laguerre_value = laguerre(laguerre_p, laguerre_l, r2)
-                field = (r2 ** (abs(laguerre_l) / 2)) * laguerre_value * exp_term
-                intensity = field * field
-            else:
-                intensity = exp_term * exp_term
+        max_intensity = hg_axis_peak(hermite_n) * hg_axis_peak(hermite_m)
+        integral = (
+            sqrt(pi)
+            * (2**hermite_n)
+            * factorial(hermite_n)
+            * sqrt(pi)
+            * (2**hermite_m)
+            * factorial(hermite_m)
+        )
+        return 1.0 / max_intensity, (2 * max_intensity) / integral
 
-            if intensity > max_intensity:
-                max_intensity = intensity
-            sum_intensity += intensity
-            sy += ds
-        sx += ds
+    if mode_type == "lg":
+        absolute_l = abs(laguerre_l)
+        upper_bound = max(16.0, 4.0 * laguerre_p + 2.0 * absolute_l + 20.0)
 
-    sum_intensity *= ds * ds
+        def lg_radial_intensity(radius_squared: float) -> float:
+            laguerre_value = laguerre(laguerre_p, absolute_l, radius_squared)
+            return (radius_squared**absolute_l) * (laguerre_value**2) * exp(-radius_squared)
 
-    if max_intensity > 0:
-        return (1.0 / max_intensity, (2 * max_intensity) / sum_intensity)
+        max_intensity = sampled_maximum(lg_radial_intensity, upper_bound, 2e-3)
+        integral = pi * factorial(laguerre_p + absolute_l) / factorial(laguerre_p)
+        return 1.0 / max_intensity, (2 * max_intensity) / integral
 
-    return (1.0, 2 / pi)
+    return 1.0, 2 / pi
 
 
 def build_mode_config(

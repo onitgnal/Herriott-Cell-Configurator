@@ -24,6 +24,7 @@ def build_wave_request(**wave_overrides) -> WaveOpticsSimulationRequest:
 
 def build_cav_vex_wave_request(**wave_overrides) -> WaveOpticsSimulationRequest:
     config = load_fixture("cav_vex_lg_auto.json")
+    config["mode_type"] = "tem00"
     config["wave_optics"] = {
         "profile_type": "gaussian",
         "max_grid_points": 640,
@@ -87,6 +88,20 @@ def test_gaussian_wave_optics_matches_abcd_mirror_radii() -> None:
             rel_tol=1e-6,
             abs_tol=1e-8,
         )
+
+
+def test_wave_optics_uses_the_in_medium_wavelength() -> None:
+    request = build_wave_request().model_copy(update={"refractive_index": 1.5})
+    result = run_wave_optics_simulation(request)
+
+    assert result.wave_optics is not None
+    assert result.resolved_inputs.wavelength_medium_mm == result.resolved_inputs.wavelength_mm / 1.5
+    assert isclose(
+        result.wave_optics.mirror2_profiles[0].equivalent_radius_x_mm,
+        result.beam_propagation.x.w_mirrors_w[1],
+        rel_tol=1e-6,
+        abs_tol=1e-8,
+    )
 
 
 def test_wave_optics_segment_uses_mirror_focus_mirror_path_with_adaptive_window() -> None:
@@ -227,3 +242,68 @@ def test_cav_vex_wave_optics_uses_direct_segments_without_forced_focus() -> None
     assert all(segment.focus_grid is None for segment in result.wave_optics.segments)
     assert all(segment.focus_radius_x_mm is None for segment in result.wave_optics.segments)
     assert all(frame.plane_kind == "center" for frame in result.wave_optics.center_profiles)
+
+
+def test_wave_optics_is_not_fabricated_for_analytic_higher_order_modes() -> None:
+    config = load_fixture("cav_vex_lg_auto.json")
+    config["wave_optics"] = {
+        "profile_type": "gaussian",
+        "max_grid_points": 256,
+        "max_memory_mb": 128,
+        "display_grid_points": 48,
+    }
+
+    result = run_wave_optics_simulation(WaveOpticsSimulationRequest.model_validate(config))
+
+    assert result.stable is True
+    assert result.mode.type == "lg"
+    assert result.wave_optics is None
+
+
+def test_manual_launch_phase_matches_abcd_without_a_fictitious_first_mirror() -> None:
+    config = load_fixture("default_tem00.json")
+    config.update(
+        {
+            "mirror_distance_mm": 1000.0,
+            "auto_symmetric_radius": False,
+            "symmetric_radius_mm": 2000.0,
+            "auto_mode_match": False,
+            "input_waist_x_mm": 0.5,
+            "input_waist_y_mm": 0.5,
+            "input_waist_z_mm": 200.0,
+            "auto_injection": False,
+            "input_x_mm": 0.0,
+            "input_y_mm": 0.0,
+            "input_theta_x_mrad": 0.0,
+            "input_theta_y_mrad": 0.0,
+            "auto_output_hole": False,
+            "output_mirror": 2,
+            "output_hole_x_mm": 0.0,
+            "output_hole_y_mm": 0.0,
+            "hole_radius_mm": 0.0,
+            "total_passes": 2,
+            "revolutions": 1,
+        },
+    )
+    config["wave_optics"] = {
+        "profile_type": "gaussian",
+        "max_grid_points": 512,
+        "max_memory_mb": 192,
+        "display_grid_points": 48,
+    }
+
+    result = run_wave_optics_simulation(WaveOpticsSimulationRequest.model_validate(config))
+
+    assert result.wave_optics is not None
+    assert isclose(
+        result.wave_optics.launch_profile.equivalent_radius_x_mm,
+        result.beam_propagation.x.w_mirrors_w[0],
+        rel_tol=1e-6,
+        abs_tol=1e-8,
+    )
+    assert isclose(
+        result.wave_optics.mirror2_profiles[0].equivalent_radius_x_mm,
+        result.beam_propagation.x.w_mirrors_w[1],
+        rel_tol=1e-6,
+        abs_tol=1e-8,
+    )

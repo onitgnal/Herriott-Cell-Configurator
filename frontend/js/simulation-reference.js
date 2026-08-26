@@ -83,42 +83,58 @@ export function laguerre(p, l, x) {
 }
 
 export function computeModeNorm(mode) {
-  let maxIntensity = 0;
-  let sumIntensity = 0;
-  const ds = 0.1;
-
-  for (let sx = -4; sx <= 4; sx += ds) {
-    for (let sy = -4; sy <= 4; sy += ds) {
-      let intensity = 0;
-      const expTerm = Math.exp(-0.5 * (sx * sx + sy * sy));
-
-      if (mode.type === "hg") {
-        const hx = hermite(mode.n, sx);
-        const hy = hermite(mode.m, sy);
-        const field = hx * hy * expTerm;
-        intensity = field * field;
-      } else if (mode.type === "lg") {
-        const r2 = sx * sx + sy * sy;
-        const laguerreValue = laguerre(mode.p, mode.l, r2);
-        const field = Math.pow(r2, Math.abs(mode.l) / 2) * laguerreValue * expTerm;
-        intensity = field * field;
-      } else {
-        intensity = expTerm * expTerm;
-      }
-
-      if (intensity > maxIntensity) {
-        maxIntensity = intensity;
-      }
-      sumIntensity += intensity;
+  const factorial = (value) => {
+    let result = 1;
+    for (let index = 2; index <= value; index += 1) {
+      result *= index;
     }
+    return result;
+  };
+
+  const sampledMaximum = (fn, upperBound, targetSpacing) => {
+    const sampleCount = Math.max(1, Math.ceil(upperBound / targetSpacing));
+    let maximum = 0;
+    for (let index = 0; index <= sampleCount; index += 1) {
+      const coordinate = (index * upperBound) / sampleCount;
+      maximum = Math.max(maximum, fn(coordinate));
+    }
+    return maximum;
+  };
+
+  if (mode.type === "hg") {
+    const hgAxisPeak = (order) => {
+      const upperBound = Math.sqrt(2 * order + 1) + 3;
+      return sampledMaximum(
+        (coordinate) => Math.pow(hermite(order, coordinate), 2) * Math.exp(-(coordinate * coordinate)),
+        upperBound,
+        1e-3,
+      );
+    };
+    const maxIntensity = hgAxisPeak(mode.n) * hgAxisPeak(mode.m);
+    const integral =
+      Math.sqrt(Math.PI) * Math.pow(2, mode.n) * factorial(mode.n) *
+      Math.sqrt(Math.PI) * Math.pow(2, mode.m) * factorial(mode.m);
+    return {
+      norm: 1 / maxIntensity,
+      peak_factor: (2 * maxIntensity) / integral,
+    };
   }
 
-  sumIntensity *= ds * ds;
+  if (mode.type === "lg") {
+    const absoluteL = Math.abs(mode.l);
+    const upperBound = Math.max(16, 4 * mode.p + 2 * absoluteL + 20);
+    const maxIntensity = sampledMaximum((radiusSquared) => {
+      const laguerreValue = laguerre(mode.p, absoluteL, radiusSquared);
+      return Math.pow(radiusSquared, absoluteL) * Math.pow(laguerreValue, 2) * Math.exp(-radiusSquared);
+    }, upperBound, 2e-3);
+    const integral = (Math.PI * factorial(mode.p + absoluteL)) / factorial(mode.p);
+    return {
+      norm: 1 / maxIntensity,
+      peak_factor: (2 * maxIntensity) / integral,
+    };
+  }
 
-  return {
-    norm: maxIntensity > 0 ? 1 / maxIntensity : 1,
-    peak_factor: maxIntensity > 0 ? (2 * maxIntensity) / sumIntensity : 2 / Math.PI,
-  };
+  return { norm: 1, peak_factor: 2 / Math.PI };
 }
 
 export function evaluateModeIntensity(localX, localY, waistX, waistY, mode) {
@@ -151,7 +167,7 @@ export function evaluateModeIntensity(localX, localY, waistX, waistY, mode) {
   if (mode.type === "lg") {
     const symmetricWaist = (baseWaistX + baseWaistY) / 2;
     const r2Symmetric = (2 * (localX * localX + localY * localY)) / (symmetricWaist * symmetricWaist);
-    const laguerreValue = laguerre(mode.p, mode.l, r2Symmetric);
+    const laguerreValue = laguerre(mode.p, Math.abs(mode.l), r2Symmetric);
     const field =
       Math.pow(r2Symmetric, Math.abs(mode.l) / 2) *
       laguerreValue *
@@ -207,7 +223,9 @@ export function computeABCDAxis(
   let totalZ = 0;
 
   for (let pass = 0; pass < maxPasses; pass += 1) {
-    for (let step = 0; step <= stepsPerPass; step += 1) {
+    mirrorWaists.push(getWaist(q, wavelengthMm, m2));
+    const firstStep = pass === 0 ? 0 : 1;
+    for (let step = firstStep; step <= stepsPerPass; step += 1) {
       const distance = (step / stepsPerPass) * mirrorDistanceMm;
       const propagated = { r: q.r + distance, i: q.i };
       const waist = getWaist(propagated, wavelengthMm, m2);
@@ -215,9 +233,6 @@ export function computeABCDAxis(
       zVals.push(totalZ + distance);
       wVals.push(waist);
 
-      if (step === 0) {
-        mirrorWaists.push(waist);
-      }
       if (step === stepsPerPass / 2) {
         centerWaists.push(waist);
       }
@@ -241,6 +256,10 @@ export function computeABCDAxis(
 
 function reflectVector(vector, normal) {
   return vSub(vector, vScale(normal, 2 * vDot(vector, normal)));
+}
+
+function legCountLabel(count) {
+  return count === 1 ? `${count} leg` : `${count} legs`;
 }
 
 export class HerriottCell {
@@ -330,12 +349,10 @@ export class HerriottCell {
     let u1 = vNormalize(basisU1);
     let u2 = vNormalize(basisU2);
     let targetMirror = 2;
-    let exitStatus = "Trapped (Max Passes)";
+    let exitStatus = "Trapped (maximum leg limit reached)";
     let bounce = 0;
-    let lastBounce = 0;
 
     for (bounce = 0; bounce < maxPasses; bounce += 1) {
-      lastBounce = bounce;
       const { P_int: intersection, normal } = this.intersectMirror(point, direction, targetMirror);
 
       const tCenter = (this.L / 2 - point[2]) / direction[2];
@@ -347,7 +364,7 @@ export class HerriottCell {
       }
 
       if (!intersection) {
-        exitStatus = `Escaped cell at pass ${bounce}`;
+        exitStatus = `Escaped cell before leg ${bounce + 1}`;
         break;
       }
 
@@ -375,7 +392,7 @@ export class HerriottCell {
           );
 
           if (outputDistance <= this.hole_radius) {
-            exitStatus = `Exited cleanly pass ${bounce + 1} (Out Hole)`;
+            exitStatus = `Exited cleanly after ${legCountLabel(bounce + 1)} (Out Hole)`;
             hitRecord.v_out = null;
             escaped = true;
           }
@@ -390,7 +407,7 @@ export class HerriottCell {
 
             if (inputDistance <= this.hole_radius) {
               const holeLabel = this.input_holes.length === 1 ? "In Hole" : `In Hole ${inputHoleIndex + 1}`;
-              exitStatus = `Escaped pass ${bounce + 1} (${holeLabel})`;
+              exitStatus = `Escaped after ${legCountLabel(bounce + 1)} (${holeLabel})`;
               hitRecord.v_out = null;
               escaped = true;
               break;
@@ -406,7 +423,7 @@ export class HerriottCell {
           );
 
           if (outputDistance <= this.hole_radius) {
-            exitStatus = `Exited cleanly pass ${bounce + 1} (Out Hole)`;
+            exitStatus = `Exited cleanly after ${legCountLabel(bounce + 1)} (Out Hole)`;
             hitRecord.v_out = null;
             escaped = true;
           }
@@ -431,7 +448,7 @@ export class HerriottCell {
       mirror_hits: mirrorHits,
       center_hits: centerHits,
       exit_status: exitStatus,
-      total_bounces: lastBounce,
+      total_bounces: points.length - 1,
     };
   }
 }
@@ -537,7 +554,9 @@ export function simulateConfiguration(config) {
   const totalPasses = config.total_passes;
   const revolutions = config.revolutions;
   const spotPatternRadiusMm = config.spot_pattern_radius_mm;
-  const wavelengthMm = config.wavelength_nm * 1e-6;
+  const wavelengthVacuumMm = config.wavelength_nm * 1e-6;
+  const refractiveIndex = config.refractive_index ?? 1;
+  const wavelengthMediumMm = wavelengthVacuumMm / refractiveIndex;
   const holeRadiusMm = config.hole_radius_mm;
   const peakPowerGw = config.peak_power_gw;
   const pulseEnergyMj = config.pulse_energy_mj;
@@ -583,7 +602,9 @@ export function simulateConfiguration(config) {
       revolutions,
       spot_pattern_radius_mm: spotPatternRadiusMm,
       wavelength_nm: config.wavelength_nm,
-      wavelength_mm: wavelengthMm,
+      wavelength_mm: wavelengthVacuumMm,
+      refractive_index: refractiveIndex,
+      wavelength_medium_mm: wavelengthMediumMm,
       hole_radius_mm: holeRadiusMm,
       peak_power_gw: peakPowerGw,
       pulse_energy_mj: pulseEnergyMj,
@@ -642,16 +663,16 @@ export function simulateConfiguration(config) {
     ),
   );
   const cavityWaistPositionMm = (mirrorDistanceMm * g2 * (1 - g1)) / gSum;
-  const idealWaistMm = Math.sqrt((wavelengthMm * cavityRayleighRangeMm) / Math.PI);
+  const idealWaistMm = Math.sqrt((wavelengthMediumMm * cavityRayleighRangeMm) / Math.PI);
   const mirror1BeamMm = Math.sqrt(
     Math.abs(
-      ((wavelengthMm * mirrorDistanceMm) / Math.PI) *
+      ((wavelengthMediumMm * mirrorDistanceMm) / Math.PI) *
         Math.sqrt(g2 / (g1 * (1 - g1 * g2))),
     ),
   );
   const mirror2BeamMm = Math.sqrt(
     Math.abs(
-      ((wavelengthMm * mirrorDistanceMm) / Math.PI) *
+      ((wavelengthMediumMm * mirrorDistanceMm) / Math.PI) *
         Math.sqrt(g1 / (g2 * (1 - g1 * g2))),
     ),
   );
@@ -712,6 +733,10 @@ export function simulateConfiguration(config) {
     cavity_waist_y_mm: idealWaistMm * Math.sqrt(mode.M2y),
     mirror1_beam_mm: mirror1BeamMm,
     mirror2_beam_mm: mirror2BeamMm,
+    mirror1_beam_x_mm: mirror1BeamMm * Math.sqrt(mode.M2x),
+    mirror1_beam_y_mm: mirror1BeamMm * Math.sqrt(mode.M2y),
+    mirror2_beam_x_mm: mirror2BeamMm * Math.sqrt(mode.M2x),
+    mirror2_beam_y_mm: mirror2BeamMm * Math.sqrt(mode.M2y),
     mirror_beam_x_mm:
       Math.abs(mirror1BeamMm - mirror2BeamMm) < 1e-3 ? mirror1BeamMm * Math.sqrt(mode.M2x) : null,
     mirror_beam_y_mm:
@@ -792,12 +817,12 @@ export function simulateConfiguration(config) {
   const maxBounces = secondaryRayTrace
     ? Math.max(rayTrace.total_bounces, secondaryRayTrace.total_bounces)
     : rayTrace.total_bounces;
-  const abcdPasses = Math.max(totalPasses, maxBounces + 1);
+  const abcdPasses = Math.max(2 * totalPasses, maxBounces);
   const abcdX = computeABCDAxis(
     mirrorDistanceMm,
     mirror1RadiusMm,
     mirror2RadiusMm,
-    wavelengthMm,
+    wavelengthMediumMm,
     inputWaistXMm,
     inputWaistZMm,
     abcdPasses,
@@ -807,7 +832,7 @@ export function simulateConfiguration(config) {
     mirrorDistanceMm,
     mirror1RadiusMm,
     mirror2RadiusMm,
-    wavelengthMm,
+    wavelengthMediumMm,
     inputWaistYMm,
     inputWaistZMm,
     abcdPasses,

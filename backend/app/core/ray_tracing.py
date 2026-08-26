@@ -7,6 +7,10 @@ from backend.app.core.math_utils import Vector3, v_add, v_dot, v_norm, v_normali
 EPSILON = 1e-9
 
 
+def _leg_count_label(count: int) -> str:
+    return f"{count} leg" if count == 1 else f"{count} legs"
+
+
 def _reflect(vector: Vector3, normal: Vector3) -> Vector3:
     return v_sub(vector, v_scale(normal, 2 * v_dot(vector, normal)))
 
@@ -102,7 +106,7 @@ class HerriottCell:
         u1 = v_normalize(basis_u1)
         u2 = v_normalize(basis_u2)
         target_mirror = 2
-        exit_status = "Trapped (Max Passes)"
+        exit_status = "Trapped (maximum leg limit reached)"
         bounce = 0
 
         for bounce in range(max_passes):
@@ -122,7 +126,7 @@ class HerriottCell:
                 center_hits.append({"P": center_point, "u1": u1, "u2": u2})
 
             if intersection is None or normal is None:
-                exit_status = f"Escaped cell at pass {bounce}"
+                exit_status = f"Escaped cell before leg {bounce + 1}"
                 break
 
             points.append(intersection)
@@ -147,7 +151,7 @@ class HerriottCell:
                         (intersection[0] - self.out_hole[0]) ** 2 + (intersection[1] - self.out_hole[1]) ** 2,
                     )
                     if output_distance <= self.hole_radius:
-                        exit_status = f"Exited cleanly pass {bounce + 1} (Out Hole)"
+                        exit_status = f"Exited cleanly after {_leg_count_label(bounce + 1)} (Out Hole)"
                         hit_record["v_out"] = None
                         escaped = True
 
@@ -158,7 +162,7 @@ class HerriottCell:
                         )
                         if input_distance <= self.hole_radius:
                             hole_label = "In Hole" if len(self.input_holes) == 1 else f"In Hole {input_hole_index}"
-                            exit_status = f"Escaped pass {bounce + 1} ({hole_label})"
+                            exit_status = f"Escaped after {_leg_count_label(bounce + 1)} ({hole_label})"
                             hit_record["v_out"] = None
                             escaped = True
                             break
@@ -169,7 +173,7 @@ class HerriottCell:
                         (intersection[0] - self.out_hole[0]) ** 2 + (intersection[1] - self.out_hole[1]) ** 2,
                     )
                     if output_distance <= self.hole_radius:
-                        exit_status = f"Exited cleanly pass {bounce + 1} (Out Hole)"
+                        exit_status = f"Exited cleanly after {_leg_count_label(bounce + 1)} (Out Hole)"
                         hit_record["v_out"] = None
                         escaped = True
 
@@ -189,5 +193,5 @@ class HerriottCell:
             "mirror_hits": mirror_hits,
             "center_hits": center_hits,
             "exit_status": exit_status,
-            "total_bounces": bounce,
+            "total_bounces": len(points) - 1,
         }

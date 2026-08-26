@@ -10,6 +10,7 @@ const NUMERIC_FIELDS = [
   { key: "output_hole_x_mm", domId: "out_hole_x", type: "float", legacyKey: "out_hole_x" },
   { key: "output_hole_y_mm", domId: "out_hole_y", type: "float", legacyKey: "out_hole_y" },
   { key: "wavelength_nm", domId: "lambda", type: "float", legacyKey: "lambda" },
+  { key: "refractive_index", domId: "refr_index", type: "float", legacyKey: "refractive_index" },
   { key: "custom_m2", domId: "M2", type: "float", legacyKey: "M2" },
   { key: "peak_power_gw", domId: "peak_power", type: "float", legacyKey: "peak_power" },
   { key: "pulse_energy_mj", domId: "pulse_energy", type: "float", legacyKey: "pulse_energy" },
@@ -421,11 +422,11 @@ export function bindWaveOpticsFields(onChange) {
 }
 
 export function initializeStandardConfig() {
-  standardConfig = captureConfig();
+  standardConfig = { ...captureConfig(), wave_optics: captureWaveOpticsSettings() };
 }
 
 export function setStandardConfig() {
-  standardConfig = captureConfig();
+  standardConfig = { ...captureConfig(), wave_optics: captureWaveOpticsSettings() };
 }
 
 export function resetToStandardConfig() {
@@ -460,11 +461,15 @@ export function saveConfigToFile() {
 
 export async function loadConfigFromFile(file) {
   const rawConfig = JSON.parse(await file.text());
+  const configWithDefaults = {
+    refractive_index: 1.0,
+    ...rawConfig,
+  };
 
   if ("cellType" in rawConfig || "modeType" in rawConfig || "showBeamProfiles" in rawConfig) {
-    applyLegacyConfig(rawConfig);
+    applyLegacyConfig(configWithDefaults);
     return;
   }
 
-  applyConfig(rawConfig);
+  applyConfig(configWithDefaults);
 }

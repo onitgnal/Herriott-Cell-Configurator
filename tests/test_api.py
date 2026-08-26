@@ -29,6 +29,26 @@ def test_simulation_endpoint_rejects_invalid_payload(client) -> None:
     assert body["details"]
 
 
+def test_simulation_endpoint_rejects_singular_or_early_closing_geometry(client) -> None:
+    singular_symmetric = load_fixture("default_tem00.json")
+    singular_symmetric.update({"total_passes": 10, "revolutions": 20})
+    response = client.post("/api/simulate", json=singular_symmetric)
+    assert response.status_code == 422
+    assert "singular" in response.json()["details"][0]["message"]
+
+    early_closing = load_fixture("default_tem00.json")
+    early_closing.update({"total_passes": 15, "revolutions": 5})
+    response = client.post("/api/simulate", json=early_closing)
+    assert response.status_code == 422
+    assert "coprime" in response.json()["details"][0]["message"]
+
+    zero_radius = load_fixture("cav_vex_lg_auto.json")
+    zero_radius.update({"auto_opposite_radii": False, "mirror1_radius_mm": 0.0})
+    response = client.post("/api/simulate", json=zero_radius)
+    assert response.status_code == 422
+    assert "non-zero" in response.json()["details"][0]["message"]
+
+
 def test_simulation_endpoint_returns_secondary_trace_when_enabled(client) -> None:
     config = load_fixture("dual_beam_manual.json")
     response = client.post("/api/simulate", json=config)

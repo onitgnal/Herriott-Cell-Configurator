@@ -14,7 +14,12 @@ function stableSerialize(value) {
 }
 
 export function buildWaveOpticsSignature(payload) {
-  return stableSerialize(payload);
+  const {
+    peak_power_gw: _peakPower,
+    pulse_energy_mj: _pulseEnergy,
+    ...propagationPayload
+  } = payload;
+  return stableSerialize(propagationPayload);
 }
 
 export function createWaveOpticsState() {

@@ -146,11 +146,12 @@ function setWaveOpticsProgressUi(progress, pending) {
 function setWaveOpticsStatus(text, className, summary = "") {
   const progress = waveOpticsState.progress;
   const progressPercent = waveOpticsPercent(progress);
+  const modeSupported = captureConfig().mode_type === "tem00";
 
   waveOpticsStatus.textContent = text;
   waveOpticsStatus.className = className;
   waveOpticsSummary.textContent = summary;
-  waveOpticsButton.disabled = Boolean(waveOpticsState.pending);
+  waveOpticsButton.disabled = Boolean(waveOpticsState.pending) || !modeSupported;
   waveOpticsButton?.setAttribute("data-running", waveOpticsState.pending ? "true" : "false");
   waveOpticsButton?.setAttribute("aria-busy", waveOpticsState.pending ? "true" : "false");
   if (waveOpticsButtonLabel) {
@@ -187,7 +188,9 @@ function applyReadouts(result) {
   if (result.cavity.mirror_beam_x_mm != null && result.cavity.mirror_beam_y_mm != null) {
     mirrorBeamOutput.textContent = `x:${result.cavity.mirror_beam_x_mm.toFixed(2)} y:${result.cavity.mirror_beam_y_mm.toFixed(2)}`;
   } else {
-    mirrorBeamOutput.textContent = `M1:${result.cavity.mirror1_display_beam_mm.toFixed(2)} M2:${result.cavity.mirror2_display_beam_mm.toFixed(2)}`;
+    mirrorBeamOutput.textContent =
+      `M1 x:${result.cavity.mirror1_beam_x_mm.toFixed(2)} y:${result.cavity.mirror1_beam_y_mm.toFixed(2)} ` +
+      `M2 x:${result.cavity.mirror2_beam_x_mm.toFixed(2)} y:${result.cavity.mirror2_beam_y_mm.toFixed(2)}`;
   }
 
   if (result.status_message.includes("Out Hole")) {
@@ -208,6 +211,9 @@ function currentWaveOpticsSignature(config = captureConfig()) {
 }
 
 function getActiveWaveOptics(config = captureConfig()) {
+  if (config.mode_type !== "tem00") {
+    return null;
+  }
   const signature = currentWaveOpticsSignature(config);
   if (!isWaveOpticsFresh(waveOpticsState, signature)) {
     return null;
@@ -241,6 +247,15 @@ function refreshWaveOpticsStatus(config = captureConfig()) {
       `Calculating ${progressPercent}%`,
       "text-xs font-semibold text-slate-600",
       `${currentStep}. ${etaText}.`,
+    );
+    return;
+  }
+
+  if (config.mode_type !== "tem00") {
+    setWaveOpticsStatus(
+      "Analytic Mode",
+      "text-xs font-semibold text-slate-500",
+      "Explicit scalar propagation is limited to TEM00. HG, LG, and custom-M² modes retain their physically consistent analytic overlays.",
     );
     return;
   }
@@ -374,6 +389,10 @@ async function runSimulation() {
 
 async function runWaveOptics() {
   const config = captureConfig();
+  if (config.mode_type !== "tem00") {
+    refreshWaveOpticsStatus(config);
+    return;
+  }
   const payload = currentWaveOpticsPayload(config);
   const signature = buildWaveOpticsSignature(payload);
 

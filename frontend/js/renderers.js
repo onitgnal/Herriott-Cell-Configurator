@@ -7,6 +7,17 @@ import {
 
 const Plotly = window.Plotly;
 
+export function analyticPeakDensityPerMm2(waistX, waistY, mode) {
+  const usesModalEnvelope = mode.type === "hg" || mode.type === "lg";
+  const baseWaistX = usesModalEnvelope ? waistX / Math.sqrt(mode.M2x || 1) : waistX;
+  const baseWaistY = usesModalEnvelope ? waistY / Math.sqrt(mode.M2y || 1) : waistY;
+  return mode.peak_factor / (baseWaistX * baseWaistY);
+}
+
+export function wavePeakDensityPerMm2(frame) {
+  return frame.peak_density_per_mm2 * frame.power_fraction;
+}
+
 function turboColor(value) {
   const normalized = clamp(value, 0, 1);
   const r =
@@ -157,8 +168,9 @@ function renderPlaceholderPlot(divId, title, message) {
   );
 }
 
-function renderWaistPlot(beamPropagation, totalPasses, mirrorDistanceMm, modeTitle) {
-  const maxIndex = totalPasses * 20 + 1;
+function renderWaistPlot(beamPropagation, totalRoundTrips, mirrorDistanceMm, modeTitle) {
+  const totalLegs = 2 * totalRoundTrips;
+  const maxIndex = totalLegs * 20 + 1;
   const zPlot = beamPropagation.x.z_vals.slice(0, maxIndex);
   const wxPlot = beamPropagation.x.w_vals.slice(0, maxIndex);
   const wyPlot = beamPropagation.y.w_vals.slice(0, maxIndex);
@@ -189,7 +201,7 @@ function renderWaistPlot(beamPropagation, totalPasses, mirrorDistanceMm, modeTit
     { x: zPlot, y: wyPlot.map((waist) => -waist), mode: "lines", line: { color: "#0ea5e9", width: 2, dash: "dot" }, showlegend: false },
   ];
 
-  const mirrorShapes = beamPropagation.x.w_mirrors_w.slice(0, totalPasses + 1).map((_, index) => ({
+  const mirrorShapes = beamPropagation.x.w_mirrors_w.slice(0, totalLegs + 1).map((_, index) => ({
     type: "line",
     x0: index * mirrorDistanceMm,
     x1: index * mirrorDistanceMm,
@@ -204,7 +216,7 @@ function renderWaistPlot(beamPropagation, totalPasses, mirrorDistanceMm, modeTit
     {
       title: { text: `Gaussian Beam (${modeTitle})`, font: { size: 13, color: "#334155" } },
       margin: { l: 45, r: 25, b: 40, t: 30 },
-      xaxis: { title: "Unfolded Path Distance z [mm]", range: [0, totalPasses * mirrorDistanceMm], zeroline: false },
+      xaxis: { title: "Unfolded Path Distance z [mm]", range: [0, totalLegs * mirrorDistanceMm], zeroline: false },
       yaxis: { title: "Beam Radius w [mm]", range: [-maxWaist * 1.15, maxWaist * 1.15] },
       showlegend: true,
       legend: { orientation: "h", y: 1.05, x: 1, xanchor: "right", yanchor: "bottom" },
@@ -518,8 +530,9 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         basisU1 = frame.u1;
         basisU2 = frame.u2;
         label = frame.label;
-        intensity = 100 * inputs.peak_power_gw * frame.peak_density_per_mm2;
-        fluence = 100 * inputs.pulse_energy_mj * frame.peak_density_per_mm2;
+        const absolutePeakDensity = wavePeakDensityPerMm2(frame);
+        intensity = 100 * inputs.peak_power_gw * absolutePeakDensity;
+        fluence = 100 * inputs.pulse_energy_mj * absolutePeakDensity;
       } else {
         const waistIndex = getWIndex(index);
         waistX = wxArray[waistIndex] ?? wxArray[wxArray.length - 1];
@@ -529,9 +542,9 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         basisU1 = hit.u1;
         basisU2 = hit.u2;
         label = isCenter ? String(index + 1) : String(waistIndex);
-        const areaFactor = waistX * waistY;
-        intensity = (100 * (inputs.peak_power_gw * mode.peak_factor)) / areaFactor;
-        fluence = (100 * (inputs.pulse_energy_mj * mode.peak_factor)) / areaFactor;
+        const peakDensity = analyticPeakDensityPerMm2(waistX, waistY, mode);
+        intensity = 100 * inputs.peak_power_gw * peakDensity;
+        fluence = 100 * inputs.pulse_energy_mj * peakDensity;
       }
 
       recordBeamStats(intensity, fluence);
@@ -560,7 +573,7 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
 
       const rayAngleHtml = !isCenter && mirrorNumber !== 0 && hit ? getMirrorRayInfoHtml(hit) : "";
       const waveWarningHtml = frame
-        ? `<br>Edge Power: ${(100 * frame.edge_power_fraction).toFixed(2)}%<br>Spectral Edge: ${(100 * frame.spectral_edge_fraction).toFixed(2)}%`
+        ? `<br>Remaining Power: ${(100 * frame.power_fraction).toFixed(2)}%<br>Edge Power: ${(100 * frame.edge_power_fraction).toFixed(2)}%<br>Spectral Edge: ${(100 * frame.spectral_edge_fraction).toFixed(2)}%`
         : "";
       hover.push(
         `Hit: ${label}<br>X: ${pointX.toFixed(2)}<br>Y: ${pointY.toFixed(2)}<br>wx: ${waistX.toFixed(3)}<br>wy: ${waistY.toFixed(3)}<br>Pol: ${hoverAngle.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${intensity.toFixed(2)} GW/cm²<br>Fluence: ${fluence.toFixed(2)} mJ/cm²${waveWarningHtml}`,
@@ -598,13 +611,12 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
           fillcolor: "rgba(217, 70, 239, 0.15)",
         });
       } else {
-        const maxWaist = Math.max(waistX, waistY);
         layout.shapes.push({
           type: "circle",
-          x0: pointX - maxWaist,
-          y0: pointY - maxWaist,
-          x1: pointX + maxWaist,
-          y1: pointY + maxWaist,
+          x0: pointX - waistX,
+          y0: pointY - waistY,
+          x1: pointX + waistX,
+          y1: pointY + waistY,
           line: { color: "rgba(217, 70, 239, 0.6)", width: 1.5 },
           fillcolor: "rgba(217, 70, 239, 0.15)",
         });
@@ -619,9 +631,9 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
       const pointX = hit.P[0];
       const pointY = hit.P[1];
       let label = isCenter ? `B2-${index + 1}` : `B2-${waistIndex}`;
-      const areaFactor = waistX * waistY;
-      const intensity = (100 * (inputs.peak_power_gw * mode.peak_factor)) / areaFactor;
-      const fluence = (100 * (inputs.pulse_energy_mj * mode.peak_factor)) / areaFactor;
+      const peakDensity = analyticPeakDensityPerMm2(waistX, waistY, mode);
+      const intensity = 100 * inputs.peak_power_gw * peakDensity;
+      const fluence = 100 * inputs.pulse_energy_mj * peakDensity;
 
       recordBeamStats(intensity, fluence);
 
@@ -672,13 +684,12 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         secondaryPolX.push(pointX - vectorLength * hit.u1[0], pointX + vectorLength * hit.u1[0], null);
         secondaryPolY.push(pointY - vectorLength * hit.u1[1], pointY + vectorLength * hit.u1[1], null);
       } else {
-        const maxWaist = Math.max(waistX, waistY);
         layout.shapes.push({
           type: "circle",
-          x0: pointX - maxWaist,
-          y0: pointY - maxWaist,
-          x1: pointX + maxWaist,
-          y1: pointY + maxWaist,
+          x0: pointX - waistX,
+          y0: pointY - waistY,
+          x1: pointX + waistX,
+          y1: pointY + waistY,
           line: { color: "rgba(249, 115, 22, 0.75)", width: 1.5 },
           fillcolor: "rgba(249, 115, 22, 0.12)",
         });
