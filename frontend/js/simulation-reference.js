@@ -580,12 +580,22 @@ export function simulateConfiguration(config) {
       mirror1RadiusMm = config.symmetric_radius_mm;
       mirror2RadiusMm = config.symmetric_radius_mm;
     }
-  } else if (config.auto_opposite_radii) {
-    mirror1RadiusMm = mirrorDistanceMm / Math.sin(thetaRt / 2);
-    mirror2RadiusMm = -mirrorDistanceMm / Math.sin(thetaRt / 2);
   } else {
-    mirror1RadiusMm = config.mirror1_radius_mm;
-    mirror2RadiusMm = config.mirror2_radius_mm;
+    const oppositeRadiusMode =
+      config.opposite_radius_mode ?? (config.auto_opposite_radii === false ? "manual" : "auto_equal");
+    if (oppositeRadiusMode === "auto_equal") {
+      mirror1RadiusMm = mirrorDistanceMm / Math.abs(Math.sin(thetaRt / 2));
+      mirror2RadiusMm = -mirror1RadiusMm;
+    } else if (oppositeRadiusMode === "auto_r2") {
+      mirror1RadiusMm = config.mirror1_radius_mm;
+      const g1ForTarget = 1 - mirrorDistanceMm / mirror1RadiusMm;
+      const targetGProduct = Math.pow(Math.cos(thetaRt / 2), 2);
+      const g2ForTarget = targetGProduct / g1ForTarget;
+      mirror2RadiusMm = mirrorDistanceMm / (1 - g2ForTarget);
+    } else {
+      mirror1RadiusMm = config.mirror1_radius_mm;
+      mirror2RadiusMm = config.mirror2_radius_mm;
+    }
   }
 
   const g1 = 1 - mirrorDistanceMm / mirror1RadiusMm;

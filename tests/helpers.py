@@ -26,6 +26,24 @@ def run_js_reference(config_name: str) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
+def run_js_config(config: dict[str, Any]) -> dict[str, Any]:
+    script = """
+import fs from "node:fs";
+import { simulateConfiguration } from "./frontend/js/simulation-reference.js";
+const config = JSON.parse(fs.readFileSync(0, "utf8"));
+console.log(JSON.stringify(simulateConfiguration(config)));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=ROOT_DIR,
+        input=json.dumps(config),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)
+
+
 def strip_none(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: strip_none(item) for key, item in value.items() if item is not None}

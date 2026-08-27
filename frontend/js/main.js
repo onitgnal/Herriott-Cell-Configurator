@@ -514,11 +514,16 @@ function bindUiEvents() {
     handleFastInputChange();
   });
 
-  ["auto-R", "auto-R-vex", "auto-out-hole", "auto-mode-match", "auto-injection", "second-beam-enabled"].forEach((id) => {
+  ["auto-R", "auto-out-hole", "auto-mode-match", "auto-injection", "second-beam-enabled"].forEach((id) => {
     document.getElementById(id).addEventListener("change", () => {
       updateToggleGroups();
       handleFastInputChange();
     });
+  });
+
+  document.getElementById("radius-mode-vex").addEventListener("change", () => {
+    updateToggleGroups();
+    handleFastInputChange();
   });
 
   document.getElementById("out-mirror").addEventListener("change", handleFastInputChange);

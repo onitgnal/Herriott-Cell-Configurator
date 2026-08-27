@@ -22,7 +22,10 @@ class SimulationRequest(BaseModel):
     peak_power_gw: float = Field(10.0, ge=0)
     pulse_energy_mj: float = Field(10.0, ge=0)
     auto_symmetric_radius: bool = True
-    auto_opposite_radii: bool = True
+    opposite_radius_mode: Literal["auto_equal", "auto_r2", "manual"] = "auto_equal"
+    # Accepted for backward compatibility with configurations saved before the
+    # three-state concave-convex radius selector was introduced.
+    auto_opposite_radii: bool | None = None
     symmetric_radius_mm: float = Field(1999.6, gt=0)
     mirror1_radius_mm: float = 2500.0
     mirror2_radius_mm: float = -2500.0
@@ -57,6 +60,17 @@ class SimulationRequest(BaseModel):
     mirror2_tilt_x_mrad: float = 0.0
     mirror2_tilt_y_mrad: float = 0.0
 
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_opposite_radius_mode(cls, values: object) -> object:
+        if not isinstance(values, dict):
+            return values
+
+        migrated = dict(values)
+        if "opposite_radius_mode" not in migrated and "auto_opposite_radii" in migrated:
+            migrated["opposite_radius_mode"] = "auto_equal" if migrated["auto_opposite_radii"] else "manual"
+        return migrated
+
     @model_validator(mode="after")
     def validate_optical_geometry(self) -> "SimulationRequest":
         half_round_trip_phase = pi * self.revolutions / self.total_passes
@@ -67,15 +81,38 @@ class SimulationRequest(BaseModel):
                     "The selected round-trip/revolution combination makes the automatic symmetric radius singular.",
                 )
 
-        if self.cell_type == "cav-vex" and self.auto_opposite_radii:
+        if self.cell_type == "cav-vex" and self.opposite_radius_mode == "auto_equal":
             if abs(sin(half_round_trip_phase)) <= 1e-12:
                 raise ValueError(
                     "The selected round-trip/revolution combination makes the automatic opposite radii singular.",
                 )
 
-        if self.cell_type == "cav-vex" and not self.auto_opposite_radii:
-            if abs(self.mirror1_radius_mm) <= 1e-12 or abs(self.mirror2_radius_mm) <= 1e-12:
-                raise ValueError("Manual mirror radii must be non-zero.")
+        if self.cell_type == "cav-vex" and self.opposite_radius_mode == "auto_r2":
+            if self.mirror1_radius_mm <= 0:
+                raise ValueError("R1 must be positive for the concave entrance mirror.")
+
+            target_g_product = cos(half_round_trip_phase) ** 2
+            g1 = 1 - self.mirror_distance_mm / self.mirror1_radius_mm
+            if abs(g1) <= 1e-12:
+                raise ValueError("The selected R1 makes automatic R2 calculation singular (g1 = 0).")
+
+            g2 = target_g_product / g1
+            if abs(1 - g2) <= 1e-12:
+                raise ValueError("The selected R1 requires an infinite R2 for this round-trip pattern.")
+
+            calculated_r2 = self.mirror_distance_mm / (1 - g2)
+            if calculated_r2 >= 0:
+                raise ValueError(
+                    "The selected R1 does not produce a convex R2 for this N/k pattern. Choose R1 greater than "
+                    "the mirror distance and within the valid concave-convex range.",
+                )
+
+        if self.cell_type == "cav-vex" and self.opposite_radius_mode == "manual":
+            if self.mirror1_radius_mm <= 0 or self.mirror2_radius_mm >= 0:
+                raise ValueError(
+                    "For concave-convex geometry, manual R1 must be positive and non-zero, while R2 must be "
+                    "negative and non-zero.",
+                )
 
         if self.auto_injection and self.spot_pattern_radius_mm > 0:
             if gcd(self.total_passes, self.revolutions) != 1:

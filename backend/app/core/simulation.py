@@ -78,9 +78,15 @@ def simulate_configuration(request: object) -> dict[str, object]:
         else:
             mirror1_radius_mm = request.symmetric_radius_mm
             mirror2_radius_mm = request.symmetric_radius_mm
-    elif request.auto_opposite_radii:
-        mirror1_radius_mm = mirror_distance_mm / sin(theta_rt / 2)
-        mirror2_radius_mm = -mirror_distance_mm / sin(theta_rt / 2)
+    elif request.opposite_radius_mode == "auto_equal":
+        mirror1_radius_mm = mirror_distance_mm / abs(sin(theta_rt / 2))
+        mirror2_radius_mm = -mirror1_radius_mm
+    elif request.opposite_radius_mode == "auto_r2":
+        mirror1_radius_mm = request.mirror1_radius_mm
+        g1_for_target = 1 - mirror_distance_mm / mirror1_radius_mm
+        target_g_product = cos(theta_rt / 2) ** 2
+        g2_for_target = target_g_product / g1_for_target
+        mirror2_radius_mm = mirror_distance_mm / (1 - g2_for_target)
     else:
         mirror1_radius_mm = request.mirror1_radius_mm
         mirror2_radius_mm = request.mirror2_radius_mm

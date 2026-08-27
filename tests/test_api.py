@@ -48,6 +48,17 @@ def test_simulation_endpoint_rejects_singular_or_early_closing_geometry(client) 
     assert response.status_code == 422
     assert "non-zero" in response.json()["details"][0]["message"]
 
+    invalid_auto_r2 = load_fixture("cav_vex_lg_auto.json")
+    invalid_auto_r2.update(
+        {
+            "opposite_radius_mode": "auto_r2",
+            "mirror1_radius_mm": invalid_auto_r2["mirror_distance_mm"],
+        },
+    )
+    response = client.post("/api/simulate", json=invalid_auto_r2)
+    assert response.status_code == 422
+    assert "automatic R2 calculation singular" in response.json()["details"][0]["message"]
+
 
 def test_simulation_endpoint_returns_secondary_trace_when_enabled(client) -> None:
     config = load_fixture("dual_beam_manual.json")

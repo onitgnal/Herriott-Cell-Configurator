@@ -40,7 +40,7 @@ const NUMERIC_FIELDS = [
 const LEGACY_TOGGLE_FIELDS = [
   { key: "cell_type", elementId: "cell-type", legacyKey: "cellType", type: "select" },
   { key: "auto_symmetric_radius", elementId: "auto-R", legacyKey: "autoR", type: "checkbox" },
-  { key: "auto_opposite_radii", elementId: "auto-R-vex", legacyKey: "autoRVex", type: "checkbox" },
+  { key: "opposite_radius_mode", elementId: "radius-mode-vex", legacyKey: "oppositeRadiusMode", type: "select" },
   { key: "auto_output_hole", elementId: "auto-out-hole", legacyKey: "autoOutHole", type: "checkbox" },
   { key: "output_mirror", elementId: "out-mirror", legacyKey: "outMirror", type: "select-int" },
   { key: "auto_mode_match", elementId: "auto-mode-match", legacyKey: "autoModeMatch", type: "checkbox" },
@@ -61,7 +61,6 @@ const WAVE_OPTICS_FIELDS = [
 
 const AUTO_GROUPS = [
   { checkboxId: "auto-R", groupId: "group-R" },
-  { checkboxId: "auto-R-vex", groupId: "group-R-vex" },
   { checkboxId: "auto-out-hole", groupId: "group-out-hole" },
   { checkboxId: "auto-mode-match", groupId: "group-beam" },
   { checkboxId: "auto-injection", groupId: "group-injection" },
@@ -114,6 +113,12 @@ function setControlEnabledGroup(checkboxId, groupId) {
   group.classList.toggle("pointer-events-none", disabled);
 }
 
+function setGroupDisabled(groupId, disabled) {
+  const group = document.getElementById(groupId);
+  group.classList.toggle("opacity-50", disabled);
+  group.classList.toggle("pointer-events-none", disabled);
+}
+
 function setNumericControlValue(domId, numericValue, displayValue = String(numericValue)) {
   const { range, number } = getNumericElementsByDomId(domId);
   if (!range || !number || numericValue == null || Number.isNaN(numericValue)) {
@@ -148,6 +153,10 @@ function applyLegacyConfig(legacyConfig) {
       element.value = String(legacyConfig[field.legacyKey]);
     }
   });
+
+  if (legacyConfig.oppositeRadiusMode === undefined && legacyConfig.autoRVex !== undefined) {
+    document.getElementById("radius-mode-vex").value = legacyConfig.autoRVex ? "auto_equal" : "manual";
+  }
 
   NUMERIC_FIELDS.forEach((field) => {
     if (legacyConfig[field.legacyKey] === undefined) {
@@ -208,6 +217,9 @@ export function updateCellTypeUI() {
 export function updateToggleGroups() {
   AUTO_GROUPS.forEach(({ checkboxId, groupId }) => setControlDisabledGroup(checkboxId, groupId));
   ENABLE_GROUPS.forEach(({ checkboxId, groupId }) => setControlEnabledGroup(checkboxId, groupId));
+  const oppositeRadiusMode = document.getElementById("radius-mode-vex").value;
+  setGroupDisabled("group-R1-vex", oppositeRadiusMode === "auto_equal");
+  setGroupDisabled("group-R2-vex", oppositeRadiusMode !== "manual");
 }
 
 export function captureConfig() {
@@ -266,25 +278,31 @@ export function buildWaveOpticsRequest(config = captureConfig(), waveOptics = ca
 }
 
 export function applyConfig(config) {
+  const normalizedConfig = {
+    ...config,
+    opposite_radius_mode:
+      config.opposite_radius_mode ?? (config.auto_opposite_radii === false ? "manual" : "auto_equal"),
+  };
+
   NUMERIC_FIELDS.forEach((field) => {
-    if (config[field.key] === undefined || config[field.key] === null) {
+    if (normalizedConfig[field.key] === undefined || normalizedConfig[field.key] === null) {
       return;
     }
 
-    const rawValue = String(config[field.key]);
+    const rawValue = String(normalizedConfig[field.key]);
     const numericValue = field.type === "int" ? parseInt(rawValue, 10) : parseFloat(rawValue);
     setNumericControlValue(field.domId, numericValue, rawValue);
   });
 
   LEGACY_TOGGLE_FIELDS.forEach((field) => {
-    if (config[field.key] === undefined) {
+    if (normalizedConfig[field.key] === undefined) {
       return;
     }
     const element = document.getElementById(field.elementId);
     if (field.type === "checkbox") {
-      element.checked = Boolean(config[field.key]);
+      element.checked = Boolean(normalizedConfig[field.key]);
     } else {
-      element.value = String(config[field.key]);
+      element.value = String(normalizedConfig[field.key]);
     }
   });
 
@@ -320,12 +338,15 @@ export function applyResolvedInputs(resolvedInputs) {
 
   if (
     currentConfig.cell_type === "cav-vex" &&
-    currentConfig.auto_opposite_radii &&
     resolvedInputs.mirror1_radius_mm != null &&
     resolvedInputs.mirror2_radius_mm != null
   ) {
-    setNumericControlValue("R1", resolvedInputs.mirror1_radius_mm, resolvedInputs.mirror1_radius_mm.toFixed(2));
-    setNumericControlValue("R2", resolvedInputs.mirror2_radius_mm, resolvedInputs.mirror2_radius_mm.toFixed(2));
+    if (currentConfig.opposite_radius_mode === "auto_equal") {
+      setNumericControlValue("R1", resolvedInputs.mirror1_radius_mm, resolvedInputs.mirror1_radius_mm.toFixed(2));
+    }
+    if (currentConfig.opposite_radius_mode !== "manual") {
+      setNumericControlValue("R2", resolvedInputs.mirror2_radius_mm, resolvedInputs.mirror2_radius_mm.toFixed(2));
+    }
   }
 
   if (currentConfig.auto_mode_match) {

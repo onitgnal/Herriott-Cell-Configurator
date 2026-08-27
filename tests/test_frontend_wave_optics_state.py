@@ -141,3 +141,34 @@ def test_refractive_index_control_and_round_trip_explanation_exist() -> None:
     assert "Vacuum Wavelength" in index_html
     assert "Round Trips / Spots per Mirror" in index_html
     assert "two mirror-to-mirror legs" in index_html
+
+
+def test_concave_convex_radius_mode_selector_exists() -> None:
+    index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="radius-mode-vex"' in index_html
+    assert '<option value="auto_equal">Auto: |R1| = |R2|</option>' in index_html
+    assert '<option value="auto_r2">Set R1, auto-calculate R2</option>' in index_html
+    assert '<option value="manual">Set R1 and R2</option>' in index_html
+    assert 'id="group-R1-vex"' in index_html
+    assert 'id="group-R2-vex"' in index_html
+    assert 'id="auto-R-vex"' not in index_html
+
+
+def test_api_client_prefers_specific_validation_detail() -> None:
+    script = """
+import { getErrorMessage } from "./frontend/js/api-client.js";
+console.log(getErrorMessage({
+  error: { message: "Request validation failed." },
+  details: [{ message: "R1 is outside the valid range." }],
+}, "Fallback"));
+"""
+    completed = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=ROOT_DIR,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.stdout.strip() == "R1 is outside the valid range."

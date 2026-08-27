@@ -17,6 +17,7 @@ progress, and shows an ETA while the solver loop is running.
 
 - Designs concave-concave and concave-convex multipass cells
 - Auto-computes mirror radii from mirror spacing, round-trip count, and revolution count
+- For concave-convex cells, supports automatic equal-magnitude radii, a fixed R1 with calculated R2, or two manual radii
 - Supports a uniform intracell refractive index for gas- or material-filled cells
 - Auto-computes a nominal injection ray for rotating dense spot patterns
 - Traces the injected ray in 3D using exact sphere intersections and vector reflection
@@ -220,6 +221,7 @@ Radius-of-curvature convention used by the app:
 
 - In `cav-cav`, both mirror radii are positive.
 - In `cav-vex`, mirror 1 is positive concave and mirror 2 is negative convex.
+- In the `Set R1, auto-calculate R2` mode, the app preserves the requested pattern phase using `g1*g2 = cos^2(pi*k/N)`, with `g1 = 1-L/R1`, `g2 = (cos^2(pi*k/N))/g1`, and `R2 = L/(1-g2)`.
 
 Plotting convention:
 

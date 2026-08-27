@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from math import sqrt
+from math import cos, pi, sqrt
 
 import pytest
 
@@ -8,7 +8,7 @@ from backend.app.core.modes import build_mode_config
 from backend.app.schemas.simulation import SimulationRequest
 from backend.app.services.simulation_service import run_simulation
 
-from tests.helpers import assert_nested_close, load_fixture, run_js_reference, strip_none
+from tests.helpers import assert_nested_close, load_fixture, run_js_config, run_js_reference, strip_none
 
 REFERENCE_CASES = [
     "default_tem00.json",
@@ -93,3 +93,27 @@ def test_high_order_mode_normalization_and_lg_sign_symmetry() -> None:
     assert hg.norm > 0
     assert lg_positive.norm == pytest.approx(lg_negative.norm)
     assert lg_positive.peak_factor == pytest.approx(lg_negative.peak_factor)
+
+
+def test_cav_vex_auto_r2_preserves_requested_round_trip_phase() -> None:
+    config = load_fixture("cav_vex_lg_auto.json")
+    config.pop("auto_opposite_radii")
+    config.update({"opposite_radius_mode": "auto_r2", "mirror1_radius_mm": 1500.0})
+
+    python_result = strip_none(run_simulation(SimulationRequest.model_validate(config)).model_dump())
+    js_result = strip_none(run_js_config(config))
+
+    assert_nested_close(python_result, js_result)
+    target_g_product = cos(pi * config["revolutions"] / config["total_passes"]) ** 2
+    assert python_result["resolved_inputs"]["mirror1_radius_mm"] == pytest.approx(1500.0)
+    assert python_result["resolved_inputs"]["mirror2_radius_mm"] < 0
+    assert python_result["stability"]["product"] == pytest.approx(target_g_product)
+    assert python_result["ray_trace"]["total_bounces"] == 2 * config["total_passes"]
+
+
+def test_legacy_opposite_radius_boolean_maps_to_new_modes() -> None:
+    auto_config = load_fixture("cav_vex_lg_auto.json")
+    manual_config = {**auto_config, "auto_opposite_radii": False}
+
+    assert SimulationRequest.model_validate(auto_config).opposite_radius_mode == "auto_equal"
+    assert SimulationRequest.model_validate(manual_config).opposite_radius_mode == "manual"

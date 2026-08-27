@@ -7,13 +7,13 @@ export class ApiError extends Error {
   }
 }
 
-function getErrorMessage(body, fallbackMessage) {
-  if (body?.error?.message) {
-    return body.error.message;
-  }
-
+export function getErrorMessage(body, fallbackMessage) {
   if (Array.isArray(body?.details) && body.details.length > 0) {
     return body.details[0].message || fallbackMessage;
+  }
+
+  if (body?.error?.message) {
+    return body.error.message;
   }
 
   return fallbackMessage;
