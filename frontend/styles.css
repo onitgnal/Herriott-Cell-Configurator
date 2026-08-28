@@ -8,6 +8,16 @@ input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; }
 
+input[data-digit-stepper="true"] {
+  font-variant-numeric: tabular-nums;
+  caret-color: #4f46e5;
+}
+
+input[data-digit-stepper="true"]::selection {
+  color: #312e81;
+  background: #c7d2fe;
+}
+
 .wave-optics-run-button {
   position: relative;
   overflow: hidden;

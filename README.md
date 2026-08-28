@@ -184,6 +184,7 @@ The synchronous wave-optics endpoint remains available for direct API use and te
 - When a fresh 2D result exists, the mirror/focus plots use the wave-optics profiles.
 - When any relevant input changes, the 2D result becomes stale and the plots fall back to the analytic beam overlays.
 - The wave-optics status card shows whether the 2D result is fresh, stale, failed, or currently running.
+- Every numeric field supports digit-at-caret stepping: place the caret on a digit, then use Arrow Up/Down or the mouse wheel. Each step immediately refreshes the affected calculations and plots.
 
 ## Core Simulation Model
 

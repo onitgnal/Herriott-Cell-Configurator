@@ -1,4 +1,5 @@
 import { ApiError, getWaveOpticsJob, simulateConfiguration, startWaveOpticsJob } from "./api-client.js";
+import { bindDigitAtCaretControls } from "./digit-stepper.js";
 import {
   applyResolvedInputs,
   bindNumericFields,
@@ -537,6 +538,7 @@ function bindUiEvents() {
 
   bindNumericFields(handleFastInputChange);
   bindWaveOpticsFields(handleWaveOpticsInputChange);
+  bindDigitAtCaretControls();
   waveOpticsButton.addEventListener("click", () => {
     void runWaveOptics();
   });

@@ -424,7 +424,7 @@ export function bindNumericFields(onChange) {
       }
 
       range.value = String(numericValue);
-      number.value = String(numericValue);
+      number.value = field.type === "int" ? String(numericValue) : rawValue.trim();
       updateNumberStep(number, number.value, field.type);
       onChange();
     });
