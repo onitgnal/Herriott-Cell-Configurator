@@ -40,6 +40,18 @@ class SimulationRequest(BaseModel):
     laguerre_p: int = Field(0, ge=0, le=20)
     laguerre_l: int = Field(1, ge=-20, le=20)
     custom_m2: float = Field(1.0, ge=1.0)
+    mode_matching_mode: Literal["auto", "fixed_lenses", "manual"] = "auto"
+    input_beam_radius_mm: float = Field(2.0, gt=0)
+    lens1_focal_length_mm: float = 150.0
+    lens2_focal_length_mm: float = 250.0
+    lens3_focal_length_mm: float = 50.0
+    phase_plate_to_lens1_mm: float = Field(25.0, ge=0)
+    lens1_to_lens2_mm: float = Field(175.0, gt=0)
+    lens2_to_lens3_mm: float = Field(30.0, gt=0)
+    lens3_to_mirror1_mm: float = Field(30.0, gt=0)
+    output_propagation_mm: float = Field(500.0, gt=0)
+    # Legacy direct-at-M1 launch controls are retained for saved configurations.
+    # The telescope result now supplies the actual q parameter at M1.
     auto_mode_match: bool = True
     input_waist_x_mm: float = Field(1.0, gt=0)
     input_waist_y_mm: float = Field(1.0, gt=0)
@@ -122,6 +134,14 @@ class SimulationRequest(BaseModel):
                     "visits N distinct spots before returning to the entrance hole.",
                 )
 
+        for label, focal_length in (
+            ("Lens 1", self.lens1_focal_length_mm),
+            ("Lens 2", self.lens2_focal_length_mm),
+            ("Lens 3", self.lens3_focal_length_mm),
+        ):
+            if abs(focal_length) <= 1e-9:
+                raise ValueError(f"{label} focal length must be non-zero.")
+
         return self
 
 
@@ -132,6 +152,9 @@ class WaveOpticsSettings(BaseModel):
     super_gaussian_order: float = Field(4.0, ge=1.0, le=20.0)
     laguerre_p: int = Field(0, ge=0, le=20)
     laguerre_l: int = Field(1, ge=-20, le=20)
+    phase_plate_enabled: bool = False
+    phase_plate_radial_p: int = Field(0, ge=0, le=20)
+    phase_plate_l: int = Field(1, ge=-20, le=20)
     window_safety_factor: float = Field(4.0, gt=1.0, le=12.0)
     samples_per_radius: int = Field(14, ge=4, le=64)
     guard_band_fraction: float = Field(0.12, ge=0.02, lt=0.45)
@@ -186,6 +209,44 @@ class ResolvedInputs(BaseModel):
     mirror1_tilt_y_mrad: float
     mirror2_tilt_x_mrad: float
     mirror2_tilt_y_mrad: float
+
+
+class ModeMatchingResult(BaseModel):
+    mode: Literal["auto", "fixed_lenses", "manual"]
+    success: bool
+    message: str
+    input_beam_radius_mm: float
+    focal_lengths_mm: list[float]
+    distances_mm: list[float]
+    total_length_mm: float
+    lens_positions_mm: list[float]
+    input_plane_z_mm: float
+    relative_q_error: float
+    minimum_beam_radius_mm: float
+    target_q_air_real_mm: float
+    target_q_air_imag_mm: float
+    achieved_q_air_x_real_mm: float
+    achieved_q_air_x_imag_mm: float
+    achieved_q_air_y_real_mm: float
+    achieved_q_air_y_imag_mm: float
+
+
+class ExternalAxisPropagation(BaseModel):
+    z_vals: list[float]
+    w_vals: list[float]
+
+
+class ExternalBeamSection(BaseModel):
+    x: ExternalAxisPropagation
+    y: ExternalAxisPropagation
+
+
+class ExternalBeamPropagation(BaseModel):
+    input_section: ExternalBeamSection
+    output_section: ExternalBeamSection
+    lens_positions_mm: list[float]
+    phase_plate_position_mm: float
+    cell_output_position_mm: float
 
 
 class StabilityResult(BaseModel):
@@ -285,7 +346,7 @@ class WaveOpticsGridDiagnostic(BaseModel):
 
 
 class WaveOpticsFrame(BaseModel):
-    plane_kind: Literal["launch", "mirror", "center", "focus"]
+    plane_kind: Literal["input", "launch", "mirror", "center", "focus"]
     mirror_number: int | None = None
     segment_index: int
     bounce_index: int | None = None
@@ -328,13 +389,17 @@ class WaveOpticsSegmentDiagnostic(BaseModel):
 
 class WaveOpticsResult(BaseModel):
     method: str
-    propagation_backends: list[Literal["dense", "scaled_fft"]]
+    propagation_backends: list[Literal["angular_spectrum", "dense", "scaled_fft"]]
     profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian", "laguerre_gaussian"]
     super_gaussian_order: float | None = None
     laguerre_p: int | None = None
     laguerre_l: int | None = None
+    phase_plate_enabled: bool = False
+    phase_plate_radial_p: int | None = None
+    phase_plate_l: int | None = None
     settings: WaveOpticsSettings
     warnings: list[str]
+    input_profile: WaveOpticsFrame
     launch_profile: WaveOpticsFrame
     mirror1_profiles: list[WaveOpticsFrame]
     mirror2_profiles: list[WaveOpticsFrame]
@@ -353,6 +418,8 @@ class SimulationResponse(BaseModel):
     ray_trace: RayTraceResult | None
     secondary_ray_trace: RayTraceResult | None = None
     beam_propagation: BeamPropagation | None
+    mode_matching: ModeMatchingResult | None = None
+    external_beam_propagation: ExternalBeamPropagation | None = None
     wave_optics: WaveOpticsResult | None = None
 
 

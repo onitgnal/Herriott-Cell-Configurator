@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from backend.app.core.math_utils import v_dot, v_sub
+from backend.app.core.mode_matching import beam_radius_from_q, telescope_q_planes
 from backend.app.schemas.simulation import WAVE_OPTICS_MAX_GRID_POINTS, WaveOpticsSettings
 
 EPSILON = 1e-9
@@ -350,16 +351,25 @@ def _laguerre_window_factor(
 
 
 def _launch_profile_grid_factors(settings: WaveOpticsSettings) -> tuple[float, float]:
-    if settings.profile_type != "laguerre_gaussian":
-        return settings.window_safety_factor, 1.0
-    mode_radius_factor = sqrt(2 * settings.laguerre_p + abs(settings.laguerre_l) + 1)
-    window_factor = _laguerre_window_factor(
-        settings.laguerre_p,
-        settings.laguerre_l,
-        round(settings.window_safety_factor, 6),
-        round(settings.guard_band_fraction, 6),
-    )
-    return window_factor, mode_radius_factor
+    if settings.profile_type == "laguerre_gaussian":
+        mode_radius_factor = sqrt(2 * settings.laguerre_p + abs(settings.laguerre_l) + 1)
+        window_factor = _laguerre_window_factor(
+            settings.laguerre_p,
+            settings.laguerre_l,
+            round(settings.window_safety_factor, 6),
+            round(settings.guard_band_fraction, 6),
+        )
+        return window_factor, mode_radius_factor
+    if settings.phase_plate_enabled:
+        mode_radius_factor = sqrt(settings.phase_plate_radial_p + abs(settings.phase_plate_l) + 1)
+        window_factor = _laguerre_window_factor(
+            settings.phase_plate_radial_p,
+            settings.phase_plate_l,
+            round(settings.window_safety_factor, 6),
+            round(settings.guard_band_fraction, 6),
+        )
+        return window_factor, mode_radius_factor
+    return settings.window_safety_factor, 1.0
 
 
 def _emit_progress(
@@ -613,6 +623,25 @@ class AdaptiveWaveOpticsSolver:
             self.propagation_backends_used.add("scaled_fft")
         return propagated, out_grid
 
+    def propagate_angular_spectrum(
+        self,
+        field: np.ndarray,
+        grid: FieldGrid,
+        distance_mm: float,
+    ) -> np.ndarray:
+        """Paraxial angular-spectrum propagation on a common telescope grid."""
+        frequency_x = np.fft.fftfreq(field.shape[0], d=grid.dx_mm)[:, None]
+        frequency_y = np.fft.fftfreq(field.shape[1], d=grid.dy_mm)[None, :]
+        transfer = np.exp(
+            -1j
+            * pi
+            * self.wavelength_mm
+            * distance_mm
+            * ((frequency_x * frequency_x) + (frequency_y * frequency_y)),
+        )
+        self.propagation_backends_used.add("angular_spectrum")
+        return np.fft.ifft2(np.fft.fft2(field) * transfer)
+
     def build_launch_field(
         self,
         plan: PlanePlan,
@@ -624,6 +653,9 @@ class AdaptiveWaveOpticsSolver:
         curvature_y_mm: float,
         laguerre_p: int = 0,
         laguerre_l: int = 1,
+        phase_plate_enabled: bool = False,
+        phase_plate_radial_p: int = 0,
+        phase_plate_l: int = 1,
     ) -> tuple[np.ndarray, FieldGrid]:
         grid = self.grid(plan)
         x_grid = grid.x_mm[:, None]
@@ -659,6 +691,15 @@ class AdaptiveWaveOpticsSolver:
         if profile_type == "laguerre_gaussian" and laguerre_l != 0:
             azimuth = np.arctan2(y_grid / radius_y_mm, x_grid / radius_x_mm)
             phase *= np.exp(1j * laguerre_l * azimuth)
+        if phase_plate_enabled:
+            round_radius_mm = sqrt(radius_x_mm * radius_y_mm)
+            radial_coordinate = np.sqrt((x_grid * x_grid) + (y_grid * y_grid)) / round_radius_mm
+            if phase_plate_radial_p > 0:
+                # A spiral phase plate itself is phase-only (p=0).  Positive p explicitly represents the
+                # radial amplitude part of a complex HyGG pupil shaper.
+                amplitude *= np.power(np.sqrt(2.0) * radial_coordinate, phase_plate_radial_p)
+            if phase_plate_l != 0:
+                phase *= np.exp(1j * phase_plate_l * np.arctan2(y_grid, x_grid))
         if curvature_x_mm != inf:
             phase *= np.exp(0.5j * self.wave_number_mm * (x_grid * x_grid) / curvature_x_mm)
         if curvature_y_mm != inf:
@@ -666,6 +707,18 @@ class AdaptiveWaveOpticsSolver:
 
         field = amplitude.astype(np.complex128) * phase
         return _normalize_field(field, grid), grid
+
+    def apply_thin_lens(
+        self,
+        field: np.ndarray,
+        grid: FieldGrid,
+        focal_length_mm: float,
+    ) -> np.ndarray:
+        x_grid = grid.x_mm[:, None]
+        y_grid = grid.y_mm[None, :]
+        return field * np.exp(
+            -0.5j * self.wave_number_mm * ((x_grid * x_grid) + (y_grid * y_grid)) / focal_length_mm,
+        )
 
     def apply_mirror(
         self,
@@ -968,6 +1021,7 @@ def _plan_planes(
     settings: WaveOpticsSettings,
     profile_window_factor: float | None = None,
     profile_radius_factor: float = 1.0,
+    first_mirror_half_width: tuple[float, float] | None = None,
 ) -> tuple[list[PlanePlan], list[PlanePlan | None], list[PlanePlan]]:
     mirror_half_widths: list[tuple[float, float]] = []
     center_half_widths: list[tuple[float, float]] = []
@@ -985,6 +1039,11 @@ def _plan_planes(
                 _plane_half_width_mm(radius_x_mm, settings, profile_window_factor),
                 _plane_half_width_mm(radius_y_mm, settings, profile_window_factor),
             ),
+        )
+    if first_mirror_half_width is not None:
+        mirror_half_widths[0] = (
+            max(mirror_half_widths[0][0], first_mirror_half_width[0]),
+            max(mirror_half_widths[0][1], first_mirror_half_width[1]),
         )
 
     for state in states:
@@ -1263,6 +1322,79 @@ def _plan_planes(
     return mirror_plans, focus_plans, center_plans
 
 
+def _plan_telescope_planes(
+    input_q_x: complex,
+    input_q_y: complex,
+    focal_lengths_mm: tuple[float, float, float],
+    distances_mm: tuple[float, float, float, float],
+    wavelength_mm: float,
+    settings: WaveOpticsSettings,
+    final_plan: PlanePlan,
+    profile_window_factor: float,
+    profile_radius_factor: float,
+    m2_x: float,
+    m2_y: float,
+) -> list[PlanePlan]:
+    incoming_x, outgoing_x = telescope_q_planes(input_q_x, focal_lengths_mm, distances_mm)
+    incoming_y, outgoing_y = telescope_q_planes(input_q_y, focal_lengths_mm, distances_mm)
+    radii_x = [float(beam_radius_from_q(q_value, wavelength_mm, m2_x)) for q_value in incoming_x]
+    radii_y = [float(beam_radius_from_q(q_value, wavelength_mm, m2_y)) for q_value in incoming_y]
+    half_widths = [
+        (
+            _plane_half_width_mm(radius_x, settings, profile_window_factor),
+            _plane_half_width_mm(radius_y, settings, profile_window_factor),
+        )
+        for radius_x, radius_y in zip(radii_x, radii_y, strict=True)
+    ]
+    common_half_width_x = max(final_plan.half_width_x_mm, *(half_width[0] for half_width in half_widths))
+    common_half_width_y = max(final_plan.half_width_y_mm, *(half_width[1] for half_width in half_widths))
+    dx_limit_x = min(radius / settings.samples_per_radius for radius in radii_x)
+    dx_limit_y = min(radius / settings.samples_per_radius for radius in radii_y)
+    for index in range(len(incoming_x)):
+        for q_value in (incoming_x[index], outgoing_x[index]):
+            dx_limit_x = min(
+                dx_limit_x,
+                _dx_from_curvature(
+                    _curvature_radius_mm(q_value),
+                    common_half_width_x,
+                    wavelength_mm,
+                    settings.curvature_nyquist_margin,
+                ),
+            )
+        for q_value in (incoming_y[index], outgoing_y[index]):
+            dx_limit_y = min(
+                dx_limit_y,
+                _dx_from_curvature(
+                    _curvature_radius_mm(q_value),
+                    common_half_width_y,
+                    wavelength_mm,
+                    settings.curvature_nyquist_margin,
+                ),
+            )
+    required_nx = max(_grid_requirement_points(common_half_width_x, dx_limit_x), final_plan.nx)
+    required_ny = max(_grid_requirement_points(common_half_width_y, dx_limit_y), final_plan.ny)
+    nx = _efficient_grid_size(required_nx, settings.max_grid_points)
+    ny = _efficient_grid_size(required_ny, settings.max_grid_points)
+    common_plan = PlanePlan(
+        half_width_x_mm=common_half_width_x,
+        half_width_y_mm=common_half_width_y,
+        nx=nx,
+        ny=ny,
+        dx_mm=(2 * common_half_width_x) / (nx - 1),
+        dy_mm=(2 * common_half_width_y) / (ny - 1),
+        predicted_radius_x_mm=max(radii_x) * profile_radius_factor,
+        predicted_radius_y_mm=max(radii_y) * profile_radius_factor,
+    )
+    bytes_required = 16 * nx * ny * 4
+    if bytes_required > settings.max_memory_mb * 1024 * 1024:
+        raise WaveOpticsSamplingError(
+            f"The common mode-matching angular-spectrum grid would require roughly "
+            f"{bytes_required / (1024 * 1024):.1f} MiB, exceeding the configured wave-optics budget of "
+            f"{settings.max_memory_mb:.1f} MiB.",
+        )
+    return [common_plan] * 5
+
+
 def _segment_propagation_step_label(state: SegmentState, segment_number: int, segment_count: int) -> str:
     if state.focus_distance_mm is None:
         return f"Segment {segment_number}/{segment_count}: direct mirror-to-mirror propagation"
@@ -1318,7 +1450,7 @@ def compute_wave_optics_result(
         mode["M2x"],
         mode["M2y"],
     )
-    total_steps = _wave_optics_progress_step_count(states)
+    total_steps = _wave_optics_progress_step_count(states) + 4
     _emit_progress(
         progress_callback,
         completed_steps=0,
@@ -1335,29 +1467,103 @@ def compute_wave_optics_result(
         profile_window_factor,
         profile_radius_factor,
     )
+    matching = base_result.get("mode_matching")
+    if matching is None:
+        return None
+    focal_lengths = tuple(map(float, matching["focal_lengths_mm"]))
+    matching_distances = tuple(map(float, matching["distances_mm"]))
+    wavelength_vacuum_mm = resolved_inputs["wavelength_mm"]
+    input_radius_mm = float(matching["input_beam_radius_mm"])
+    input_q_x = complex(0.0, pi * input_radius_mm**2 / (mode["M2x"] * wavelength_vacuum_mm))
+    input_q_y = complex(0.0, pi * input_radius_mm**2 / (mode["M2y"] * wavelength_vacuum_mm))
+    telescope_plans = _plan_telescope_planes(
+        input_q_x,
+        input_q_y,
+        focal_lengths,
+        matching_distances,
+        wavelength_vacuum_mm,
+        settings,
+        mirror_plans[0],
+        profile_window_factor,
+        profile_radius_factor,
+        mode["M2x"],
+        mode["M2y"],
+    )
+    common_telescope_plan = telescope_plans[0]
+    mirror_plans, focus_plans, center_plans = _plan_planes(
+        states,
+        mirror_distance_mm,
+        wavelength_mm,
+        settings,
+        profile_window_factor,
+        profile_radius_factor,
+        (common_telescope_plan.half_width_x_mm, common_telescope_plan.half_width_y_mm),
+    )
+    if mirror_plans[0].nx > common_telescope_plan.nx or mirror_plans[0].ny > common_telescope_plan.ny:
+        common_telescope_plan = PlanePlan(
+            half_width_x_mm=common_telescope_plan.half_width_x_mm,
+            half_width_y_mm=common_telescope_plan.half_width_y_mm,
+            nx=max(common_telescope_plan.nx, mirror_plans[0].nx),
+            ny=max(common_telescope_plan.ny, mirror_plans[0].ny),
+            dx_mm=(2 * common_telescope_plan.half_width_x_mm) / (max(common_telescope_plan.nx, mirror_plans[0].nx) - 1),
+            dy_mm=(2 * common_telescope_plan.half_width_y_mm) / (max(common_telescope_plan.ny, mirror_plans[0].ny) - 1),
+            predicted_radius_x_mm=common_telescope_plan.predicted_radius_x_mm,
+            predicted_radius_y_mm=common_telescope_plan.predicted_radius_y_mm,
+        )
+    telescope_plans = [common_telescope_plan] * 5
+    mirror_plans[0] = common_telescope_plan
     progress_steps = 1
     _emit_progress(
         progress_callback,
         completed_steps=progress_steps,
         total_steps=total_steps,
-        current_step="Building launch field",
+        current_step="Building collimated input and phase-plate field",
         start_time=progress_start,
     )
     solver = AdaptiveWaveOpticsSolver(wavelength_mm, settings)
+    external_solver = AdaptiveWaveOpticsSolver(wavelength_vacuum_mm, settings)
 
     launch_u1, launch_u2 = _segment_start_basis(ray_trace, 0)
     launch_point = _segment_start_point(ray_trace, 0)
-    field, current_grid = solver.build_launch_field(
-        mirror_plans[0],
+    field, current_grid = external_solver.build_launch_field(
+        telescope_plans[0],
         settings.profile_type,
         settings.super_gaussian_order,
-        states[0].start_radius_x_mm,
-        states[0].start_radius_y_mm,
-        states[0].start_curvature_x_mm,
-        states[0].start_curvature_y_mm,
+        input_radius_mm,
+        input_radius_mm,
+        inf,
+        inf,
         settings.laguerre_p,
         settings.laguerre_l,
+        settings.phase_plate_enabled,
+        settings.phase_plate_radial_p,
+        settings.phase_plate_l,
     )
+    input_profile = external_solver.summarize_field(
+        field,
+        current_grid,
+        (launch_point[0], launch_point[1], launch_point[2] - matching["total_length_mm"]),
+        launch_u1,
+        launch_u2,
+        "input",
+        None,
+        -1,
+        None,
+        "Input plate",
+    )
+    for telescope_index, distance_mm in enumerate(matching_distances):
+        field = external_solver.propagate_angular_spectrum(field, current_grid, distance_mm)
+        if telescope_index < len(focal_lengths):
+            field = external_solver.apply_thin_lens(field, current_grid, focal_lengths[telescope_index])
+        progress_steps += 1
+        _emit_progress(
+            progress_callback,
+            completed_steps=progress_steps,
+            total_steps=total_steps,
+            current_step=f"Mode matching: propagated to {'M1' if telescope_index == 3 else f'L{telescope_index + 1}'}",
+            start_time=progress_start,
+        )
+
     launch_profile = solver.summarize_field(
         field,
         current_grid,
@@ -1396,7 +1602,10 @@ def compute_wave_optics_result(
     center_profiles: list[dict[str, Any]] = []
     focus_profiles: list[dict[str, Any]] = []
     segment_diagnostics: list[dict[str, Any]] = []
-    overall_warnings: list[str] = []
+    overall_warnings: list[str] = [
+        *_frame_sampling_warnings(input_profile, "Input phase-plate plane"),
+        *_frame_sampling_warnings(launch_profile, "M1 launch plane"),
+    ]
 
     for segment_index, state in enumerate(states):
         segment_number = segment_index + 1
@@ -1633,7 +1842,7 @@ def compute_wave_optics_result(
     deduplicated_warnings = list(dict.fromkeys(overall_warnings))
     return {
         "method": "Adaptive-grid 2D Collins/Fresnel diffraction integral",
-        "propagation_backends": sorted(solver.propagation_backends_used),
+        "propagation_backends": sorted(solver.propagation_backends_used | external_solver.propagation_backends_used),
         "profile_type": settings.profile_type,
         "super_gaussian_order": (
             settings.super_gaussian_order
@@ -1642,8 +1851,12 @@ def compute_wave_optics_result(
         ),
         "laguerre_p": settings.laguerre_p if settings.profile_type == "laguerre_gaussian" else None,
         "laguerre_l": settings.laguerre_l if settings.profile_type == "laguerre_gaussian" else None,
+        "phase_plate_enabled": settings.phase_plate_enabled,
+        "phase_plate_radial_p": settings.phase_plate_radial_p if settings.phase_plate_enabled else None,
+        "phase_plate_l": settings.phase_plate_l if settings.phase_plate_enabled else None,
         "settings": settings.model_dump(),
         "warnings": deduplicated_warnings,
+        "input_profile": input_profile,
         "launch_profile": launch_profile,
         "mirror1_profiles": mirror1_profiles,
         "mirror2_profiles": mirror2_profiles,

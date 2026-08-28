@@ -1,6 +1,7 @@
 import { ApiError, getWaveOpticsJob, simulateConfiguration, startWaveOpticsJob } from "./api-client.js";
 import { bindDigitAtCaretControls } from "./digit-stepper.js";
 import {
+  applyModeMatchingResult,
   applyResolvedInputs,
   bindNumericFields,
   bindWaveOpticsFields,
@@ -15,6 +16,7 @@ import {
   setStandardConfig,
   updateCellTypeUI,
   updateModeUI,
+  updateModeMatchingUI,
   updateToggleGroups,
   updateWaveOpticsUI,
 } from "./form-state.js";
@@ -39,6 +41,8 @@ const stabilityOutput = document.getElementById("calc-stab");
 const cavityWaistOutput = document.getElementById("calc-w0");
 const mirrorBeamOutput = document.getElementById("calc-wm");
 const effectiveM2Output = document.getElementById("display-eff-m2");
+const modeMatchingStatus = document.getElementById("mode-matching-status");
+const modeMatchingSummary = document.getElementById("mode-matching-summary");
 const setStandardButton = document.getElementById("set-standard");
 const resetButton = document.getElementById("reset-defaults");
 const saveButton = document.getElementById("save-config");
@@ -173,6 +177,15 @@ function applyReadouts(result) {
   const stability = result.stability.product;
   stabilityOutput.textContent = stability != null ? stability.toFixed(4) : "--";
   effectiveM2Output.textContent = `${result.mode.M2x.toFixed(2)}, ${result.mode.M2y.toFixed(2)}`;
+  if (result.mode_matching) {
+    const matching = result.mode_matching;
+    modeMatchingStatus.textContent = matching.success ? "Matched" : "Closest fit";
+    modeMatchingStatus.className = matching.success ? "font-bold text-emerald-700" : "font-bold text-amber-700";
+    const focalText = matching.focal_lengths_mm.map((value) => Number(value).toFixed(0)).join(" / ");
+    modeMatchingSummary.textContent =
+      `${matching.message} f = ${focalText} mm; length ${matching.total_length_mm.toFixed(1)} mm; ` +
+      `q error ${(100 * matching.relative_q_error).toPrecision(3)}%.`;
+  }
 
   if (!result.cavity) {
     cavityWaistOutput.textContent = "--";
@@ -368,6 +381,7 @@ async function runSimulation() {
 
     currentSimulationResult = result;
     applyResolvedInputs(result.resolved_inputs);
+    applyModeMatchingResult(result.mode_matching);
     applyReadouts(result);
     renderCurrentPlots(captureConfig());
     refreshWaveOpticsStatus(captureConfig());
@@ -524,6 +538,11 @@ function bindUiEvents() {
 
   document.getElementById("radius-mode-vex").addEventListener("change", () => {
     updateToggleGroups();
+    handleFastInputChange();
+  });
+
+  document.getElementById("mode-matching-mode").addEventListener("change", () => {
+    updateModeMatchingUI();
     handleFastInputChange();
   });
 

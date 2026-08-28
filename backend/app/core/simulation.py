@@ -3,6 +3,13 @@ from __future__ import annotations
 from math import cos, isfinite, pi, sin, sqrt
 
 from backend.app.core.math_utils import v_add, v_cross, v_dot, v_normalize, v_scale, v_sub
+from backend.app.core.mode_matching import (
+    q_at_configured_output,
+    resolve_mode_matching,
+    sample_free_space_axis,
+    sample_telescope_axis,
+    waist_parameters_from_q,
+)
 from backend.app.core.modes import build_mode_config
 from backend.app.core.optics import compute_abcd_axis
 from backend.app.core.ray_tracing import EPSILON, HerriottCell
@@ -157,6 +164,8 @@ def simulate_configuration(request: object) -> dict[str, object]:
         "ray_trace": None,
         "secondary_ray_trace": None,
         "beam_propagation": None,
+        "mode_matching": None,
+        "external_beam_propagation": None,
     }
 
     if not stable:
@@ -178,14 +187,40 @@ def simulate_configuration(request: object) -> dict[str, object]:
         abs(((wavelength_medium_mm * mirror_distance_mm) / pi) * sqrt(g1 / (g2 * (1 - g1 * g2)))),
     )
 
-    input_waist_x_mm = request.input_waist_x_mm
-    input_waist_y_mm = request.input_waist_y_mm
-    input_waist_z_mm = request.input_waist_z_mm
-
-    if request.auto_mode_match:
-        input_waist_x_mm = ideal_waist_mm * sqrt(mode.M2x)
-        input_waist_y_mm = ideal_waist_mm * sqrt(mode.M2y)
-        input_waist_z_mm = cavity_waist_position_mm
+    target_q_medium = complex(-cavity_waist_position_mm, cavity_rayleigh_range_mm)
+    mode_matching = resolve_mode_matching(
+        mode=request.mode_matching_mode,
+        input_beam_radius_mm=request.input_beam_radius_mm,
+        requested_focal_lengths_mm=(
+            request.lens1_focal_length_mm,
+            request.lens2_focal_length_mm,
+            request.lens3_focal_length_mm,
+        ),
+        requested_distances_mm=(
+            request.phase_plate_to_lens1_mm,
+            request.lens1_to_lens2_mm,
+            request.lens2_to_lens3_mm,
+            request.lens3_to_mirror1_mm,
+        ),
+        target_q_medium=target_q_medium,
+        wavelength_vacuum_mm=wavelength_vacuum_mm,
+        refractive_index=request.refractive_index,
+        m2_x=mode.M2x,
+        m2_y=mode.M2y,
+    )
+    achieved_q_medium_x = mode_matching["achieved_q_medium_x"]
+    achieved_q_medium_y = mode_matching["achieved_q_medium_y"]
+    input_waist_x_mm, input_waist_z_x_mm = waist_parameters_from_q(
+        achieved_q_medium_x,
+        wavelength_medium_mm,
+        mode.M2x,
+    )
+    input_waist_y_mm, input_waist_z_y_mm = waist_parameters_from_q(
+        achieved_q_medium_y,
+        wavelength_medium_mm,
+        mode.M2y,
+    )
+    input_waist_z_mm = 0.5 * (input_waist_z_x_mm + input_waist_z_y_mm)
 
     if request.auto_injection:
         input_x_mm, input_y_mm, input_theta_x_mrad, input_theta_y_mrad = resolve_auto_injection(
@@ -255,6 +290,66 @@ def simulate_configuration(request: object) -> dict[str, object]:
         "output_hole_x_mm": output_hole_x_mm,
         "output_hole_y_mm": output_hole_y_mm,
         "output_mirror": output_mirror,
+    }
+
+    focal_lengths = tuple(mode_matching["focal_lengths_mm"])
+    matching_distances = tuple(mode_matching["distances_mm"])
+    input_section_x = sample_telescope_axis(
+        mode_matching["input_q_air_x"],
+        focal_lengths,
+        matching_distances,
+        wavelength_vacuum_mm,
+        mode.M2x,
+    )
+    input_section_y = sample_telescope_axis(
+        mode_matching["input_q_air_y"],
+        focal_lengths,
+        matching_distances,
+        wavelength_vacuum_mm,
+        mode.M2y,
+    )
+    total_cell_legs = 2 * total_passes
+    cell_output_position_mm = total_cell_legs * mirror_distance_mm
+    output_q_medium_x = q_at_configured_output(
+        achieved_q_medium_x,
+        mirror_distance_mm,
+        mirror1_radius_mm,
+        mirror2_radius_mm,
+        total_cell_legs,
+    )
+    output_q_medium_y = q_at_configured_output(
+        achieved_q_medium_y,
+        mirror_distance_mm,
+        mirror1_radius_mm,
+        mirror2_radius_mm,
+        total_cell_legs,
+    )
+    output_section_x = sample_free_space_axis(
+        output_q_medium_x / request.refractive_index,
+        request.output_propagation_mm,
+        wavelength_vacuum_mm,
+        mode.M2x,
+        cell_output_position_mm,
+    )
+    output_section_y = sample_free_space_axis(
+        output_q_medium_y / request.refractive_index,
+        request.output_propagation_mm,
+        wavelength_vacuum_mm,
+        mode.M2y,
+        cell_output_position_mm,
+    )
+    public_mode_matching = {
+        key: value
+        for key, value in mode_matching.items()
+        if key not in {"achieved_q_medium_x", "achieved_q_medium_y", "input_q_air_x", "input_q_air_y"}
+    }
+    response["mode_matching"] = public_mode_matching
+    response["external_beam_propagation"] = {
+        "input_section": {"x": input_section_x, "y": input_section_y},
+        "output_section": {"x": output_section_x, "y": output_section_y},
+        "lens_positions_mm": mode_matching["lens_positions_mm"],
+        "phase_plate_position_mm": mode_matching["input_plane_z_mm"],
+        "cell_output_position_mm": cell_output_position_mm,
     }
 
     input_hole = (input_x_mm, input_y_mm)

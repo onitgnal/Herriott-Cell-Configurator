@@ -12,6 +12,15 @@ const NUMERIC_FIELDS = [
   { key: "wavelength_nm", domId: "lambda", type: "float", legacyKey: "lambda" },
   { key: "refractive_index", domId: "refr_index", type: "float", legacyKey: "refractive_index" },
   { key: "custom_m2", domId: "M2", type: "float", legacyKey: "M2" },
+  { key: "input_beam_radius_mm", domId: "input_beam_radius", type: "float", legacyKey: "inputBeamRadius" },
+  { key: "lens1_focal_length_mm", domId: "mm_f1", type: "float", legacyKey: "modeMatchF1" },
+  { key: "lens2_focal_length_mm", domId: "mm_f2", type: "float", legacyKey: "modeMatchF2" },
+  { key: "lens3_focal_length_mm", domId: "mm_f3", type: "float", legacyKey: "modeMatchF3" },
+  { key: "phase_plate_to_lens1_mm", domId: "mm_d0", type: "float", legacyKey: "modeMatchD0" },
+  { key: "lens1_to_lens2_mm", domId: "mm_d12", type: "float", legacyKey: "modeMatchD12" },
+  { key: "lens2_to_lens3_mm", domId: "mm_d23", type: "float", legacyKey: "modeMatchD23" },
+  { key: "lens3_to_mirror1_mm", domId: "mm_d3m", type: "float", legacyKey: "modeMatchD3M" },
+  { key: "output_propagation_mm", domId: "output_propagation", type: "float", legacyKey: "outputPropagation" },
   { key: "peak_power_gw", domId: "peak_power", type: "float", legacyKey: "peak_power" },
   { key: "pulse_energy_mj", domId: "pulse_energy", type: "float", legacyKey: "pulse_energy" },
   { key: "hermite_n", domId: "hgn", type: "int", legacyKey: "hgn" },
@@ -48,6 +57,7 @@ const LEGACY_TOGGLE_FIELDS = [
   { key: "second_beam_enabled", elementId: "second-beam-enabled", legacyKey: "secondBeamEnabled", type: "checkbox" },
   { key: "mode_type", elementId: "mode-type", legacyKey: "modeType", type: "select" },
   { key: "show_beam_profiles", elementId: "show-beam-profiles", legacyKey: "showBeamProfiles", type: "checkbox" },
+  { key: "mode_matching_mode", elementId: "mode-matching-mode", legacyKey: "modeMatchingMode", type: "select" },
 ];
 
 const WAVE_OPTICS_FIELDS = [
@@ -55,6 +65,9 @@ const WAVE_OPTICS_FIELDS = [
   { key: "super_gaussian_order", elementId: "wave-super-order", type: "float" },
   { key: "laguerre_p", elementId: "wave-lg-p", type: "int" },
   { key: "laguerre_l", elementId: "wave-lg-l", type: "int" },
+  { key: "phase_plate_enabled", elementId: "wave-phase-plate-enabled", type: "checkbox" },
+  { key: "phase_plate_radial_p", elementId: "wave-phase-p", type: "int" },
+  { key: "phase_plate_l", elementId: "wave-phase-l", type: "int" },
   { key: "window_safety_factor", elementId: "wave-window-safety", type: "float" },
   { key: "samples_per_radius", elementId: "wave-samples-per-radius", type: "int" },
   { key: "max_grid_points", elementId: "wave-max-grid", type: "int" },
@@ -64,7 +77,6 @@ const WAVE_OPTICS_FIELDS = [
 const AUTO_GROUPS = [
   { checkboxId: "auto-R", groupId: "group-R" },
   { checkboxId: "auto-out-hole", groupId: "group-out-hole" },
-  { checkboxId: "auto-mode-match", groupId: "group-beam" },
   { checkboxId: "auto-injection", groupId: "group-injection" },
 ];
 
@@ -212,6 +224,19 @@ export function updateWaveOpticsUI() {
     "hidden",
     profileType !== "laguerre_gaussian",
   );
+  const phasePlateSupported = profileType !== "laguerre_gaussian";
+  const phasePlateEnabled = Boolean(document.getElementById("wave-phase-plate-enabled")?.checked);
+  document.getElementById("wave-phase-plate-group")?.classList.toggle("hidden", !phasePlateSupported);
+  document.getElementById("wave-phase-indices-group")?.classList.toggle(
+    "hidden",
+    !phasePlateSupported || !phasePlateEnabled,
+  );
+}
+
+export function updateModeMatchingUI() {
+  const mode = document.getElementById("mode-matching-mode")?.value ?? "auto";
+  setGroupDisabled("group-mode-matching-lenses", mode === "auto");
+  setGroupDisabled("group-mode-matching-distances", mode !== "manual");
 }
 
 export function updateCellTypeUI() {
@@ -226,6 +251,7 @@ export function updateToggleGroups() {
   const oppositeRadiusMode = document.getElementById("radius-mode-vex").value;
   setGroupDisabled("group-R1-vex", oppositeRadiusMode === "auto_equal");
   setGroupDisabled("group-R2-vex", oppositeRadiusMode !== "manual");
+  updateModeMatchingUI();
 }
 
 export function captureConfig() {
@@ -266,6 +292,8 @@ export function captureWaveOpticsSettings() {
 
     if (field.type === "select") {
       settings[field.key] = element.value;
+    } else if (field.type === "checkbox") {
+      settings[field.key] = element.checked;
     } else if (field.type === "int") {
       settings[field.key] = parseInt(element.value, 10);
     } else {
@@ -321,7 +349,11 @@ export function applyConfig(config) {
       if (!element) {
         return;
       }
-      element.value = String(config.wave_optics[field.key]);
+      if (field.type === "checkbox") {
+        element.checked = Boolean(config.wave_optics[field.key]);
+      } else {
+        element.value = String(config.wave_optics[field.key]);
+      }
     });
   }
 
@@ -391,6 +423,22 @@ export function applyResolvedInputs(resolvedInputs) {
     }
     document.getElementById("out-mirror").value = String(resolvedInputs.output_mirror);
   }
+}
+
+export function applyModeMatchingResult(modeMatching) {
+  if (!modeMatching) {
+    return;
+  }
+  const focalDomIds = ["mm_f1", "mm_f2", "mm_f3"];
+  const distanceDomIds = ["mm_d0", "mm_d12", "mm_d23", "mm_d3m"];
+  focalDomIds.forEach((domId, index) => {
+    const value = modeMatching.focal_lengths_mm[index];
+    setNumericControlValue(domId, value, Number(value).toFixed(1));
+  });
+  distanceDomIds.forEach((domId, index) => {
+    const value = modeMatching.distances_mm[index];
+    setNumericControlValue(domId, value, Number(value).toFixed(1));
+  });
 }
 
 export function bindNumericFields(onChange) {

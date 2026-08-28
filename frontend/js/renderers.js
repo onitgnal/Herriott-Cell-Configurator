@@ -168,13 +168,24 @@ function renderPlaceholderPlot(divId, title, message) {
   );
 }
 
-function renderWaistPlot(beamPropagation, totalRoundTrips, mirrorDistanceMm, modeTitle) {
+function renderWaistPlot(result) {
+  const { beam_propagation: beamPropagation, external_beam_propagation: external, mode_matching: matching } = result;
+  const { total_passes: totalRoundTrips, mirror_distance_mm: mirrorDistanceMm } = result.resolved_inputs;
+  const modeTitle = result.mode.title;
   const totalLegs = 2 * totalRoundTrips;
   const maxIndex = totalLegs * 20 + 1;
   const zPlot = beamPropagation.x.z_vals.slice(0, maxIndex);
   const wxPlot = beamPropagation.x.w_vals.slice(0, maxIndex);
   const wyPlot = beamPropagation.y.w_vals.slice(0, maxIndex);
-  const maxWaist = Math.max(...wxPlot, ...wyPlot);
+  const externalRadii = external
+    ? [
+        ...external.input_section.x.w_vals,
+        ...external.input_section.y.w_vals,
+        ...external.output_section.x.w_vals,
+        ...external.output_section.y.w_vals,
+      ]
+    : [];
+  const maxWaist = Math.max(...wxPlot, ...wyPlot, ...externalRadii);
 
   const traces = [
     {
@@ -184,7 +195,7 @@ function renderWaistPlot(beamPropagation, totalRoundTrips, mirrorDistanceMm, mod
       fillcolor: "rgba(217, 70, 239, 0.15)",
       line: { color: "transparent" },
       hoverinfo: "none",
-      name: "Profile X",
+      name: "Intracell X",
     },
     {
       x: zPlot.concat(zPlot.slice().reverse()),
@@ -193,13 +204,39 @@ function renderWaistPlot(beamPropagation, totalRoundTrips, mirrorDistanceMm, mod
       fillcolor: "rgba(14, 165, 233, 0.15)",
       line: { color: "transparent" },
       hoverinfo: "none",
-      name: "Profile Y",
+      name: "Intracell Y",
     },
     { x: zPlot, y: wxPlot, mode: "lines", line: { color: "#d946ef", width: 2 }, name: "+wx" },
     { x: zPlot, y: wxPlot.map((waist) => -waist), mode: "lines", line: { color: "#d946ef", width: 2 }, showlegend: false },
     { x: zPlot, y: wyPlot, mode: "lines", line: { color: "#0ea5e9", width: 2, dash: "dot" }, name: "+wy" },
     { x: zPlot, y: wyPlot.map((waist) => -waist), mode: "lines", line: { color: "#0ea5e9", width: 2, dash: "dot" }, showlegend: false },
   ];
+
+  const addExternalSection = (section, name, color, fillColor) => {
+    if (!section) {
+      return;
+    }
+    for (const [axis, dash] of [["x", "solid"], ["y", "dot"]]) {
+      const zValues = section[axis].z_vals;
+      const radii = section[axis].w_vals;
+      traces.push(
+        {
+          x: zValues.concat(zValues.slice().reverse()),
+          y: radii.concat(radii.map((radius) => -radius).reverse()),
+          fill: "toself",
+          fillcolor: fillColor,
+          line: { color: "transparent" },
+          hoverinfo: "none",
+          name: `${name} ${axis.toUpperCase()}`,
+          showlegend: axis === "x",
+        },
+        { x: zValues, y: radii, mode: "lines", line: { color, width: 2, dash }, name: `${name} +w${axis}`, showlegend: false },
+        { x: zValues, y: radii.map((radius) => -radius), mode: "lines", line: { color, width: 2, dash }, showlegend: false },
+      );
+    }
+  };
+  addExternalSection(external?.input_section, "Mode matching", "#16a34a", "rgba(34, 197, 94, 0.13)");
+  addExternalSection(external?.output_section, "Out coupling", "#f97316", "rgba(249, 115, 22, 0.13)");
 
   const mirrorShapes = beamPropagation.x.w_mirrors_w.slice(0, totalLegs + 1).map((_, index) => ({
     type: "line",
@@ -209,18 +246,43 @@ function renderWaistPlot(beamPropagation, totalRoundTrips, mirrorDistanceMm, mod
     y1: maxWaist * 1.1,
     line: { color: "rgba(100, 116, 139, 0.4)", width: 1.5, dash: "dash" },
   }));
+  const opticalElementShapes = external
+    ? [
+        {
+          type: "line",
+          x0: external.phase_plate_position_mm,
+          x1: external.phase_plate_position_mm,
+          y0: -maxWaist * 1.1,
+          y1: maxWaist * 1.1,
+          line: { color: "#7c3aed", width: 2, dash: "dot" },
+        },
+        ...external.lens_positions_mm.map((position) => ({
+          type: "line",
+          x0: position,
+          x1: position,
+          y0: -maxWaist * 1.1,
+          y1: maxWaist * 1.1,
+          line: { color: "rgba(22, 163, 74, 0.65)", width: 2 },
+        })),
+      ]
+    : [];
+  const plotStart = external?.input_section.x.z_vals[0] ?? 0;
+  const plotEnd = external?.output_section.x.z_vals.at(-1) ?? totalLegs * mirrorDistanceMm;
 
   Plotly.react(
     "plotWaist",
     traces,
     {
-      title: { text: `Gaussian Beam (${modeTitle})`, font: { size: 13, color: "#334155" } },
+      title: {
+        text: `Gaussian Beam (${modeTitle})${matching?.success === false ? " — telescope mismatch" : ""}`,
+        font: { size: 13, color: "#334155" },
+      },
       margin: { l: 45, r: 25, b: 40, t: 30 },
-      xaxis: { title: "Unfolded Path Distance z [mm]", range: [0, totalLegs * mirrorDistanceMm], zeroline: false },
+      xaxis: { title: "Unfolded Optical Path z [mm]", range: [plotStart, plotEnd], zeroline: false },
       yaxis: { title: "Beam Radius w [mm]", range: [-maxWaist * 1.15, maxWaist * 1.15] },
       showlegend: true,
       legend: { orientation: "h", y: 1.05, x: 1, xanchor: "right", yanchor: "bottom" },
-      shapes: mirrorShapes,
+      shapes: [...mirrorShapes, ...opticalElementShapes],
       hovermode: "x unified",
     },
     { responsive: true },
@@ -918,7 +980,7 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
 }
 
 export function renderSimulationPlots(result, showBeamProfiles, waveOptics = null) {
-  renderWaistPlot(result.beam_propagation, result.resolved_inputs.total_passes, result.resolved_inputs.mirror_distance_mm, result.mode.title);
+  renderWaistPlot(result);
   renderRayPlots(result, showBeamProfiles, waveOptics);
 }
 
