@@ -2,18 +2,20 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from math import ceil, inf, pi, sqrt
+from functools import lru_cache
+from math import ceil, exp, inf, pi, sqrt
 from time import perf_counter
 from typing import Any
 
 import numpy as np
 
 from backend.app.core.math_utils import v_dot, v_sub
-from backend.app.schemas.simulation import WaveOpticsSettings
+from backend.app.schemas.simulation import WAVE_OPTICS_MAX_GRID_POINTS, WaveOpticsSettings
 
 EPSILON = 1e-9
 SPECTRAL_WARNING_THRESHOLD = 5e-3
 EDGE_WARNING_THRESHOLD = 5e-3
+DENSE_COLLINS_MAX_POINTS = 640
 FAST_GRID_SIZES = (
     32,
     40,
@@ -38,6 +40,11 @@ FAST_GRID_SIZES = (
     768,
     896,
     1024,
+    1152,
+    1280,
+    1536,
+    1792,
+    2048,
 )
 
 
@@ -177,14 +184,25 @@ def _efficient_grid_size(required_points: int, max_grid_points: int) -> int:
             break
     if suggested_grid is None:
         suggested_grid = required_points
+    if suggested_grid > WAVE_OPTICS_MAX_GRID_POINTS:
+        raise WaveOpticsSamplingError(
+            f"Wave-optics sampling would require {required_points} points on one axis, beyond the solver's hard "
+            f"limit of {WAVE_OPTICS_MAX_GRID_POINTS}. Reduce Window Margin or Samples / Radius; a larger "
+            "2D grid would exceed the practical compute budget.",
+        )
     raise WaveOpticsSamplingError(
         f"Wave-optics sampling would require {required_points} points on one axis, exceeding the configured "
         f"limit of {max_grid_points}. Increase Max Grid to at least {suggested_grid} or relax the sampling margins.",
     )
 
 
-def _plane_half_width_mm(radius_mm: float, settings: WaveOpticsSettings) -> float:
-    return max(settings.window_safety_factor * radius_mm, radius_mm * 1.5, 0.05)
+def _plane_half_width_mm(
+    radius_mm: float,
+    settings: WaveOpticsSettings,
+    window_factor: float | None = None,
+) -> float:
+    effective_window_factor = settings.window_safety_factor if window_factor is None else window_factor
+    return max(effective_window_factor * radius_mm, radius_mm * 1.5, 0.05)
 
 
 def _dx_from_curvature(curvature_mm: float, half_width_mm: float, wavelength_mm: float, margin: float) -> float:
@@ -201,38 +219,59 @@ def _grid_requirement_points(half_width_mm: float, dx_limit_mm: float) -> int:
     return max(32, int(ceil((2 * half_width_mm) / dx_limit_mm)) + 1)
 
 
-def _estimate_segment_memory_bytes(start: PlanePlan, focus: PlanePlan, end: PlanePlan) -> int:
+def _next_fft_size(required_points: int) -> int:
+    return 1 << max(required_points - 1, 1).bit_length()
+
+
+def _uses_scaled_fft(start: PlanePlan, end: PlanePlan) -> bool:
+    return max(start.nx, start.ny, end.nx, end.ny) > DENSE_COLLINS_MAX_POINTS
+
+
+def _dense_kernel_memory_bytes(start: PlanePlan, end: PlanePlan) -> int:
+    return 16 * ((start.nx * end.nx) + (start.ny * end.ny))
+
+
+def _scaled_fft_workspace_bytes(start: PlanePlan, end: PlanePlan) -> int:
     complex_bytes = 16
-    float_bytes = 8
-    field_bytes = complex_bytes * (
-        (start.nx * start.ny) + (focus.nx * focus.ny) + (end.nx * end.ny)
+    fft_x = _next_fft_size(start.nx + end.nx - 1)
+    fft_y = _next_fft_size(start.ny + end.ny - 1)
+    x_workspace = 3 * complex_bytes * fft_x * start.ny
+    y_workspace = 3 * complex_bytes * fft_y * end.nx
+    intermediate_fields = 2 * complex_bytes * max(
+        start.nx * start.ny,
+        end.nx * start.ny,
+        end.nx * end.ny,
     )
-    kernel_bytes = complex_bytes * (
-        (start.nx * focus.nx)
-        + (start.ny * focus.ny)
-        + (focus.nx * end.nx)
-        + (focus.ny * end.ny)
+    return max(x_workspace, y_workspace) + intermediate_fields
+
+
+def _estimate_planned_segment_memory_bytes(
+    start: PlanePlan,
+    focus: PlanePlan | None,
+    center: PlanePlan,
+    end: PlanePlan,
+) -> int:
+    complex_bytes = 16
+    float_bytes = 8
+    retained_plans = [start, center, end]
+    path_pairs = [(start, center), (start, end)]
+    if focus is not None:
+        retained_plans.append(focus)
+        path_pairs = [(start, center), (start, focus), (focus, end)]
+
+    field_bytes = complex_bytes * sum(plan.nx * plan.ny for plan in retained_plans)
+    diagnostic_bytes = float_bytes * sum(plan.nx * plan.ny for plan in retained_plans[1:])
+    dense_kernel_bytes = sum(
+        _dense_kernel_memory_bytes(pair_start, pair_end)
+        for pair_start, pair_end in path_pairs
+        if not _uses_scaled_fft(pair_start, pair_end)
     )
-    diagnostic_bytes = float_bytes * ((focus.nx * focus.ny) + (end.nx * end.ny))
-    return field_bytes + kernel_bytes + diagnostic_bytes
-
-
-def _estimate_direct_segment_memory_bytes(start: PlanePlan, end: PlanePlan) -> int:
-    complex_bytes = 16
-    float_bytes = 8
-    field_bytes = complex_bytes * ((start.nx * start.ny) + (end.nx * end.ny))
-    kernel_bytes = complex_bytes * ((start.nx * end.nx) + (start.ny * end.ny))
-    diagnostic_bytes = float_bytes * (end.nx * end.ny)
-    return field_bytes + kernel_bytes + diagnostic_bytes
-
-
-def _estimate_center_diagnostic_memory_bytes(start: PlanePlan, center: PlanePlan) -> int:
-    complex_bytes = 16
-    float_bytes = 8
-    field_bytes = complex_bytes * (center.nx * center.ny)
-    kernel_bytes = complex_bytes * ((start.nx * center.nx) + (start.ny * center.ny))
-    diagnostic_bytes = float_bytes * (center.nx * center.ny)
-    return field_bytes + kernel_bytes + diagnostic_bytes
+    scaled_workspaces = [
+        _scaled_fft_workspace_bytes(pair_start, pair_end)
+        for pair_start, pair_end in path_pairs
+        if _uses_scaled_fft(pair_start, pair_end)
+    ]
+    return field_bytes + diagnostic_bytes + dense_kernel_bytes + max(scaled_workspaces, default=0)
 
 
 def _normalize_field(field: np.ndarray, grid: FieldGrid) -> np.ndarray:
@@ -240,6 +279,87 @@ def _normalize_field(field: np.ndarray, grid: FieldGrid) -> np.ndarray:
     if power <= EPSILON:
         raise WaveOpticsSamplingError("The generated launch field has zero power on the adaptive grid.")
     return field / sqrt(power)
+
+
+def _associated_laguerre(radial_index: int, azimuthal_order: int, coordinate: np.ndarray) -> np.ndarray:
+    """Evaluate L_p^|l|(x) with a stable three-term recurrence."""
+    if radial_index == 0:
+        return np.ones_like(coordinate, dtype=np.float64)
+
+    previous = np.ones_like(coordinate, dtype=np.float64)
+    current = 1.0 + azimuthal_order - coordinate
+    if radial_index == 1:
+        return current
+
+    for index in range(1, radial_index):
+        following = (
+            (2 * index + 1 + azimuthal_order - coordinate) * current
+            - (index + azimuthal_order) * previous
+        ) / (index + 1)
+        previous = current
+        current = following
+    return current
+
+
+@lru_cache(maxsize=512)
+def _laguerre_window_factor(
+    radial_index: int,
+    azimuthal_index: int,
+    window_safety_factor: float,
+    guard_band_fraction: float,
+) -> float:
+    """Return the base-waist multiple containing the requested LG radial power.
+
+    Applying the Gaussian window margin directly to the LG second-moment radius makes the window grow as M² and
+    is unnecessarily expensive. Instead, integrate the exact radial LG intensity and retain at least the same
+    tail fraction requested by the Gaussian margin. A small numerical floor avoids planning around insignificant
+    floating-point tails; the explicit margin remains a lower bound.
+    """
+    absolute_l = abs(azimuthal_index)
+    mode_m2 = 2 * radial_index + absolute_l + 1
+    tail_target = max(exp(-2 * window_safety_factor * window_safety_factor), 1e-10)
+    upper_coordinate = max(
+        64.0,
+        2 * (sqrt(mode_m2) + max(window_safety_factor, 4.0)) ** 2,
+    )
+    radial_coordinate_squared = np.linspace(0.0, upper_coordinate, 32769, dtype=np.float64)
+    laguerre_values = _associated_laguerre(radial_index, absolute_l, radial_coordinate_squared)
+    radial_density = (
+        np.power(radial_coordinate_squared, absolute_l)
+        * laguerre_values
+        * laguerre_values
+        * np.exp(-radial_coordinate_squared)
+    )
+    spacing = float(radial_coordinate_squared[1] - radial_coordinate_squared[0])
+    cumulative = np.concatenate(
+        (
+            np.zeros(1, dtype=np.float64),
+            np.cumsum(0.5 * (radial_density[:-1] + radial_density[1:]) * spacing),
+        ),
+    )
+    total = float(cumulative[-1])
+    if not np.isfinite(total) or total <= EPSILON:
+        return max(window_safety_factor, 1.5 * sqrt(mode_m2))
+    cumulative /= total
+    target_coordinate = float(
+        np.interp(1.0 - tail_target, cumulative, radial_coordinate_squared),
+    )
+    guard_band_core_fraction = max(1.0 - 2.0 * guard_band_fraction, 0.1)
+    radial_extent = sqrt(max(target_coordinate, 0.0) / 2)
+    return max(window_safety_factor, radial_extent / guard_band_core_fraction)
+
+
+def _launch_profile_grid_factors(settings: WaveOpticsSettings) -> tuple[float, float]:
+    if settings.profile_type != "laguerre_gaussian":
+        return settings.window_safety_factor, 1.0
+    mode_radius_factor = sqrt(2 * settings.laguerre_p + abs(settings.laguerre_l) + 1)
+    window_factor = _laguerre_window_factor(
+        settings.laguerre_p,
+        settings.laguerre_l,
+        round(settings.window_safety_factor, 6),
+        round(settings.guard_band_fraction, 6),
+    )
+    return window_factor, mode_radius_factor
 
 
 def _emit_progress(
@@ -283,6 +403,11 @@ class AdaptiveWaveOpticsSolver:
         self.wave_number_mm = (2 * pi) / wavelength_mm
         self._axis_cache: dict[tuple[int, float], tuple[np.ndarray, float]] = {}
         self._kernel_cache: dict[tuple[float, int, float, int, float], np.ndarray] = {}
+        self._scaled_transform_cache: dict[
+            tuple[int, int, float],
+            tuple[np.ndarray, np.ndarray, np.ndarray, int],
+        ] = {}
+        self.propagation_backends_used: set[str] = set()
 
     def _axis_coordinates(self, points: int, half_width_mm: float) -> tuple[np.ndarray, float]:
         key = (points, round(half_width_mm, 9))
@@ -349,8 +474,13 @@ class AdaptiveWaveOpticsSolver:
         self._kernel_cache[key] = kernel
         return kernel
 
-    def propagate(self, field: np.ndarray, in_grid: FieldGrid, out_plan: PlanePlan, distance_mm: float) -> tuple[np.ndarray, FieldGrid]:
-        out_grid = self.grid(out_plan)
+    def _propagate_dense(
+        self,
+        field: np.ndarray,
+        in_grid: FieldGrid,
+        out_plan: PlanePlan,
+        distance_mm: float,
+    ) -> np.ndarray:
         kernel_x = self._collins_kernel(
             field.shape[0],
             in_grid.half_width_x_mm,
@@ -365,7 +495,122 @@ class AdaptiveWaveOpticsSolver:
             out_plan.half_width_y_mm,
             distance_mm,
         )
-        propagated = kernel_x @ field @ kernel_y.T
+        return kernel_x @ field @ kernel_y.T
+
+    def _scaled_transform_terms(
+        self,
+        in_points: int,
+        out_points: int,
+        alpha: float,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+        key = (in_points, out_points, round(alpha, 15))
+        cached = self._scaled_transform_cache.get(key)
+        if cached is not None:
+            return cached
+
+        input_index = np.arange(in_points, dtype=np.float64)
+        output_index = np.arange(out_points, dtype=np.float64)
+        input_center = 0.5 * (in_points - 1)
+        output_center = 0.5 * (out_points - 1)
+        input_chirp = np.exp(
+            (2j * pi * alpha * input_index * output_center)
+            - (1j * pi * alpha * input_index * input_index),
+        )
+        output_chirp = np.exp(
+            (-1j * pi * alpha * output_index * output_index)
+            + (2j * pi * alpha * input_center * output_index)
+            - (2j * pi * alpha * input_center * output_center),
+        )
+        convolution_index = np.arange(-(in_points - 1), out_points, dtype=np.float64)
+        convolution_chirp = np.exp(1j * pi * alpha * convolution_index * convolution_index)
+        fft_size = _next_fft_size(in_points + out_points - 1)
+        convolution_spectrum = np.fft.fft(convolution_chirp, n=fft_size)
+        for value in (input_chirp, output_chirp, convolution_spectrum):
+            value.setflags(write=False)
+        cached = (input_chirp, output_chirp, convolution_spectrum, fft_size)
+        self._scaled_transform_cache[key] = cached
+        return cached
+
+    def _scaled_dft_axis(
+        self,
+        values: np.ndarray,
+        alpha: float,
+        out_points: int,
+        axis: int,
+    ) -> np.ndarray:
+        moved = np.moveaxis(values, axis, 0)
+        in_points = moved.shape[0]
+        input_chirp, output_chirp, convolution_spectrum, fft_size = self._scaled_transform_terms(
+            in_points,
+            out_points,
+            alpha,
+        )
+        trailing_axes = (1,) * (moved.ndim - 1)
+        prepared = moved * input_chirp.reshape((in_points, *trailing_axes))
+        prepared_spectrum = np.fft.fft(prepared, n=fft_size, axis=0)
+        convolution = np.fft.ifft(
+            prepared_spectrum * convolution_spectrum.reshape((fft_size, *trailing_axes)),
+            axis=0,
+        )
+        # Copy the useful convolution slice so the returned field does not retain the much larger padded FFT buffer.
+        transformed = convolution[in_points - 1 : in_points - 1 + out_points].copy()
+        transformed *= output_chirp.reshape((out_points, *trailing_axes))
+        return np.moveaxis(transformed, 0, axis)
+
+    def _propagate_scaled_fft(
+        self,
+        field: np.ndarray,
+        in_grid: FieldGrid,
+        out_grid: FieldGrid,
+        distance_mm: float,
+    ) -> np.ndarray:
+        input_phase = np.exp(
+            0.5j
+            * self.wave_number_mm
+            / distance_mm
+            * ((in_grid.x_mm[:, None] ** 2) + (in_grid.y_mm[None, :] ** 2)),
+        )
+        transformed = field * input_phase
+        transformed = self._scaled_dft_axis(
+            transformed,
+            in_grid.dx_mm * out_grid.dx_mm / (self.wavelength_mm * distance_mm),
+            out_grid.x_mm.size,
+            axis=0,
+        )
+        transformed = self._scaled_dft_axis(
+            transformed,
+            in_grid.dy_mm * out_grid.dy_mm / (self.wavelength_mm * distance_mm),
+            out_grid.y_mm.size,
+            axis=1,
+        )
+        output_phase = np.exp(
+            0.5j
+            * self.wave_number_mm
+            / distance_mm
+            * ((out_grid.x_mm[:, None] ** 2) + (out_grid.y_mm[None, :] ** 2)),
+        )
+        return (
+            transformed
+            * output_phase
+            * (in_grid.dx_mm * in_grid.dy_mm)
+            / (1j * self.wavelength_mm * distance_mm)
+        )
+
+    def propagate(
+        self,
+        field: np.ndarray,
+        in_grid: FieldGrid,
+        out_plan: PlanePlan,
+        distance_mm: float,
+    ) -> tuple[np.ndarray, FieldGrid]:
+        out_grid = self.grid(out_plan)
+        largest_axis = max(field.shape[0], field.shape[1], out_plan.nx, out_plan.ny)
+        if largest_axis <= DENSE_COLLINS_MAX_POINTS:
+            propagated = self._propagate_dense(field, in_grid, out_plan, distance_mm)
+            self.propagation_backends_used.add("dense")
+        else:
+            propagated = self._propagate_scaled_fft(field, in_grid, out_grid, distance_mm)
+            self.propagation_backends_used.add("scaled_fft")
         return propagated, out_grid
 
     def build_launch_field(
@@ -377,6 +622,8 @@ class AdaptiveWaveOpticsSolver:
         radius_y_mm: float,
         curvature_x_mm: float,
         curvature_y_mm: float,
+        laguerre_p: int = 0,
+        laguerre_l: int = 1,
     ) -> tuple[np.ndarray, FieldGrid]:
         grid = self.grid(plan)
         x_grid = grid.x_mm[:, None]
@@ -392,10 +639,26 @@ class AdaptiveWaveOpticsSolver:
             round_radius_mm = sqrt(radius_x_mm * radius_y_mm)
             radial_coordinate = np.sqrt((x_grid * x_grid) + (y_grid * y_grid))
             amplitude = np.exp(-((radial_coordinate / round_radius_mm) ** (2 * super_gaussian_order)))
+        elif profile_type == "laguerre_gaussian":
+            # The radii use the same 1/e field-amplitude convention as the Gaussian launch profile.
+            # Scaling each axis separately preserves the configured astigmatic Gaussian envelope; for equal
+            # radii this is the conventional cylindrical LG_p^l mode exactly.
+            scaled_x = x_grid / radius_x_mm
+            scaled_y = y_grid / radius_y_mm
+            radial_coordinate_squared = 2 * ((scaled_x * scaled_x) + (scaled_y * scaled_y))
+            absolute_l = abs(laguerre_l)
+            amplitude = (
+                np.power(radial_coordinate_squared, absolute_l / 2)
+                * _associated_laguerre(laguerre_p, absolute_l, radial_coordinate_squared)
+                * np.exp(-0.5 * radial_coordinate_squared)
+            )
         else:
             amplitude = np.exp(-((x_grid / radius_x_mm) ** 2) - ((y_grid / radius_y_mm) ** 2))
 
         phase = np.ones_like(amplitude, dtype=np.complex128)
+        if profile_type == "laguerre_gaussian" and laguerre_l != 0:
+            azimuth = np.arctan2(y_grid / radius_y_mm, x_grid / radius_x_mm)
+            phase *= np.exp(1j * laguerre_l * azimuth)
         if curvature_x_mm != inf:
             phase *= np.exp(0.5j * self.wave_number_mm * (x_grid * x_grid) / curvature_x_mm)
         if curvature_y_mm != inf:
@@ -703,6 +966,8 @@ def _plan_planes(
     mirror_distance_mm: float,
     wavelength_mm: float,
     settings: WaveOpticsSettings,
+    profile_window_factor: float | None = None,
+    profile_radius_factor: float = 1.0,
 ) -> tuple[list[PlanePlan], list[PlanePlan | None], list[PlanePlan]]:
     mirror_half_widths: list[tuple[float, float]] = []
     center_half_widths: list[tuple[float, float]] = []
@@ -717,16 +982,16 @@ def _plan_planes(
             radius_y_mm = states[plane_index].start_radius_y_mm
         mirror_half_widths.append(
             (
-                _plane_half_width_mm(radius_x_mm, settings),
-                _plane_half_width_mm(radius_y_mm, settings),
+                _plane_half_width_mm(radius_x_mm, settings, profile_window_factor),
+                _plane_half_width_mm(radius_y_mm, settings, profile_window_factor),
             ),
         )
 
     for state in states:
         center_half_widths.append(
             (
-                _plane_half_width_mm(state.center_radius_x_mm, settings),
-                _plane_half_width_mm(state.center_radius_y_mm, settings),
+                _plane_half_width_mm(state.center_radius_x_mm, settings, profile_window_factor),
+                _plane_half_width_mm(state.center_radius_y_mm, settings, profile_window_factor),
             ),
         )
 
@@ -736,8 +1001,8 @@ def _plan_planes(
             continue
         focus_half_widths.append(
             (
-                _plane_half_width_mm(state.focus_radius_x_mm, settings),
-                _plane_half_width_mm(state.focus_radius_y_mm, settings),
+                _plane_half_width_mm(state.focus_radius_x_mm, settings, profile_window_factor),
+                _plane_half_width_mm(state.focus_radius_y_mm, settings, profile_window_factor),
             ),
         )
 
@@ -863,8 +1128,8 @@ def _plan_planes(
                 ny=ny,
                 dx_mm=(2 * half_width_x_mm) / (nx - 1),
                 dy_mm=(2 * half_width_y_mm) / (ny - 1),
-                predicted_radius_x_mm=radius_x_mm,
-                predicted_radius_y_mm=radius_y_mm,
+                predicted_radius_x_mm=radius_x_mm * profile_radius_factor,
+                predicted_radius_y_mm=radius_y_mm * profile_radius_factor,
             ),
         )
 
@@ -907,8 +1172,8 @@ def _plan_planes(
                 ny=ny,
                 dx_mm=(2 * half_width_x_mm) / (nx - 1),
                 dy_mm=(2 * half_width_y_mm) / (ny - 1),
-                predicted_radius_x_mm=state.center_radius_x_mm,
-                predicted_radius_y_mm=state.center_radius_y_mm,
+                predicted_radius_x_mm=state.center_radius_x_mm * profile_radius_factor,
+                predicted_radius_y_mm=state.center_radius_y_mm * profile_radius_factor,
             ),
         )
 
@@ -975,19 +1240,19 @@ def _plan_planes(
                 ny=ny,
                 dx_mm=(2 * half_width_x_mm) / (nx - 1),
                 dy_mm=(2 * half_width_y_mm) / (ny - 1),
-                predicted_radius_x_mm=state.focus_radius_x_mm,
-                predicted_radius_y_mm=state.focus_radius_y_mm,
+                predicted_radius_x_mm=state.focus_radius_x_mm * profile_radius_factor,
+                predicted_radius_y_mm=state.focus_radius_y_mm * profile_radius_factor,
             ),
         )
 
     for index, state in enumerate(states):
         focus_plan = focus_plans[index]
-        bytes_required = (
-            _estimate_segment_memory_bytes(mirror_plans[index], focus_plan, mirror_plans[index + 1])
-            if focus_plan is not None
-            else _estimate_direct_segment_memory_bytes(mirror_plans[index], mirror_plans[index + 1])
+        bytes_required = _estimate_planned_segment_memory_bytes(
+            mirror_plans[index],
+            focus_plan,
+            center_plans[index],
+            mirror_plans[index + 1],
         )
-        bytes_required += _estimate_center_diagnostic_memory_bytes(mirror_plans[index], center_plans[index])
         if bytes_required > settings.max_memory_mb * 1024 * 1024:
             raise WaveOpticsSamplingError(
                 f"Segment {index + 1} would require roughly {bytes_required / (1024 * 1024):.1f} MiB, exceeding the "
@@ -1061,7 +1326,15 @@ def compute_wave_optics_result(
         current_step="Planning adaptive wave-optics grids",
         start_time=progress_start,
     )
-    mirror_plans, focus_plans, center_plans = _plan_planes(states, mirror_distance_mm, wavelength_mm, settings)
+    profile_window_factor, profile_radius_factor = _launch_profile_grid_factors(settings)
+    mirror_plans, focus_plans, center_plans = _plan_planes(
+        states,
+        mirror_distance_mm,
+        wavelength_mm,
+        settings,
+        profile_window_factor,
+        profile_radius_factor,
+    )
     progress_steps = 1
     _emit_progress(
         progress_callback,
@@ -1082,6 +1355,8 @@ def compute_wave_optics_result(
         states[0].start_radius_y_mm,
         states[0].start_curvature_x_mm,
         states[0].start_curvature_y_mm,
+        settings.laguerre_p,
+        settings.laguerre_l,
     )
     launch_profile = solver.summarize_field(
         field,
@@ -1358,12 +1633,15 @@ def compute_wave_optics_result(
     deduplicated_warnings = list(dict.fromkeys(overall_warnings))
     return {
         "method": "Adaptive-grid 2D Collins/Fresnel diffraction integral",
+        "propagation_backends": sorted(solver.propagation_backends_used),
         "profile_type": settings.profile_type,
         "super_gaussian_order": (
             settings.super_gaussian_order
             if settings.profile_type in {"super_gaussian", "round_super_gaussian"}
             else None
         ),
+        "laguerre_p": settings.laguerre_p if settings.profile_type == "laguerre_gaussian" else None,
+        "laguerre_l": settings.laguerre_l if settings.profile_type == "laguerre_gaussian" else None,
         "settings": settings.model_dump(),
         "warnings": deduplicated_warnings,
         "launch_profile": launch_profile,

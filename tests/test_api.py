@@ -88,6 +88,7 @@ def test_wave_optics_endpoint_returns_profiles(client) -> None:
     body = response.json()
     assert "wave_optics" in body
     assert body["wave_optics"]["method"] == "Adaptive-grid 2D Collins/Fresnel diffraction integral"
+    assert body["wave_optics"]["propagation_backends"] == ["dense"]
     assert body["wave_optics"]["profile_type"] == "round_super_gaussian"
     assert body["wave_optics"]["super_gaussian_order"] == 6.0
     assert body["wave_optics"]["launch_profile"]["plane_kind"] == "launch"
@@ -113,6 +114,33 @@ def test_wave_optics_endpoint_reports_sampling_limit_errors(client) -> None:
     assert body["error"]["code"] == "wave_optics_sampling_error"
     assert "configured limit of 96" in body["error"]["message"]
     assert "at least 256" in body["error"]["message"]
+
+
+def test_wave_optics_endpoint_validates_laguerre_gaussian_indices(client) -> None:
+    config = load_fixture("default_tem00.json")
+    config["wave_optics"] = {
+        "profile_type": "laguerre_gaussian",
+        "laguerre_p": 21,
+        "laguerre_l": -2,
+        "max_grid_points": 2048,
+    }
+
+    response = client.post("/api/simulate-wave-optics", json=config)
+
+    assert response.status_code == 422
+    details = response.json()["details"]
+    assert any(detail["loc"][-1] == "laguerre_p" for detail in details)
+    assert not any(detail["loc"][-1] == "max_grid_points" for detail in details)
+
+
+def test_wave_optics_endpoint_rejects_grids_beyond_the_hybrid_limit(client) -> None:
+    config = load_fixture("default_tem00.json")
+    config["wave_optics"] = {"max_grid_points": 2049}
+
+    response = client.post("/api/simulate-wave-optics", json=config)
+
+    assert response.status_code == 422
+    assert response.json()["details"][0]["loc"][-1] == "max_grid_points"
 
 
 def _wait_for_wave_optics_job(client, job_id: str, timeout_seconds: float = 5.0) -> dict:

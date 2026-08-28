@@ -121,6 +121,63 @@ def test_wave_optics_progress_bar_markup_exists() -> None:
     assert "@keyframes wave-optics-progress-slide" in styles
 
 
+def test_laguerre_gaussian_launch_controls_capture_indices_and_toggle_visibility() -> None:
+    index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<option value="laguerre_gaussian">Laguerre–Gaussian (LG)</option>' in index_html
+    assert 'id="wave-lg-indices-group"' in index_html
+    assert 'id="wave-lg-p"' in index_html
+    assert 'id="wave-lg-l"' in index_html
+    assert 'id="wave-max-grid" value="2048" step="64" min="32" max="2048"' in index_html
+    assert 'id="wave-max-memory" value="1024" step="64" min="16" max="4096"' in index_html
+    assert "large grids use scaled FFT" in index_html
+
+    script = """
+const classes = () => ({
+  values: new Set(["hidden"]),
+  toggle(name, force) {
+    if (force) this.values.add(name);
+    else this.values.delete(name);
+  },
+  contains(name) { return this.values.has(name); },
+});
+const elements = {
+  "wave-profile-type": { value: "laguerre_gaussian" },
+  "wave-super-order": { value: "4" },
+  "wave-lg-p": { value: "3" },
+  "wave-lg-l": { value: "-2" },
+  "wave-window-safety": { value: "4" },
+  "wave-samples-per-radius": { value: "14" },
+  "wave-max-grid": { value: "2048" },
+  "wave-max-memory": { value: "1024" },
+  "wave-super-order-group": { classList: classes() },
+  "wave-lg-indices-group": { classList: classes() },
+};
+globalThis.document = { getElementById: (id) => elements[id] ?? null };
+const { captureWaveOpticsSettings, updateWaveOpticsUI } = await import("./frontend/js/form-state.js");
+updateWaveOpticsUI();
+const settings = captureWaveOpticsSettings();
+console.log(JSON.stringify({
+  settings,
+  lgHidden: elements["wave-lg-indices-group"].classList.contains("hidden"),
+  superHidden: elements["wave-super-order-group"].classList.contains("hidden"),
+}));
+"""
+    completed = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=ROOT_DIR,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(completed.stdout)
+
+    assert payload["settings"]["profile_type"] == "laguerre_gaussian"
+    assert payload["settings"]["laguerre_p"] == 3
+    assert payload["settings"]["laguerre_l"] == -2
+    assert payload["lgHidden"] is False
+    assert payload["superHidden"] is True
+
+
 def test_second_beam_controls_exist() -> None:
     index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
 
@@ -158,10 +215,16 @@ def test_concave_convex_radius_mode_selector_exists() -> None:
 def test_api_client_prefers_specific_validation_detail() -> None:
     script = """
 import { getErrorMessage } from "./frontend/js/api-client.js";
-console.log(getErrorMessage({
-  error: { message: "Request validation failed." },
-  details: [{ message: "R1 is outside the valid range." }],
-}, "Fallback"));
+console.log(JSON.stringify({
+  specific: getErrorMessage({
+    error: { message: "Request validation failed." },
+    details: [{ message: "R1 is outside the valid range." }],
+  }, "Fallback"),
+  namedGrid: getErrorMessage({
+    error: { message: "Request validation failed." },
+    details: [{ loc: ["body", "wave_optics", "max_grid_points"], message: "Input should be less than or equal to 2048" }],
+  }, "Fallback"),
+}));
 """
     completed = subprocess.run(
         ["node", "--input-type=module", "-e", script],
@@ -171,4 +234,6 @@ console.log(getErrorMessage({
         text=True,
     )
 
-    assert completed.stdout.strip() == "R1 is outside the valid range."
+    payload = json.loads(completed.stdout)
+    assert payload["specific"] == "R1 is outside the valid range."
+    assert payload["namedGrid"] == "Max Grid: Input should be less than or equal to 2048"

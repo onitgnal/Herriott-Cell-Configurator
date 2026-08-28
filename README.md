@@ -25,7 +25,7 @@ progress, and shows an ETA while the solver loop is running.
 - Displays TEM00, HG, LG, and custom `M^2` analytic beam overlays
 - Estimates peak intensity and fluence on mirror and center/focus plots
 - Runs an adaptive-grid 2D scalar diffraction solver for selected MPC segments
-- Supports `gaussian`, `super_gaussian`, and `round_super_gaussian` launch profiles
+- Supports Gaussian, super-Gaussian, round super-Gaussian, and complex Laguerre–Gaussian launch profiles
 - Saves and loads JSON configurations
 
 ## Quick Start
@@ -147,6 +147,9 @@ Key implementation points:
 - ABCD-predicted beam size and curvature are used to plan those windows and sample spacings.
 - The window shrinks near a real focus and expands again toward the next mirror; direct segments scale between the two mirror windows.
 - Real-space sampling, curvature sampling, and kernel Nyquist limits are enforced explicitly.
+- Small grids use the original dense Collins integral; grids above 640 points on either axis use an equivalent
+  Bluestein/scaled-FFT evaluation whose memory grows with the 2D field rather than dense transform matrices.
+- The per-axis grid cap is 2048, with a separate memory budget checked before propagation.
 - Configurations that exceed the configured grid or memory limits raise a clear error instead of silently aliasing.
 - Mirror curvature is applied as thin-mirror phase.
 - Mirror-hole clipping is applied where the current paraxial model already supports it.
@@ -156,11 +159,19 @@ Supported launch profiles:
 - `gaussian`
 - `super_gaussian`
 - `round_super_gaussian`
+- `laguerre_gaussian`, with independently configurable radial index `p` and signed azimuthal index `l`
+
+The Laguerre–Gaussian launcher includes both the associated-Laguerre radial amplitude and the helical
+phase `exp(i l phi)`. Rather than multiplying a Gaussian margin by the mode's full second-moment radius,
+the planner integrates the exact radial LG power distribution. It sizes the window so the requested tail
+power stays outside the diagnostic guard band while the sample pitch resolves the underlying Gaussian
+envelope. This keeps the complete supported range `0 <= p <= 20`, `-20 <= l <= 20` practical for ordinary
+cell configurations without silently clipping the outer rings.
 
 Current limitations:
 
 - The 2D solver is scalar and paraxial, not a full vector or non-paraxial field solver.
-- Explicit wave-optics propagation is available for TEM00. Higher-order HG, LG, and custom `M^2` modes remain on the analytic overlay path because a single coherent Gaussian field cannot represent an arbitrary `M^2`, and the current explicit solver does not launch HG/LG complex fields.
+- The main analytic mode selector must remain TEM00 while using explicit wave optics. Higher-order HG, LG, and custom `M^2` selections there remain analytic; coherent LG propagation is selected independently with the wave-optics **Launch Profile** control.
 - The internal adaptive focus plane is chosen from the shared minimum-area ABCD estimate when the x and y minima do not occur at the same longitudinal position. If that minimum lies on a mirror, the segment is treated as a no-focus direct propagation.
 
 ## API Endpoints

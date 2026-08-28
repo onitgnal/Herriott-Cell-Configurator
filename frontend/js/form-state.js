@@ -53,6 +53,8 @@ const LEGACY_TOGGLE_FIELDS = [
 const WAVE_OPTICS_FIELDS = [
   { key: "profile_type", elementId: "wave-profile-type", type: "select" },
   { key: "super_gaussian_order", elementId: "wave-super-order", type: "float" },
+  { key: "laguerre_p", elementId: "wave-lg-p", type: "int" },
+  { key: "laguerre_l", elementId: "wave-lg-l", type: "int" },
   { key: "window_safety_factor", elementId: "wave-window-safety", type: "float" },
   { key: "samples_per_radius", elementId: "wave-samples-per-radius", type: "int" },
   { key: "max_grid_points", elementId: "wave-max-grid", type: "int" },
@@ -205,6 +207,10 @@ export function updateWaveOpticsUI() {
   document.getElementById("wave-super-order-group")?.classList.toggle(
     "hidden",
     profileType !== "super_gaussian" && profileType !== "round_super_gaussian",
+  );
+  document.getElementById("wave-lg-indices-group")?.classList.toggle(
+    "hidden",
+    profileType !== "laguerre_gaussian",
   );
 }
 

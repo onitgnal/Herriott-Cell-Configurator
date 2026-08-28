@@ -30,6 +30,7 @@ console.log(JSON.stringify({
   naturalBorrow: step("0.00", 3, -1),
   negativeIncrease: step("-12.3", 1, 1),
   clampedMinimum: step("0.0001", 5, -1, { min: "0.0001" }),
+  clampedMaximum: step("2048", 0, 1, { max: "2048" }),
   zeroAtThousands,
   retainedThousands: stepNumericText(
     zeroAtThousands.value,
@@ -73,6 +74,7 @@ def test_digit_stepper_handles_carry_borrow_bounds_and_negative_values() -> None
     assert result["naturalBorrow"]["value"] == "-0.01"
     assert result["negativeIncrease"]["value"] == "-2.3"
     assert result["clampedMinimum"]["value"] == "0.0001"
+    assert result["clampedMaximum"]["value"] == "2048"
     assert result["zeroAtThousands"]["value"] == "0"
     assert result["retainedThousands"]["value"] == "-1000"
 

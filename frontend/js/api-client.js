@@ -9,7 +9,23 @@ export class ApiError extends Error {
 
 export function getErrorMessage(body, fallbackMessage) {
   if (Array.isArray(body?.details) && body.details.length > 0) {
-    return body.details[0].message || fallbackMessage;
+    const detail = body.details[0];
+    if (!detail.message) {
+      return fallbackMessage;
+    }
+    const fieldName = Array.isArray(detail.loc) ? detail.loc.at(-1) : null;
+    const fieldLabels = {
+      max_grid_points: "Max Grid",
+      max_memory_mb: "Max Memory",
+      laguerre_p: "LG radial p",
+      laguerre_l: "LG azimuthal l",
+      samples_per_radius: "Samples / Radius",
+      window_safety_factor: "Window Margin",
+    };
+    if (fieldName && fieldLabels[fieldName]) {
+      return `${fieldLabels[fieldName]}: ${detail.message}`;
+    }
+    return detail.message;
   }
 
   if (body?.error?.message) {

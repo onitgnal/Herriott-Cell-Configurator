@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Vector3 = tuple[float, float, float]
+WAVE_OPTICS_MAX_GRID_POINTS = 2048
 
 
 class SimulationRequest(BaseModel):
@@ -127,15 +128,17 @@ class SimulationRequest(BaseModel):
 class WaveOpticsSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian"] = "gaussian"
+    profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian", "laguerre_gaussian"] = "gaussian"
     super_gaussian_order: float = Field(4.0, ge=1.0, le=20.0)
+    laguerre_p: int = Field(0, ge=0, le=20)
+    laguerre_l: int = Field(1, ge=-20, le=20)
     window_safety_factor: float = Field(4.0, gt=1.0, le=12.0)
     samples_per_radius: int = Field(14, ge=4, le=64)
     guard_band_fraction: float = Field(0.12, ge=0.02, lt=0.45)
     kernel_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
     curvature_nyquist_margin: float = Field(0.85, gt=0.1, lt=1.0)
-    max_grid_points: int = Field(640, ge=32, le=1024)
-    max_memory_mb: float = Field(192.0, ge=16.0, le=4096.0)
+    max_grid_points: int = Field(WAVE_OPTICS_MAX_GRID_POINTS, ge=32, le=WAVE_OPTICS_MAX_GRID_POINTS)
+    max_memory_mb: float = Field(1024.0, ge=16.0, le=4096.0)
     display_grid_points: int = Field(72, ge=24, le=256)
     display_safety_factor: float = Field(2.0, gt=1.0, le=6.0)
 
@@ -325,8 +328,11 @@ class WaveOpticsSegmentDiagnostic(BaseModel):
 
 class WaveOpticsResult(BaseModel):
     method: str
-    profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian"]
+    propagation_backends: list[Literal["dense", "scaled_fft"]]
+    profile_type: Literal["gaussian", "super_gaussian", "round_super_gaussian", "laguerre_gaussian"]
     super_gaussian_order: float | None = None
+    laguerre_p: int | None = None
+    laguerre_l: int | None = None
     settings: WaveOpticsSettings
     warnings: list[str]
     launch_profile: WaveOpticsFrame

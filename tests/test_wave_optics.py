@@ -1,11 +1,19 @@
 from __future__ import annotations
 
-from math import isclose
+from math import isclose, sqrt
 
-from backend.app.core.wave_optics import AdaptiveWaveOpticsSolver, PlanePlan
+import numpy as np
+
+from backend.app.core.wave_optics import (
+    AdaptiveWaveOpticsSolver,
+    PlanePlan,
+    _launch_profile_grid_factors,
+    _plan_planes,
+    _segment_states,
+)
 from backend.app.schemas.simulation import WaveOpticsSimulationRequest
 from backend.app.schemas.simulation import WaveOpticsSettings
-from backend.app.services.simulation_service import run_wave_optics_simulation
+from backend.app.services.simulation_service import run_simulation, run_wave_optics_simulation
 
 from tests.helpers import load_fixture
 
@@ -213,6 +221,208 @@ def test_round_super_gaussian_is_radially_symmetric_for_astigmatic_input_radii()
         abs_tol=1e-3,
     )
     assert round_summary["peak_density_per_mm2"] != separable_summary["peak_density_per_mm2"]
+
+
+def test_laguerre_gaussian_p0_l0_matches_the_gaussian_launch_field() -> None:
+    settings = WaveOpticsSettings(profile_type="laguerre_gaussian", laguerre_p=0, laguerre_l=0)
+    solver = AdaptiveWaveOpticsSolver(1030e-6, settings)
+    plan = PlanePlan(
+        half_width_x_mm=5.0,
+        half_width_y_mm=5.0,
+        nx=193,
+        ny=193,
+        dx_mm=10.0 / 192.0,
+        dy_mm=10.0 / 192.0,
+        predicted_radius_x_mm=1.0,
+        predicted_radius_y_mm=1.0,
+    )
+
+    gaussian_field, _ = solver.build_launch_field(
+        plan,
+        "gaussian",
+        4.0,
+        1.0,
+        1.0,
+        float("inf"),
+        float("inf"),
+    )
+    lg_field, _ = solver.build_launch_field(
+        plan,
+        "laguerre_gaussian",
+        4.0,
+        1.0,
+        1.0,
+        float("inf"),
+        float("inf"),
+        0,
+        0,
+    )
+
+    assert np.allclose(lg_field, gaussian_field, rtol=1e-13, atol=1e-13)
+
+
+def test_laguerre_gaussian_uses_radial_polynomial_and_signed_helical_phase() -> None:
+    settings = WaveOpticsSettings(profile_type="laguerre_gaussian", laguerre_p=2, laguerre_l=2)
+    solver = AdaptiveWaveOpticsSolver(1030e-6, settings)
+    plan = PlanePlan(
+        half_width_x_mm=8.0,
+        half_width_y_mm=8.0,
+        nx=257,
+        ny=257,
+        dx_mm=16.0 / 256.0,
+        dy_mm=16.0 / 256.0,
+        predicted_radius_x_mm=sqrt(7.0),
+        predicted_radius_y_mm=sqrt(7.0),
+    )
+    common_arguments = (
+        plan,
+        "laguerre_gaussian",
+        4.0,
+        1.0,
+        1.0,
+        float("inf"),
+        float("inf"),
+        2,
+    )
+    positive_field, grid = solver.build_launch_field(*common_arguments, 2)
+    negative_field, _ = solver.build_launch_field(*common_arguments, -2)
+
+    assert np.allclose(np.abs(positive_field) ** 2, np.abs(negative_field) ** 2, rtol=1e-13, atol=1e-13)
+    assert np.allclose(negative_field, np.conjugate(positive_field), rtol=1e-13, atol=1e-13)
+    assert abs(positive_field[128, 128]) < 1e-14
+
+    summary = solver.summarize_field(
+        positive_field,
+        grid,
+        (0.0, 0.0, 0.0),
+        (1.0, 0.0, 0.0),
+        (0.0, 1.0, 0.0),
+        "launch",
+        1,
+        0,
+        0,
+        "In",
+    )
+    assert isclose(summary["equivalent_radius_x_mm"], sqrt(7.0), rel_tol=1e-8, abs_tol=1e-10)
+    assert isclose(summary["equivalent_radius_y_mm"], sqrt(7.0), rel_tol=1e-8, abs_tol=1e-10)
+
+
+def test_laguerre_gaussian_profile_propagates_with_mode_aware_adaptive_windows() -> None:
+    result = run_wave_optics_simulation(
+        build_wave_request(
+            profile_type="laguerre_gaussian",
+            laguerre_p=0,
+            laguerre_l=-1,
+            max_grid_points=512,
+            max_memory_mb=256,
+        ),
+    )
+    assert result.wave_optics is not None
+
+    wave_optics = result.wave_optics
+    expected_launch_radius = result.beam_propagation.x.w_mirrors_w[0] * sqrt(2.0)
+    assert wave_optics.profile_type == "laguerre_gaussian"
+    assert wave_optics.super_gaussian_order is None
+    assert wave_optics.laguerre_p == 0
+    assert wave_optics.laguerre_l == -1
+    assert isclose(wave_optics.launch_profile.equivalent_radius_x_mm, expected_launch_radius, rel_tol=1e-8)
+    assert isclose(wave_optics.segments[0].start_grid.predicted_radius_x_mm, expected_launch_radius, rel_tol=1e-12)
+
+
+def test_scaled_fft_collins_transform_matches_dense_integral_on_unequal_grids() -> None:
+    solver = AdaptiveWaveOpticsSolver(1030e-6, WaveOpticsSettings())
+    input_plan = PlanePlan(
+        half_width_x_mm=2.0,
+        half_width_y_mm=3.0,
+        nx=32,
+        ny=40,
+        dx_mm=4.0 / 31.0,
+        dy_mm=6.0 / 39.0,
+        predicted_radius_x_mm=1.0,
+        predicted_radius_y_mm=1.0,
+    )
+    output_plan = PlanePlan(
+        half_width_x_mm=4.0,
+        half_width_y_mm=2.5,
+        nx=641,
+        ny=35,
+        dx_mm=8.0 / 640.0,
+        dy_mm=5.0 / 34.0,
+        predicted_radius_x_mm=1.0,
+        predicted_radius_y_mm=1.0,
+    )
+    input_grid = solver.grid(input_plan)
+    random = np.random.default_rng(7)
+    field = random.normal(size=(input_plan.nx, input_plan.ny)) + 1j * random.normal(
+        size=(input_plan.nx, input_plan.ny),
+    )
+
+    dense = solver._propagate_dense(field, input_grid, output_plan, 1000.0)
+    scaled_fft, _ = solver.propagate(field, input_grid, output_plan, 1000.0)
+
+    assert solver.propagation_backends_used == {"scaled_fft"}
+    assert np.allclose(scaled_fft, dense, rtol=1e-11, atol=1e-11)
+
+
+def test_lg20_20_plans_within_the_hybrid_solver_limit() -> None:
+    request = build_wave_request(
+        profile_type="laguerre_gaussian",
+        laguerre_p=20,
+        laguerre_l=20,
+        max_grid_points=2048,
+        max_memory_mb=1024,
+    )
+    result = run_simulation(request)
+    assert result.ray_trace is not None
+    resolved = result.resolved_inputs
+    states = _segment_states(
+        resolved.mirror_distance_mm,
+        resolved.mirror1_radius_mm,
+        resolved.mirror2_radius_mm,
+        resolved.wavelength_medium_mm,
+        resolved.input_waist_x_mm,
+        resolved.input_waist_y_mm,
+        resolved.input_waist_z_mm,
+        len(result.ray_trace.points) - 1,
+        result.mode.M2x,
+        result.mode.M2y,
+    )
+    window_factor, radius_factor = _launch_profile_grid_factors(request.wave_optics)
+    mirror_plans, focus_plans, center_plans = _plan_planes(
+        states,
+        resolved.mirror_distance_mm,
+        resolved.wavelength_medium_mm,
+        request.wave_optics,
+        window_factor,
+        radius_factor,
+    )
+
+    all_plans = [*mirror_plans, *center_plans, *(plan for plan in focus_plans if plan is not None)]
+    assert max(max(plan.nx, plan.ny) for plan in all_plans) <= 2048
+    assert radius_factor == sqrt(61.0)
+    assert mirror_plans[0].half_width_x_mm < 2 * mirror_plans[0].predicted_radius_x_mm
+
+
+def test_moderately_high_lg_mode_uses_scaled_fft_without_sampling_warnings() -> None:
+    result = run_wave_optics_simulation(
+        build_wave_request(
+            profile_type="laguerre_gaussian",
+            laguerre_p=5,
+            laguerre_l=5,
+            max_grid_points=2048,
+            max_memory_mb=1024,
+        ),
+    )
+    assert result.wave_optics is not None
+    assert result.wave_optics.propagation_backends == ["scaled_fft"]
+    assert result.wave_optics.warnings == []
+    assert result.wave_optics.launch_profile.edge_power_fraction < 1e-8
+    assert isclose(result.wave_optics.center_profiles[0].power_fraction, 1.0, rel_tol=1e-6, abs_tol=1e-8)
+    assert isclose(result.wave_optics.mirror2_profiles[0].power_fraction, 1.0, rel_tol=1e-6, abs_tol=1e-8)
+    assert all(
+        frame.power_fraction <= 1.0 + 1e-6
+        for frame in [*result.wave_optics.mirror1_profiles, *result.wave_optics.mirror2_profiles]
+    )
 
 
 def test_wave_optics_reports_guard_band_pressure() -> None:
