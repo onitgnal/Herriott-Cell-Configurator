@@ -77,8 +77,8 @@ def test_wave_optics_endpoint_returns_profiles(client) -> None:
     config["wave_optics"] = {
         "profile_type": "round_super_gaussian",
         "super_gaussian_order": 6.0,
-        "max_grid_points": 256,
-        "max_memory_mb": 128,
+        "max_grid_points": 640,
+        "max_memory_mb": 256,
         "display_grid_points": 48,
     }
 
@@ -87,8 +87,8 @@ def test_wave_optics_endpoint_returns_profiles(client) -> None:
     assert response.status_code == 200
     body = response.json()
     assert "wave_optics" in body
-    assert body["wave_optics"]["method"] == "Adaptive-grid 2D Collins/Fresnel diffraction integral"
-    assert body["wave_optics"]["propagation_backends"] == ["dense"]
+    assert body["wave_optics"]["method"] == "Angular-spectrum telescope + adaptive-grid 2D Collins/Fresnel diffraction integral"
+    assert body["wave_optics"]["propagation_backends"] == ["angular_spectrum", "dense"]
     assert body["wave_optics"]["profile_type"] == "round_super_gaussian"
     assert body["wave_optics"]["super_gaussian_order"] == 6.0
     assert body["wave_optics"]["launch_profile"]["plane_kind"] == "launch"
@@ -162,8 +162,8 @@ def test_wave_optics_job_endpoint_reports_progress_and_result(client) -> None:
     config["wave_optics"] = {
         "profile_type": "round_super_gaussian",
         "super_gaussian_order": 6.0,
-        "max_grid_points": 256,
-        "max_memory_mb": 128,
+        "max_grid_points": 640,
+        "max_memory_mb": 256,
         "display_grid_points": 48,
     }
 

@@ -178,6 +178,10 @@ def _efficient_grid_size(required_points: int, max_grid_points: int) -> int:
             return size
     if required_points <= max_grid_points:
         return required_points
+    # The planner intentionally includes independent curvature and kernel safety margins.  At the hard FFT cap,
+    # tolerate at most a 2% rounding/margin overrun rather than rejecting a mode for a handful of samples.
+    if max_grid_points == WAVE_OPTICS_MAX_GRID_POINTS and required_points <= int(1.02 * max_grid_points):
+        return max_grid_points
     suggested_grid = None
     for size in FAST_GRID_SIZES:
         if size >= required_points:
@@ -368,8 +372,20 @@ def _launch_profile_grid_factors(settings: WaveOpticsSettings) -> tuple[float, f
             round(settings.window_safety_factor, 6),
             round(settings.guard_band_fraction, 6),
         )
+        if settings.phase_plate_radial_p == 0:
+            # A phase-only Gaussian/Kummer vortex has broader algebraic diffraction tails than an LG mode with
+            # the same charge, even though its pupil-plane intensity is still Gaussian.
+            window_factor += 2.0
         return window_factor, mode_radius_factor
     return settings.window_safety_factor, 1.0
+
+
+def _input_pupil_window_factor(settings: WaveOpticsSettings, propagated_window_factor: float) -> float:
+    if settings.profile_type == "laguerre_gaussian":
+        return propagated_window_factor
+    if settings.phase_plate_enabled and settings.phase_plate_radial_p > 0:
+        return max(settings.window_safety_factor, sqrt(settings.phase_plate_radial_p + 1) + 3.0)
+    return settings.window_safety_factor
 
 
 def _emit_progress(
@@ -1041,10 +1057,7 @@ def _plan_planes(
             ),
         )
     if first_mirror_half_width is not None:
-        mirror_half_widths[0] = (
-            max(mirror_half_widths[0][0], first_mirror_half_width[0]),
-            max(mirror_half_widths[0][1], first_mirror_half_width[1]),
-        )
+        mirror_half_widths[0] = first_mirror_half_width
 
     for state in states:
         center_half_widths.append(
@@ -1329,7 +1342,6 @@ def _plan_telescope_planes(
     distances_mm: tuple[float, float, float, float],
     wavelength_mm: float,
     settings: WaveOpticsSettings,
-    final_plan: PlanePlan,
     profile_window_factor: float,
     profile_radius_factor: float,
     m2_x: float,
@@ -1346,10 +1358,11 @@ def _plan_telescope_planes(
         )
         for radius_x, radius_y in zip(radii_x, radii_y, strict=True)
     ]
-    common_half_width_x = max(final_plan.half_width_x_mm, *(half_width[0] for half_width in half_widths))
-    common_half_width_y = max(final_plan.half_width_y_mm, *(half_width[1] for half_width in half_widths))
+    common_half_width_x = max(half_width[0] for half_width in half_widths)
+    common_half_width_y = max(half_width[1] for half_width in half_widths)
     dx_limit_x = min(radius / settings.samples_per_radius for radius in radii_x)
     dx_limit_y = min(radius / settings.samples_per_radius for radius in radii_y)
+    telescope_curvature_margin = max(settings.curvature_nyquist_margin, 0.95)
     for index in range(len(incoming_x)):
         for q_value in (incoming_x[index], outgoing_x[index]):
             dx_limit_x = min(
@@ -1358,7 +1371,7 @@ def _plan_telescope_planes(
                     _curvature_radius_mm(q_value),
                     common_half_width_x,
                     wavelength_mm,
-                    settings.curvature_nyquist_margin,
+                    telescope_curvature_margin,
                 ),
             )
         for q_value in (incoming_y[index], outgoing_y[index]):
@@ -1368,11 +1381,11 @@ def _plan_telescope_planes(
                     _curvature_radius_mm(q_value),
                     common_half_width_y,
                     wavelength_mm,
-                    settings.curvature_nyquist_margin,
+                    telescope_curvature_margin,
                 ),
             )
-    required_nx = max(_grid_requirement_points(common_half_width_x, dx_limit_x), final_plan.nx)
-    required_ny = max(_grid_requirement_points(common_half_width_y, dx_limit_y), final_plan.ny)
+    required_nx = _grid_requirement_points(common_half_width_x, dx_limit_x)
+    required_ny = _grid_requirement_points(common_half_width_y, dx_limit_y)
     nx = _efficient_grid_size(required_nx, settings.max_grid_points)
     ny = _efficient_grid_size(required_ny, settings.max_grid_points)
     common_plan = PlanePlan(
@@ -1459,6 +1472,7 @@ def compute_wave_optics_result(
         start_time=progress_start,
     )
     profile_window_factor, profile_radius_factor = _launch_profile_grid_factors(settings)
+    pupil_window_factor = _input_pupil_window_factor(settings, profile_window_factor)
     mirror_plans, focus_plans, center_plans = _plan_planes(
         states,
         mirror_distance_mm,
@@ -1476,42 +1490,60 @@ def compute_wave_optics_result(
     input_radius_mm = float(matching["input_beam_radius_mm"])
     input_q_x = complex(0.0, pi * input_radius_mm**2 / (mode["M2x"] * wavelength_vacuum_mm))
     input_q_y = complex(0.0, pi * input_radius_mm**2 / (mode["M2y"] * wavelength_vacuum_mm))
-    telescope_plans = _plan_telescope_planes(
-        input_q_x,
-        input_q_y,
-        focal_lengths,
-        matching_distances,
-        wavelength_vacuum_mm,
-        settings,
-        mirror_plans[0],
-        profile_window_factor,
-        profile_radius_factor,
-        mode["M2x"],
-        mode["M2y"],
-    )
-    common_telescope_plan = telescope_plans[0]
-    mirror_plans, focus_plans, center_plans = _plan_planes(
-        states,
-        mirror_distance_mm,
-        wavelength_mm,
-        settings,
-        profile_window_factor,
-        profile_radius_factor,
-        (common_telescope_plan.half_width_x_mm, common_telescope_plan.half_width_y_mm),
-    )
-    if mirror_plans[0].nx > common_telescope_plan.nx or mirror_plans[0].ny > common_telescope_plan.ny:
-        common_telescope_plan = PlanePlan(
-            half_width_x_mm=common_telescope_plan.half_width_x_mm,
-            half_width_y_mm=common_telescope_plan.half_width_y_mm,
-            nx=max(common_telescope_plan.nx, mirror_plans[0].nx),
-            ny=max(common_telescope_plan.ny, mirror_plans[0].ny),
-            dx_mm=(2 * common_telescope_plan.half_width_x_mm) / (max(common_telescope_plan.nx, mirror_plans[0].nx) - 1),
-            dy_mm=(2 * common_telescope_plan.half_width_y_mm) / (max(common_telescope_plan.ny, mirror_plans[0].ny) - 1),
-            predicted_radius_x_mm=common_telescope_plan.predicted_radius_x_mm,
-            predicted_radius_y_mm=common_telescope_plan.predicted_radius_y_mm,
+    analytic_lg_telescope = settings.profile_type == "laguerre_gaussian"
+    if analytic_lg_telescope:
+        input_half_width = _plane_half_width_mm(input_radius_mm, settings, pupil_window_factor)
+        input_points = _efficient_grid_size(
+            _grid_requirement_points(input_half_width, input_radius_mm / settings.samples_per_radius),
+            settings.max_grid_points,
         )
-    telescope_plans = [common_telescope_plan] * 5
-    mirror_plans[0] = common_telescope_plan
+        input_plan = PlanePlan(
+            half_width_x_mm=input_half_width,
+            half_width_y_mm=input_half_width,
+            nx=input_points,
+            ny=input_points,
+            dx_mm=(2 * input_half_width) / (input_points - 1),
+            dy_mm=(2 * input_half_width) / (input_points - 1),
+            predicted_radius_x_mm=input_radius_mm * profile_radius_factor,
+            predicted_radius_y_mm=input_radius_mm * profile_radius_factor,
+        )
+        telescope_plans = [input_plan]
+    else:
+        telescope_plans = _plan_telescope_planes(
+            input_q_x,
+            input_q_y,
+            focal_lengths,
+            matching_distances,
+            wavelength_vacuum_mm,
+            settings,
+            pupil_window_factor,
+            profile_radius_factor,
+            mode["M2x"],
+            mode["M2y"],
+        )
+        common_telescope_plan = telescope_plans[0]
+        mirror_plans, focus_plans, center_plans = _plan_planes(
+            states,
+            mirror_distance_mm,
+            wavelength_mm,
+            settings,
+            profile_window_factor,
+            profile_radius_factor,
+            (common_telescope_plan.half_width_x_mm, common_telescope_plan.half_width_y_mm),
+        )
+        if mirror_plans[0].nx > common_telescope_plan.nx or mirror_plans[0].ny > common_telescope_plan.ny:
+            common_telescope_plan = PlanePlan(
+                half_width_x_mm=common_telescope_plan.half_width_x_mm,
+                half_width_y_mm=common_telescope_plan.half_width_y_mm,
+                nx=max(common_telescope_plan.nx, mirror_plans[0].nx),
+                ny=max(common_telescope_plan.ny, mirror_plans[0].ny),
+                dx_mm=(2 * common_telescope_plan.half_width_x_mm) / (max(common_telescope_plan.nx, mirror_plans[0].nx) - 1),
+                dy_mm=(2 * common_telescope_plan.half_width_y_mm) / (max(common_telescope_plan.ny, mirror_plans[0].ny) - 1),
+                predicted_radius_x_mm=common_telescope_plan.predicted_radius_x_mm,
+                predicted_radius_y_mm=common_telescope_plan.predicted_radius_y_mm,
+            )
+        telescope_plans = [common_telescope_plan] * 5
+        mirror_plans[0] = common_telescope_plan
     progress_steps = 1
     _emit_progress(
         progress_callback,
@@ -1551,18 +1583,42 @@ def compute_wave_optics_result(
         None,
         "Input plate",
     )
-    for telescope_index, distance_mm in enumerate(matching_distances):
-        field = external_solver.propagate_angular_spectrum(field, current_grid, distance_mm)
-        if telescope_index < len(focal_lengths):
-            field = external_solver.apply_thin_lens(field, current_grid, focal_lengths[telescope_index])
-        progress_steps += 1
+    if analytic_lg_telescope:
+        # An ideal first-order, rotationally symmetric ABCD system maps an LG mode exactly to the same (p,l)
+        # mode with the transformed q parameter.  Using that closed-form transform avoids sampling three large
+        # quadratic lens carriers for high-order LG modes and is mathematically equivalent to four FFT steps.
+        field, current_grid = solver.build_launch_field(
+            mirror_plans[0],
+            settings.profile_type,
+            settings.super_gaussian_order,
+            states[0].start_radius_x_mm,
+            states[0].start_radius_y_mm,
+            states[0].start_curvature_x_mm,
+            states[0].start_curvature_y_mm,
+            settings.laguerre_p,
+            settings.laguerre_l,
+        )
+        progress_steps += 4
         _emit_progress(
             progress_callback,
             completed_steps=progress_steps,
             total_steps=total_steps,
-            current_step=f"Mode matching: propagated to {'M1' if telescope_index == 3 else f'L{telescope_index + 1}'}",
+            current_step="Mode matching: applied exact LG ABCD transform to M1",
             start_time=progress_start,
         )
+    else:
+        for telescope_index, distance_mm in enumerate(matching_distances):
+            field = external_solver.propagate_angular_spectrum(field, current_grid, distance_mm)
+            if telescope_index < len(focal_lengths):
+                field = external_solver.apply_thin_lens(field, current_grid, focal_lengths[telescope_index])
+            progress_steps += 1
+            _emit_progress(
+                progress_callback,
+                completed_steps=progress_steps,
+                total_steps=total_steps,
+                current_step=f"Mode matching: propagated to {'M1' if telescope_index == 3 else f'L{telescope_index + 1}'}",
+                start_time=progress_start,
+            )
 
     launch_profile = solver.summarize_field(
         field,
@@ -1841,7 +1897,7 @@ def compute_wave_optics_result(
 
     deduplicated_warnings = list(dict.fromkeys(overall_warnings))
     return {
-        "method": "Adaptive-grid 2D Collins/Fresnel diffraction integral",
+        "method": "Angular-spectrum telescope + adaptive-grid 2D Collins/Fresnel diffraction integral",
         "propagation_backends": sorted(solver.propagation_backends_used | external_solver.propagation_backends_used),
         "profile_type": settings.profile_type,
         "super_gaussian_order": (

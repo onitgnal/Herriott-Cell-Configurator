@@ -5,6 +5,7 @@ The app combines:
 
 - 3D geometric ray tracing on spherical mirrors
 - fast paraxial ABCD beam propagation for live interaction
+- automatic or manual three-lens input-beam mode matching and out-coupling propagation
 - transverse-mode beam overlays and intensity / fluence estimates
 - an explicit adaptive-grid 2D wave-optics solver for MPC mirror-to-focus-to-mirror propagation
 
@@ -22,10 +23,13 @@ progress, and shows an ETA while the solver loop is running.
 - Auto-computes a nominal injection ray for rotating dense spot patterns
 - Traces the injected ray in 3D using exact sphere intersections and vector reflection
 - Computes cavity stability, cavity waist, and mirror beam sizes
+- Selects practical catalog focal lengths for a three-lens telescope, or refits distances for a user-selected lens set
+- Supports a fully manual telescope and plots its input/output sections separately from the unfolded MPC path
 - Displays TEM00, HG, LG, and custom `M^2` analytic beam overlays
 - Estimates peak intensity and fluence on mirror and center/focus plots
 - Runs an adaptive-grid 2D scalar diffraction solver for selected MPC segments
 - Supports Gaussian, super-Gaussian, round super-Gaussian, and complex Laguerre–Gaussian launch profiles
+- Applies spiral phase plates and optional radial pupil shaping for HyGG-type and super-Gaussian vortex inputs
 - Saves and loads JSON configurations
 
 ## Quick Start
@@ -48,6 +52,13 @@ docker compose up
 ```
 
 Open `http://localhost:3001/`.
+
+### GitHub Pages
+
+The current application is not a static single-file site: live simulation and wave optics call the FastAPI
+endpoints listed below. The root `index.html` is therefore only an explanatory placeholder. The separately
+published `index.html-only-with-wave-propagation-(slow)` branch is a legacy, independent implementation and
+does not automatically receive features or physics fixes made on `main`; deploy `main` on a Python/Docker host.
 
 ## Repository Layout
 
@@ -97,6 +108,7 @@ It is responsible for:
 - auto injection
 - 3D ray tracing
 - unfolded ABCD beam propagation
+- external telescope and out-coupling ABCD propagation
 
 ### Wave-Optics Path
 
@@ -121,11 +133,13 @@ This path:
 - marks the 2D result stale after relevant input changes
 - renders wave-optics profiles on the MPC center plane and mirror planes when fresh
 - falls back to the fast analytic overlays when the 2D result is stale or unavailable
+- builds the field at the collimated input/phase-plate plane and propagates it through the three-lens telescope before M1
 
 ## Wave-Optics Implementation
 
-The optional wave-optics feature uses an adaptive-grid 2D Collins/Fresnel
-scalar diffraction solver that follows the paraxial ABCD beam envelope. When a
+The optional wave-optics feature uses a common-grid paraxial angular-spectrum
+propagator through the external three-lens telescope, followed by an adaptive-grid
+2D Collins/Fresnel scalar diffraction solver inside the MPC. When a
 segment has a real internal ABCD minimum, it uses:
 
 `mirror n -> internal focus / waist plane -> mirror n+1`
@@ -142,6 +156,10 @@ diagnostics for split-focus segments.
 Key implementation points:
 
 - The field is propagated as a full complex 2D field, not only as Gaussian beam parameters.
+- The collimated input and phase plate are upstream of lens 1; three thin-lens phases are included before the field reaches M1.
+- A planar air-to-cell transition uses `q_cell = n * q_air`; the transverse field is continuous at the interface.
+- Catalog and fixed-lens fits report their residual q error, and both the analytic and wave-optics paths launch the cell with the telescope's achieved q rather than silently substituting the ideal eigenmode.
+- Ordinary and super-Gaussian vortex beams use the explicit telescope FFT propagation. Ideal LG modes use the exact closed-form ABCD transform through the rotationally symmetric telescope, which is mathematically equivalent and keeps LG(20,20) practical.
 - Separate transverse windows are chosen for the start mirror, any real internal focus plane, and the end mirror.
 - A separate transverse window is also chosen for the MPC center plane at `L/2`.
 - ABCD-predicted beam size and curvature are used to plan those windows and sample spacings.
@@ -161,6 +179,15 @@ Supported launch profiles:
 - `round_super_gaussian`
 - `laguerre_gaussian`, with independently configurable radial index `p` and signed azimuthal index `l`
 
+For Gaussian, super-Gaussian, and round super-Gaussian inputs, the optional pupil shaper applies
+`exp(i*l*phi)` at the collimated input. With radial `p = 0` this is a genuinely phase-only spiral plate:
+a Gaussian produces the familiar Gaussian/Kummer (HyGG-type) vortex, while a super-Gaussian produces a
+super-Gaussian optical vortex. Positive radial `p` additionally multiplies the pupil amplitude by
+`(sqrt(2)*r/w)^p`. That is a complex pupil shaper (for example an SLM/hologram), not a claim that a passive
+phase-only spiral plate has a second independent radial control.
+Here `p` names that non-negative radial pupil exponent; it is not the LG radial-node index and should not be
+identified directly with every paper's HyGG mode-parameter convention.
+
 The Laguerre–Gaussian launcher includes both the associated-Laguerre radial amplitude and the helical
 phase `exp(i l phi)`. Rather than multiplying a Gaussian margin by the mode's full second-moment radius,
 the planner integrates the exact radial LG power distribution. It sizes the window so the requested tail
@@ -171,6 +198,8 @@ cell configurations without silently clipping the outer rings.
 Current limitations:
 
 - The 2D solver is scalar and paraxial, not a full vector or non-paraxial field solver.
+- The automatic telescope uses spherical thin lenses. A single shared telescope cannot in general match unequal x/y `M^2` values exactly; the UI reports the closest fit in that case.
+- The built-in practical-lens catalog contains positive focal lengths from 50 mm to 2500 mm. Fixed-lens and manual modes also accept negative focal lengths entered directly.
 - The main analytic mode selector must remain TEM00 while using explicit wave optics. Higher-order HG, LG, and custom `M^2` selections there remain analytic; coherent LG propagation is selected independently with the wave-optics **Launch Profile** control.
 - The internal adaptive focus plane is chosen from the shared minimum-area ABCD estimate when the x and y minima do not occur at the same longitudinal position. If that minimum lies on a mirror, the segment is treated as a no-focus direct propagation.
 
@@ -191,6 +220,7 @@ The synchronous wave-optics endpoint remains available for direct API use and te
 ## Main Frontend Behavior
 
 - Live input edits re-run only the fast analytic simulation.
+- The Gaussian-beam plot includes green upstream mode-matching and orange downstream out-coupling sections. The 3D cavity and mirror-spot plots remain intracell-only.
 - The wave-optics solver is never live-updated while parameters are still changing.
 - When a fresh 2D result exists, the mirror/focus plots use the wave-optics profiles.
 - When any relevant input changes, the 2D result becomes stale and the plots fall back to the analytic beam overlays.
@@ -222,6 +252,7 @@ This repository does not currently model:
 
 - Distances, beam radii, and mirror radii are in `mm`.
 - Vacuum wavelength is entered in `nm`; diffraction and cavity beam sizes use the in-medium wavelength `lambda_medium = lambda_vacuum / n`.
+- The external telescope and out-coupling section are in air and use the vacuum wavelength. The planar boundary scales the Gaussian q parameter by the refractive-index ratio.
 - The intracell refractive index is a uniform, real, dimensionless value. The geometric ray path is unchanged in a homogeneous medium.
 - Ray and tilt angles are entered in `mrad` and converted internally to `rad`.
 - Peak power is in `GW`.
@@ -294,6 +325,9 @@ including:
 - Hariton et al., "Spectral broadening in convex-concave multipass cells," *Optics Express* 31, no. 12 (2023), DOI: [10.1364/OE.486797](https://doi.org/10.1364/OE.486797)
 - Ma et al., "Design of multipass cell with dense spot patterns and its performance in a light-induced thermoelastic spectroscopy-based methane sensor," *Light: Advanced Manufacturing* 6, no. 1 (2025), DOI: [10.37188/lam.2025.001](https://doi.org/10.37188/lam.2025.001)
 - Viotti et al., "Multi-pass cells for post-compression of ultrashort laser pulses," *Optica* 9, no. 2 (2022), DOI: [10.1364/OPTICA.449225](https://doi.org/10.1364/OPTICA.449225)
+- Karimi et al., "Hypergeometric-Gaussian modes," *Optics Letters* 32, 3053–3055 (2007), DOI: [10.1364/OL.32.003053](https://doi.org/10.1364/OL.32.003053)
+- Augustyniak et al., "Off-axis vortex beam propagation through classical optical system in terms of Kummer confluent hypergeometric function," [arXiv:2005.05136](https://arxiv.org/abs/2005.05136)
+- Liu et al., "Propagation characteristics of super-Gaussian beams with vortex wave-front," *High Power Laser and Particle Beams* 26 (2014), DOI: [10.11884/HPLPB201426.121015](https://doi.org/10.11884/HPLPB201426.121015)
 
 Those papers motivate the geometry and use cases. This repository implements a
 practical design tool, not a full reproduction of every model in the cited work.

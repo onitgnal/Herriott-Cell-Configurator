@@ -237,3 +237,82 @@ console.log(JSON.stringify({
     payload = json.loads(completed.stdout)
     assert payload["specific"] == "R1 is outside the valid range."
     assert payload["namedGrid"] == "Max Grid: Input should be less than or equal to 2048"
+
+
+def test_mode_matching_telescope_controls_and_external_plot_contract_exist() -> None:
+    index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
+    renderers = (ROOT_DIR / "frontend" / "js" / "renderers.js").read_text(encoding="utf-8")
+
+    assert "Input Beam Mode-Matching" in index_html
+    assert 'id="mode-matching-mode"' in index_html
+    assert '<option value="auto">Auto-select practical lenses and distances</option>' in index_html
+    assert '<option value="fixed_lenses">Use selected lenses; auto-fit distances</option>' in index_html
+    assert '<option value="manual">Manual lenses and distances</option>' in index_html
+    for control in (
+        "num-input_beam_radius",
+        "num-mm_f1",
+        "num-mm_f2",
+        "num-mm_f3",
+        "num-mm_d0",
+        "num-mm_d12",
+        "num-mm_d23",
+        "num-mm_d3m",
+        "num-output_propagation",
+        "mode-matching-status",
+    ):
+        assert f'id="{control}"' in index_html
+    assert "external_beam_propagation: external" in renderers
+    assert 'addExternalSection(external?.input_section, "Mode matching"' in renderers
+    assert 'addExternalSection(external?.output_section, "Out coupling"' in renderers
+
+
+def test_phase_plate_controls_capture_hygg_and_vortex_indices() -> None:
+    index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="wave-phase-plate-enabled"' in index_html
+    assert 'id="wave-phase-p"' in index_html
+    assert 'id="wave-phase-l"' in index_html
+    assert "p=0 is a phase-only spiral plate" in index_html
+
+    script = """
+const classes = () => ({
+  values: new Set(["hidden"]),
+  toggle(name, force) { if (force) this.values.add(name); else this.values.delete(name); },
+  contains(name) { return this.values.has(name); },
+});
+const elements = {
+  "wave-profile-type": { value: "gaussian" },
+  "wave-super-order": { value: "4" },
+  "wave-lg-p": { value: "0" },
+  "wave-lg-l": { value: "1" },
+  "wave-phase-plate-enabled": { checked: true },
+  "wave-phase-p": { value: "2" },
+  "wave-phase-l": { value: "-3" },
+  "wave-window-safety": { value: "4" },
+  "wave-samples-per-radius": { value: "14" },
+  "wave-max-grid": { value: "2048" },
+  "wave-max-memory": { value: "1024" },
+  "wave-super-order-group": { classList: classes() },
+  "wave-lg-indices-group": { classList: classes() },
+  "wave-phase-plate-group": { classList: classes() },
+  "wave-phase-indices-group": { classList: classes() },
+};
+globalThis.document = { getElementById: (id) => elements[id] ?? null };
+const { captureWaveOpticsSettings, updateWaveOpticsUI } = await import("./frontend/js/form-state.js");
+updateWaveOpticsUI();
+console.log(JSON.stringify({
+  settings: captureWaveOpticsSettings(),
+  phaseHidden: elements["wave-phase-indices-group"].classList.contains("hidden"),
+}));
+"""
+    completed = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=ROOT_DIR,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(completed.stdout)
+    assert payload["settings"]["phase_plate_enabled"] is True
+    assert payload["settings"]["phase_plate_radial_p"] == 2
+    assert payload["settings"]["phase_plate_l"] == -3
+    assert payload["phaseHidden"] is False

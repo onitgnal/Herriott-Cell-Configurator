@@ -3,6 +3,7 @@ from __future__ import annotations
 from math import isclose, sqrt
 
 import numpy as np
+import pytest
 
 from backend.app.core.wave_optics import (
     AdaptiveWaveOpticsSolver,
@@ -22,8 +23,8 @@ def build_wave_request(**wave_overrides) -> WaveOpticsSimulationRequest:
     config = load_fixture("default_tem00.json")
     config["wave_optics"] = {
         "profile_type": "gaussian",
-        "max_grid_points": 256,
-        "max_memory_mb": 128,
+        "max_grid_points": 1024,
+        "max_memory_mb": 256,
         "display_grid_points": 48,
         **wave_overrides,
     }
@@ -46,6 +47,8 @@ def build_cav_vex_wave_request(**wave_overrides) -> WaveOpticsSimulationRequest:
 def test_gaussian_wave_optics_matches_abcd_mirror_radii() -> None:
     result = run_wave_optics_simulation(build_wave_request())
     assert result.wave_optics is not None
+    assert result.wave_optics.input_profile.plane_kind == "input"
+    assert "angular_spectrum" in result.wave_optics.propagation_backends
 
     launch_expected_x = result.beam_propagation.x.w_mirrors_w[0]
     launch_expected_y = result.beam_propagation.y.w_mirrors_w[0]
@@ -313,7 +316,7 @@ def test_laguerre_gaussian_profile_propagates_with_mode_aware_adaptive_windows()
             profile_type="laguerre_gaussian",
             laguerre_p=0,
             laguerre_l=-1,
-            max_grid_points=512,
+            max_grid_points=896,
             max_memory_mb=256,
         ),
     )
@@ -431,12 +434,118 @@ def test_wave_optics_reports_guard_band_pressure() -> None:
             profile_type="super_gaussian",
             super_gaussian_order=6.0,
             window_safety_factor=2.5,
-            max_grid_points=192,
+            max_grid_points=256,
         ),
     )
     assert result.wave_optics is not None
     assert result.wave_optics.warnings
     assert any("guard band" in warning for warning in result.wave_optics.warnings)
+
+
+def test_phase_only_spiral_plate_preserves_pupil_intensity_and_adds_signed_charge() -> None:
+    settings = WaveOpticsSettings(profile_type="gaussian", display_grid_points=48)
+    solver = AdaptiveWaveOpticsSolver(1030e-6, settings)
+    plan = PlanePlan(
+        half_width_x_mm=5.0,
+        half_width_y_mm=5.0,
+        nx=193,
+        ny=193,
+        dx_mm=10.0 / 192.0,
+        dy_mm=10.0 / 192.0,
+        predicted_radius_x_mm=1.0,
+        predicted_radius_y_mm=1.0,
+    )
+    gaussian, grid = solver.build_launch_field(plan, "gaussian", 4.0, 1.0, 1.0, float("inf"), float("inf"))
+    vortex, _ = solver.build_launch_field(
+        plan,
+        "gaussian",
+        4.0,
+        1.0,
+        1.0,
+        float("inf"),
+        float("inf"),
+        phase_plate_enabled=True,
+        phase_plate_radial_p=0,
+        phase_plate_l=-2,
+    )
+
+    assert np.abs(vortex) == pytest.approx(np.abs(gaussian), abs=1e-12)
+    center = plan.nx // 2
+    phase_x = np.angle(vortex[center + 12, center] / gaussian[center + 12, center])
+    phase_y = np.angle(vortex[center, center + 12] / gaussian[center, center + 12])
+    assert phase_x == pytest.approx(0.0, abs=1e-12)
+    assert abs(phase_y) == pytest.approx(np.pi, abs=1e-12)
+    assert grid.dx_mm == pytest.approx(plan.dx_mm)
+
+
+def test_hygg_radial_p_shaper_changes_pupil_radius_and_propagates_through_telescope() -> None:
+    result = run_wave_optics_simulation(
+        build_wave_request(
+            profile_type="gaussian",
+            phase_plate_enabled=True,
+            phase_plate_radial_p=2,
+            phase_plate_l=3,
+            max_grid_points=2048,
+            max_memory_mb=1024,
+        ),
+    )
+
+    assert result.wave_optics is not None
+    assert result.wave_optics.phase_plate_enabled is True
+    assert result.wave_optics.phase_plate_radial_p == 2
+    assert result.wave_optics.phase_plate_l == 3
+    assert result.wave_optics.input_profile.equivalent_radius_x_mm == pytest.approx(2.0 * sqrt(3.0), rel=2e-3)
+    assert result.wave_optics.launch_profile.equivalent_radius_x_mm != pytest.approx(
+        result.wave_optics.input_profile.equivalent_radius_x_mm,
+    )
+    assert "angular_spectrum" in result.wave_optics.propagation_backends
+
+
+def test_super_gaussian_phase_plate_creates_an_optical_vortex_without_changing_input_intensity() -> None:
+    plain = run_wave_optics_simulation(
+        build_wave_request(profile_type="round_super_gaussian", super_gaussian_order=6.0),
+    )
+    vortex = run_wave_optics_simulation(
+        build_wave_request(
+            profile_type="round_super_gaussian",
+            super_gaussian_order=6.0,
+            phase_plate_enabled=True,
+            phase_plate_radial_p=0,
+            phase_plate_l=2,
+            max_grid_points=2048,
+            max_memory_mb=1024,
+        ),
+    )
+
+    assert plain.wave_optics is not None
+    assert vortex.wave_optics is not None
+    assert vortex.wave_optics.input_profile.equivalent_radius_x_mm == pytest.approx(
+        plain.wave_optics.input_profile.equivalent_radius_x_mm,
+        rel=1e-5,
+    )
+    vortex_map = vortex.wave_optics.launch_profile.intensity_map
+    center = len(vortex_map) // 2
+    assert vortex_map[center][center] < 0.02
+
+
+def test_supported_high_hygg_indices_fit_the_2048_grid_on_a_short_cell_run() -> None:
+    config = load_fixture("default_tem00.json")
+    config.update({"total_passes": 2, "revolutions": 1})
+    config["wave_optics"] = {
+        "profile_type": "gaussian",
+        "phase_plate_enabled": True,
+        "phase_plate_radial_p": 20,
+        "phase_plate_l": 20,
+        "max_grid_points": 2048,
+        "max_memory_mb": 1024,
+        "display_grid_points": 24,
+    }
+    result = run_wave_optics_simulation(WaveOpticsSimulationRequest.model_validate(config))
+
+    assert result.wave_optics is not None
+    assert result.wave_optics.phase_plate_radial_p == 20
+    assert result.wave_optics.phase_plate_l == 20
+    assert "scaled_fft" in result.wave_optics.propagation_backends
 
 
 def test_cav_vex_wave_optics_uses_direct_segments_without_forced_focus() -> None:

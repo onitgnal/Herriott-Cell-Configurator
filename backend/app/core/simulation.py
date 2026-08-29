@@ -208,6 +208,8 @@ def simulate_configuration(request: object) -> dict[str, object]:
         m2_x=mode.M2x,
         m2_y=mode.M2y,
     )
+    # Always launch the cell with the q parameter actually produced by the telescope.  Substituting the ideal
+    # target here would hide a finite catalog/fixed-lens mismatch and introduce an unphysical discontinuity at M1.
     achieved_q_medium_x = mode_matching["achieved_q_medium_x"]
     achieved_q_medium_y = mode_matching["achieved_q_medium_y"]
     input_waist_x_mm, input_waist_z_x_mm = waist_parameters_from_q(
@@ -308,49 +310,12 @@ def simulate_configuration(request: object) -> dict[str, object]:
         wavelength_vacuum_mm,
         mode.M2y,
     )
-    total_cell_legs = 2 * total_passes
-    cell_output_position_mm = total_cell_legs * mirror_distance_mm
-    output_q_medium_x = q_at_configured_output(
-        achieved_q_medium_x,
-        mirror_distance_mm,
-        mirror1_radius_mm,
-        mirror2_radius_mm,
-        total_cell_legs,
-    )
-    output_q_medium_y = q_at_configured_output(
-        achieved_q_medium_y,
-        mirror_distance_mm,
-        mirror1_radius_mm,
-        mirror2_radius_mm,
-        total_cell_legs,
-    )
-    output_section_x = sample_free_space_axis(
-        output_q_medium_x / request.refractive_index,
-        request.output_propagation_mm,
-        wavelength_vacuum_mm,
-        mode.M2x,
-        cell_output_position_mm,
-    )
-    output_section_y = sample_free_space_axis(
-        output_q_medium_y / request.refractive_index,
-        request.output_propagation_mm,
-        wavelength_vacuum_mm,
-        mode.M2y,
-        cell_output_position_mm,
-    )
     public_mode_matching = {
         key: value
         for key, value in mode_matching.items()
         if key not in {"achieved_q_medium_x", "achieved_q_medium_y", "input_q_air_x", "input_q_air_y"}
     }
     response["mode_matching"] = public_mode_matching
-    response["external_beam_propagation"] = {
-        "input_section": {"x": input_section_x, "y": input_section_y},
-        "output_section": {"x": output_section_x, "y": output_section_y},
-        "lens_positions_mm": mode_matching["lens_positions_mm"],
-        "phase_plate_position_mm": mode_matching["input_plane_z_mm"],
-        "cell_output_position_mm": cell_output_position_mm,
-    }
 
     input_hole = (input_x_mm, input_y_mm)
     input_holes = [input_hole]
@@ -395,6 +360,44 @@ def simulate_configuration(request: object) -> dict[str, object]:
             max_trace_passes,
         )
 
+    actual_cell_legs = len(ray_trace["points"]) - 1
+    cell_output_position_mm = actual_cell_legs * mirror_distance_mm
+    output_q_medium_x = q_at_configured_output(
+        achieved_q_medium_x,
+        mirror_distance_mm,
+        mirror1_radius_mm,
+        mirror2_radius_mm,
+        actual_cell_legs,
+    )
+    output_q_medium_y = q_at_configured_output(
+        achieved_q_medium_y,
+        mirror_distance_mm,
+        mirror1_radius_mm,
+        mirror2_radius_mm,
+        actual_cell_legs,
+    )
+    output_section_x = sample_free_space_axis(
+        output_q_medium_x / request.refractive_index,
+        request.output_propagation_mm,
+        wavelength_vacuum_mm,
+        mode.M2x,
+        cell_output_position_mm,
+    )
+    output_section_y = sample_free_space_axis(
+        output_q_medium_y / request.refractive_index,
+        request.output_propagation_mm,
+        wavelength_vacuum_mm,
+        mode.M2y,
+        cell_output_position_mm,
+    )
+    response["external_beam_propagation"] = {
+        "input_section": {"x": input_section_x, "y": input_section_y},
+        "output_section": {"x": output_section_x, "y": output_section_y},
+        "lens_positions_mm": mode_matching["lens_positions_mm"],
+        "phase_plate_position_mm": mode_matching["input_plane_z_mm"],
+        "cell_output_position_mm": cell_output_position_mm,
+    }
+
     max_bounces = ray_trace["total_bounces"]
     if secondary_ray_trace is not None:
         max_bounces = max(max_bounces, secondary_ray_trace["total_bounces"])
@@ -408,6 +411,7 @@ def simulate_configuration(request: object) -> dict[str, object]:
         input_waist_z_mm,
         abcd_passes,
         mode.M2x,
+        initial_q=achieved_q_medium_x,
     )
     abcd_y = compute_abcd_axis(
         mirror_distance_mm,
@@ -418,6 +422,7 @@ def simulate_configuration(request: object) -> dict[str, object]:
         input_waist_z_mm,
         abcd_passes,
         mode.M2y,
+        initial_q=achieved_q_medium_y,
     )
 
     response["status_message"] = ray_trace["exit_status"]

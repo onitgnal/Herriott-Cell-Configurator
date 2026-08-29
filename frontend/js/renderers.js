@@ -172,7 +172,10 @@ function renderWaistPlot(result) {
   const { beam_propagation: beamPropagation, external_beam_propagation: external, mode_matching: matching } = result;
   const { total_passes: totalRoundTrips, mirror_distance_mm: mirrorDistanceMm } = result.resolved_inputs;
   const modeTitle = result.mode.title;
-  const totalLegs = 2 * totalRoundTrips;
+  const configuredLegs = 2 * totalRoundTrips;
+  const totalLegs = external?.cell_output_position_mm != null
+    ? Math.max(0, Math.round(external.cell_output_position_mm / mirrorDistanceMm))
+    : configuredLegs;
   const maxIndex = totalLegs * 20 + 1;
   const zPlot = beamPropagation.x.z_vals.slice(0, maxIndex);
   const wxPlot = beamPropagation.x.w_vals.slice(0, maxIndex);

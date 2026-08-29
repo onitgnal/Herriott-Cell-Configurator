@@ -31,9 +31,14 @@ def compute_abcd_axis(
     input_waist_position_mm: float,
     max_passes: int,
     m2: float,
+    *,
+    initial_q: complex | None = None,
 ) -> dict[str, list[float]]:
-    rayleigh_range = (pi * input_waist_mm * input_waist_mm) / (m2 * wavelength_mm)
-    q = {"r": -input_waist_position_mm, "i": rayleigh_range}
+    if initial_q is None:
+        rayleigh_range = (pi * input_waist_mm * input_waist_mm) / (m2 * wavelength_mm)
+        q = {"r": -input_waist_position_mm, "i": rayleigh_range}
+    else:
+        q = {"r": initial_q.real, "i": initial_q.imag}
 
     z_vals: list[float] = []
     w_vals: list[float] = []

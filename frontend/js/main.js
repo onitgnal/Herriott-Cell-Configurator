@@ -185,6 +185,10 @@ function applyReadouts(result) {
     modeMatchingSummary.textContent =
       `${matching.message} f = ${focalText} mm; length ${matching.total_length_mm.toFixed(1)} mm; ` +
       `q error ${(100 * matching.relative_q_error).toPrecision(3)}%.`;
+  } else {
+    modeMatchingStatus.textContent = "Unavailable";
+    modeMatchingStatus.className = "font-bold text-slate-500";
+    modeMatchingSummary.textContent = "A stable MPC eigenmode is required before the telescope can be fitted.";
   }
 
   if (!result.cavity) {
