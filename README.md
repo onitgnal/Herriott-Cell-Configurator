@@ -14,6 +14,17 @@ ABCD path updates continuously while you edit inputs. The more expensive 2D
 wave-optics path runs only when you click the dedicated button, reports real
 progress, and shows an ETA while the solver loop is running.
 
+## Maintainer and Agent Documentation
+
+Future development should start with [AGENTS.md](AGENTS.md). Detailed handoff documentation is split into:
+
+- [Architecture and data flow](docs/ARCHITECTURE.md)
+- [Physics and numerical conventions](docs/PHYSICS.md)
+- [Extension and verification guide](docs/EXTENDING.md)
+
+These documents describe the cross-layer source-of-truth rules, equations and sign conventions, adaptive-grid
+policy, saved-config compatibility, deployment constraints, and the required tests for common feature changes.
+
 ## What The App Does
 
 - Designs concave-concave and concave-convex multipass cells
@@ -63,10 +74,12 @@ does not automatically receive features or physics fixes made on `main`; deploy 
 ## Repository Layout
 
 ```text
+AGENTS.md          future-agent entry point and invariants
+docs/              architecture, physics, and extension guides
 backend/
   app/
     api/        FastAPI routes
-    core/       optics, ray tracing, simulation, wave optics
+    core/       optics, mode matching, ray tracing, simulation, wave optics
     schemas/    Pydantic request/response models
     services/   simulation orchestration and wave-optics jobs
 frontend/
@@ -74,6 +87,7 @@ frontend/
   styles.css    app styles
   js/
     api-client.js
+    digit-stepper.js
     form-state.js
     main.js
     renderers.js
