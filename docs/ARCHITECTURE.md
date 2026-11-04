@@ -162,7 +162,7 @@ The frontend is native ES modules plus Plotly and Tailwind loaded by `frontend/i
 - `applyConfig()` and `applyLegacyConfig()` load JSON;
 - `applyResolvedInputs()` and `applyModeMatchingResult()` put auto-calculated values back into visible controls.
 
-The “Set Standard” button changes an in-memory reset point only. “Save Config” downloads a JSON file. There is no database or browser-storage persistence.
+The “Set Standard” button changes an in-memory reset point only. “Save Config” downloads a JSON file. “Export Beam Data” downloads the current spot-plot hover data (see below). There is no database or browser-storage persistence.
 
 ### Main state machine
 
@@ -183,6 +183,7 @@ When a result is stale, failed, missing, or unsupported, plots fall back to anal
 - 3D ray plot: cell ray points only;
 - mirror and center plots: ray locations with analytic or fresh wave profiles;
 - hover readouts: beam radius, polarization, incidence data, intensity/fluence, and wave sampling diagnostics.
+- beam-data export: while building the Mirror 1, center, and Mirror 2 plots, `renderRayPlots()` records the same hover quantities as numbers, keyed by beam, plane, and pass number ("In" is 0, "Out" is the highest mirror pass plus 1). `getBeamDataExport()` returns that structure for the plots currently on screen, or `null` after unstable/error placeholders; `main.js` downloads it as `herriott_beam_data.json`. The file format is documented in the [README](../README.md#beam-data-export).
 
 The renderer uses `simulation-reference.js` for analytic HG/LG display functions and small vector helpers. It must not become a second implementation of the backend simulation.
 
