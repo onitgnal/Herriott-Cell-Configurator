@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 
-from tests.helpers import ROOT_DIR
+from tests.helpers import ROOT_DIR, run_js_reference
 
 
 def test_wave_optics_state_marks_results_stale_when_signature_changes() -> None:
@@ -316,3 +316,116 @@ console.log(JSON.stringify({
     assert payload["settings"]["phase_plate_radial_p"] == 2
     assert payload["settings"]["phase_plate_l"] == -3
     assert payload["phaseHidden"] is False
+
+
+def test_beam_data_export_keys_hover_data_by_pass_number() -> None:
+    script = """
+import fs from "node:fs";
+globalThis.window = { Plotly: { react() {} } };
+globalThis.document = { getElementById: () => null };
+const { getBeamDataExport, renderErrorPlots, renderSimulationPlots } = await import("./frontend/js/renderers.js");
+const { single, dual } = JSON.parse(fs.readFileSync(0, "utf8"));
+
+renderSimulationPlots(single, false, null);
+const analytic = getBeamDataExport();
+
+const toFrames = (hits, firstPass) => hits.map((hit, index) => {
+  const passNumber = firstPass + 2 * index;
+  return {
+    position: hit.P,
+    u1: hit.u1,
+    u2: hit.u2,
+    equivalent_radius_x_mm: 1.0,
+    equivalent_radius_y_mm: 1.0,
+    label: String(passNumber),
+    bounce_index: passNumber,
+    segment_index: passNumber - 1,
+    peak_density_per_mm2: 0.5,
+    power_fraction: 0.9,
+    edge_power_fraction: 0.01,
+    spectral_edge_fraction: 0.02,
+  };
+});
+const rayTrace = single.ray_trace;
+renderSimulationPlots(single, false, {
+  launch_profile: {
+    position: rayTrace.input_point,
+    u1: rayTrace.input_basis.u1,
+    u2: rayTrace.input_basis.u2,
+    equivalent_radius_x_mm: 1.0,
+    equivalent_radius_y_mm: 1.0,
+  },
+  mirror1_profiles: toFrames(rayTrace.mirror_hits["1"], 2),
+  mirror2_profiles: toFrames(rayTrace.mirror_hits["2"], 1),
+  center_profiles: [],
+});
+const wave = getBeamDataExport();
+
+renderSimulationPlots(dual, false, null);
+const twoBeams = getBeamDataExport();
+
+renderErrorPlots("failed");
+const afterError = getBeamDataExport();
+
+console.log(JSON.stringify({ analytic, wave, twoBeams, afterError }));
+"""
+    single = run_js_reference("default_tem00.json")
+    dual = run_js_reference("dual_beam_manual.json")
+    assert single["status_message"].startswith("Exited cleanly") and "Out Hole" in single["status_message"]
+    assert single["resolved_inputs"]["output_mirror"] == 1
+
+    completed = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=ROOT_DIR,
+        input=json.dumps({"single": single, "dual": dual}),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(completed.stdout)
+    analytic = payload["analytic"]
+    beam = analytic["beam_1"]
+    leg_count = len(single["ray_trace"]["center_hits"])
+
+    assert "beam_2" not in analytic
+    assert set(beam) == {"mirror_1", "center_plane", "mirror_2"}
+    assert analytic["metadata"]["data_source"]["beam_1"]["mirror_1"] == "analytic"
+    # "In" is pass 0, mirror 2 carries the odd passes, mirror 1 the even ones.
+    assert list(beam["mirror_2"]) == [str(n) for n in range(1, leg_count, 2)]
+    assert list(beam["center_plane"]) == [str(n) for n in range(1, leg_count + 1)]
+    # "Out" is the highest numbered pass plus one.
+    out_pass = max(int(key) for key in beam["mirror_2"]) + 1
+    assert list(beam["mirror_1"]) == ["0"] + [str(n) for n in range(2, out_pass + 1, 2)]
+    assert set(beam["mirror_1"]["0"]) == {"x_mm", "y_mm", "polarization_deg"}
+    assert beam["mirror_1"]["0"]["x_mm"] == single["ray_trace"]["input_point"][0]
+    assert beam["mirror_1"][str(out_pass)]["reflected_theta_x_mrad"] is None
+    assert beam["mirror_2"]["1"]["reflected_theta_x_mrad"] is not None
+    assert beam["mirror_2"]["1"]["x_mm"] == single["ray_trace"]["mirror_hits"]["2"][0]["P"][0]
+    assert "incidence_deg" not in beam["center_plane"]["1"]
+    assert "remaining_power_percent" not in beam["mirror_2"]["1"]
+
+    wave = payload["wave"]
+    assert wave["metadata"]["data_source"]["beam_1"] == {
+        "mirror_1": "wave_optics",
+        "center_plane": "analytic",
+        "mirror_2": "wave_optics",
+    }
+    assert list(wave["beam_1"]["mirror_1"]) == list(beam["mirror_1"])
+    assert wave["beam_1"]["mirror_2"]["3"]["wx_mm"] == 1.0
+    assert abs(wave["beam_1"]["mirror_2"]["3"]["remaining_power_percent"] - 90.0) < 1e-9
+
+    two_beams = payload["twoBeams"]
+    assert set(two_beams["metadata"]["data_source"]) == {"beam_1", "beam_2"}
+    assert "0" in two_beams["beam_2"]["mirror_1"]
+    assert all(key.isdigit() for plane in two_beams["beam_2"].values() for key in plane)
+
+    assert payload["afterError"] is None
+
+
+def test_beam_data_export_button_exists() -> None:
+    index_html = (ROOT_DIR / "frontend" / "index.html").read_text(encoding="utf-8")
+    main_js = (ROOT_DIR / "frontend" / "js" / "main.js").read_text(encoding="utf-8")
+
+    assert 'id="export-beam-data"' in index_html
+    assert 'getElementById("export-beam-data")' in main_js
+    assert "herriott_beam_data.json" in main_js

@@ -7,6 +7,9 @@ import {
 
 const Plotly = window.Plotly;
 
+// Structured copy of the hover readouts of the currently displayed spot plots (see getBeamDataExport()).
+let latestBeamData = null;
+
 export function analyticPeakDensityPerMm2(waistX, waistY, mode) {
   const usesModalEnvelope = mode.type === "hg" || mode.type === "lg";
   const baseWaistX = usesModalEnvelope ? waistX / Math.sqrt(mode.M2x || 1) : waistX;
@@ -464,6 +467,42 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     return `<br>Incidence: ${incidenceAngle.toFixed(2)}°<br>Incoming (θx, θy): ${formatSteeringAngles(hit.v_in)}<br>Reflected (θx, θy): ${reflectedSteering}`;
   };
 
+  // Same quantities as getMirrorRayInfoHtml(), as numbers for the beam-data export ("N/A" becomes null).
+  const getMirrorRayInfoData = (hit) => {
+    const incidenceAngle = getRayAngleToNormalDeg(hit.v_in, hit.normal);
+    if (incidenceAngle == null) {
+      return {};
+    }
+    const incoming = getSteeringAnglesMrad(hit.v_in);
+    const reflected = hit.v_out ? getSteeringAnglesMrad(hit.v_out) : null;
+    return {
+      incidence_deg: incidenceAngle,
+      incoming_theta_x_mrad: incoming?.thx ?? null,
+      incoming_theta_y_mrad: incoming?.thy ?? null,
+      reflected_theta_x_mrad: reflected?.thx ?? null,
+      reflected_theta_y_mrad: reflected?.thy ?? null,
+    };
+  };
+
+  // Beam-data export: beam -> plane -> pass number -> hover values. "In" is pass 0; "Out" is
+  // resolved after all plots are built as (highest mirror pass number of that beam) + 1.
+  const exportPlaneKeys = ["mirror_1", "center_plane", "mirror_2"];
+  const createBeamPlanes = () => Object.fromEntries(exportPlaneKeys.map((key) => [key, {}]));
+  const beamData = { beam_1: createBeamPlanes() };
+  const beamDataSources = { beam_1: {} };
+  if (secondaryRayTrace) {
+    beamData.beam_2 = createBeamPlanes();
+    beamDataSources.beam_2 = {};
+  }
+  const pendingOutEntries = [];
+  const recordBeamData = (beamKey, planeKey, passNumber, entry, isOut = false) => {
+    if (isOut) {
+      pendingOutEntries.push({ beamKey, planeKey, entry });
+      return;
+    }
+    beamData[beamKey][planeKey][String(passNumber)] = entry;
+  };
+
   const baseLayout = {
     margin: { l: 40, r: 40, b: 40, t: 60 },
     uirevision: "true",
@@ -481,6 +520,7 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     mirrorNumber,
     waveFrames = null,
     launchFrame = null,
+    exportPlane,
   }) => {
     const layout = JSON.parse(JSON.stringify(baseLayout));
     layout.shapes = [];
@@ -558,6 +598,10 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
 
     const activeFrames = Array.isArray(waveFrames) ? waveFrames : [];
     const usingWaveFrames = activeFrames.length > 0;
+    beamDataSources.beam_1[exportPlane] = usingWaveFrames ? "wave_optics" : "analytic";
+    if (beamDataSources.beam_2) {
+      beamDataSources.beam_2[exportPlane] = "analytic";
+    }
     const plotCount = usingWaveFrames ? activeFrames.length : hitsData.length;
     const secondaryHitsData = secondaryRayTrace
       ? mirrorNumber === 0
@@ -613,6 +657,7 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
       }
 
       recordBeamStats(intensity, fluence);
+      const passNumber = Number.parseInt(label, 10);
 
       if (
         !isCenter &&
@@ -642,6 +687,29 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         : "";
       hover.push(
         `Hit: ${label}<br>X: ${pointX.toFixed(2)}<br>Y: ${pointY.toFixed(2)}<br>wx: ${waistX.toFixed(3)}<br>wy: ${waistY.toFixed(3)}<br>Pol: ${hoverAngle.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${intensity.toFixed(2)} GW/cm²<br>Fluence: ${fluence.toFixed(2)} mJ/cm²${waveWarningHtml}`,
+      );
+      recordBeamData(
+        "beam_1",
+        exportPlane,
+        passNumber,
+        {
+          x_mm: pointX,
+          y_mm: pointY,
+          wx_mm: waistX,
+          wy_mm: waistY,
+          polarization_deg: hoverAngle,
+          ...(!isCenter && mirrorNumber !== 0 && hit ? getMirrorRayInfoData(hit) : {}),
+          intensity_gw_per_cm2: intensity,
+          fluence_mj_per_cm2: fluence,
+          ...(frame
+            ? {
+                remaining_power_percent: 100 * frame.power_fraction,
+                edge_power_percent: 100 * frame.edge_power_fraction,
+                spectral_edge_percent: 100 * frame.spectral_edge_fraction,
+              }
+            : {}),
+        },
+        label === "<b>Out</b>",
       );
       colorscale.push(frame ? (frame.bounce_index ?? frame.segment_index + 1) : getWIndex(index));
 
@@ -727,6 +795,22 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
       const rayAngleHtml = !isCenter && mirrorNumber !== 0 ? getMirrorRayInfoHtml(hit) : "";
       secondaryHover.push(
         `Beam 2 Hit: ${label}<br>X: ${pointX.toFixed(2)}<br>Y: ${pointY.toFixed(2)}<br>wx: ${waistX.toFixed(3)}<br>wy: ${waistY.toFixed(3)}<br>Pol: ${hoverAngle.toFixed(1)}°${rayAngleHtml}<br>Intensity: ${intensity.toFixed(2)} GW/cm²<br>Fluence: ${fluence.toFixed(2)} mJ/cm²`,
+      );
+      recordBeamData(
+        "beam_2",
+        exportPlane,
+        isCenter ? index + 1 : waistIndex,
+        {
+          x_mm: pointX,
+          y_mm: pointY,
+          wx_mm: waistX,
+          wy_mm: waistY,
+          polarization_deg: hoverAngle,
+          ...(!isCenter && mirrorNumber !== 0 ? getMirrorRayInfoData(hit) : {}),
+          intensity_gw_per_cm2: intensity,
+          fluence_mj_per_cm2: fluence,
+        },
+        label === "<b>B2 Out</b>",
       );
 
       if (showBeamProfiles) {
@@ -837,6 +921,11 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
         textfont: { size: 11, color: "#16a34a" },
         marker: { color: "#16a34a", size: 8, symbol: "star" },
       });
+      recordBeamData("beam_1", exportPlane, 0, {
+        x_mm: startPoint[0],
+        y_mm: startPoint[1],
+        polarization_deg: hoverAngle,
+      });
 
       if (showBeamProfiles) {
         const image = startFrame
@@ -886,6 +975,11 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
           textfont: { size: 11, color: "#f97316" },
           marker: { color: "#f97316", size: 8, symbol: "diamond" },
           name: "Beam 2 input",
+        });
+        recordBeamData("beam_2", exportPlane, 0, {
+          x_mm: secondaryStartPoint[0],
+          y_mm: secondaryStartPoint[1],
+          polarization_deg: secondaryHoverAngle,
         });
 
         if (showBeamProfiles) {
@@ -960,6 +1054,7 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     mirrorNumber: 1,
     waveFrames: waveOptics?.mirror1_profiles ?? null,
     launchFrame: waveOptics?.launch_profile ?? null,
+    exportPlane: "mirror_1",
   });
   const hasWaveCenterFrames = Boolean(waveOptics?.center_profiles?.length);
   build2dPlot({
@@ -970,6 +1065,7 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     isCenter: true,
     mirrorNumber: 0,
     waveFrames: hasWaveCenterFrames ? waveOptics.center_profiles : null,
+    exportPlane: "center_plane",
   });
   build2dPlot({
     divId: "plotM2",
@@ -979,7 +1075,15 @@ function renderRayPlots(result, showBeamProfiles, waveOptics = null) {
     isCenter: false,
     mirrorNumber: 2,
     waveFrames: waveOptics?.mirror2_profiles ?? null,
+    exportPlane: "mirror_2",
   });
+
+  for (const { beamKey, planeKey, entry } of pendingOutEntries) {
+    const mirrorPassNumbers = ["mirror_1", "mirror_2"].flatMap((key) => Object.keys(beamData[beamKey][key]).map(Number));
+    const outPassNumber = Math.max(0, ...mirrorPassNumbers) + 1;
+    beamData[beamKey][planeKey][String(outPassNumber)] = entry;
+  }
+  latestBeamData = { data_source: beamDataSources, beams: beamData };
 }
 
 export function renderSimulationPlots(result, showBeamProfiles, waveOptics = null) {
@@ -987,7 +1091,23 @@ export function renderSimulationPlots(result, showBeamProfiles, waveOptics = nul
   renderRayPlots(result, showBeamProfiles, waveOptics);
 }
 
+// Returns the hover data of the currently displayed spot plots as a JSON-serializable object, or null
+// if no spot plots are shown. Layout: beam_1/beam_2 -> mirror_1/center_plane/mirror_2 -> pass number.
+export function getBeamDataExport() {
+  if (!latestBeamData) {
+    return null;
+  }
+  return {
+    metadata: {
+      exported_at: new Date().toISOString(),
+      data_source: latestBeamData.data_source,
+    },
+    ...latestBeamData.beams,
+  };
+}
+
 export function renderUnstablePlots(statusMessage) {
+  latestBeamData = null;
   renderPlaceholderPlot("plotWaist", "Gaussian Beam (Unstable)", statusMessage);
   renderPlaceholderPlot("plot3d", "3D Cavity Ray Path", "No ray trace for unstable cavity.");
   renderPlaceholderPlot("plotM1", "Mirror 1 Spots (z=0)", "No spot data.");
@@ -996,6 +1116,7 @@ export function renderUnstablePlots(statusMessage) {
 }
 
 export function renderErrorPlots(message) {
+  latestBeamData = null;
   renderPlaceholderPlot("plotWaist", "Gaussian Beam", message);
   renderPlaceholderPlot("plot3d", "3D Cavity Ray Path", message);
   renderPlaceholderPlot("plotM1", "Mirror 1 Spots (z=0)", message);

@@ -162,6 +162,7 @@ Keep the rendering responsibilities distinct:
 - fresh wave frames replace analytic profile images, not ray positions;
 - stale wave frames must fall back visibly to analytic profiles;
 - power/energy edits may reuse propagation but must refresh quantitative readouts.
+- a quantity added to or removed from a spot-plot hover readout must be added to or removed from the matching `recordBeamData()` entry in `renderers.js`, and to the field table in the README's beam-data export section, so the exported JSON keeps matching the hover.
 
 For a new numeric input, test digit-at-caret behavior indirectly by preserving the number/range registry pattern and directly when adding special formatting. The digit stepper changes `type=number` to `type=text` at runtime, so code must not depend on native number-input APIs after initialization.
 

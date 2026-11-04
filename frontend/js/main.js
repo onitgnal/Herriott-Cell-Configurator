@@ -20,7 +20,13 @@ import {
   updateToggleGroups,
   updateWaveOpticsUI,
 } from "./form-state.js";
-import { renderErrorPlots, renderSimulationPlots, renderUnstablePlots, resizePlots } from "./renderers.js";
+import {
+  getBeamDataExport,
+  renderErrorPlots,
+  renderSimulationPlots,
+  renderUnstablePlots,
+  resizePlots,
+} from "./renderers.js";
 import {
   buildWaveOpticsSignature,
   createWaveOpticsState,
@@ -48,6 +54,7 @@ const resetButton = document.getElementById("reset-defaults");
 const saveButton = document.getElementById("save-config");
 const loadButton = document.getElementById("load-config-trigger");
 const fileInput = document.getElementById("config-upload");
+const exportBeamDataButton = document.getElementById("export-beam-data");
 const waveOpticsButton = document.getElementById("calculate-wave-optics");
 const waveOpticsButtonBar = document.getElementById("calculate-wave-optics-bar");
 const waveOpticsButtonLabel = document.getElementById("calculate-wave-optics-label");
@@ -517,6 +524,27 @@ function handleFastInputChange() {
   scheduleSimulation();
 }
 
+function exportBeamDataToFile() {
+  const beamData = getBeamDataExport();
+  if (!beamData) {
+    window.alert("No beam data to export: the current configuration has no plotted mirror spots.");
+    return;
+  }
+
+  const blob = new Blob([JSON.stringify(beamData, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const downloadNode = document.createElement("a");
+  downloadNode.href = url;
+  downloadNode.download = "herriott_beam_data.json";
+  document.body.appendChild(downloadNode);
+  downloadNode.click();
+
+  window.setTimeout(() => {
+    document.body.removeChild(downloadNode);
+    URL.revokeObjectURL(url);
+  }, 100);
+}
+
 function handleWaveOpticsInputChange() {
   updateWaveOpticsUI();
   refreshWaveOpticsStatus(captureConfig());
@@ -579,6 +607,7 @@ function bindUiEvents() {
   });
 
   saveButton.addEventListener("click", saveConfigToFile);
+  exportBeamDataButton.addEventListener("click", exportBeamDataToFile);
   loadButton.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", async (event) => {
     const [file] = event.target.files ?? [];
